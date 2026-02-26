@@ -5,6 +5,11 @@ Static barcode scanner web app for Jain dietary verdict checks.
 ## Features
 
 - Camera scanning (UPC-A, EAN-13) via `@zxing/browser` CDN ESM
+- Auto camera flow on page open:
+  - prompts camera permission (if needed)
+  - opens scanner immediately
+  - stops camera after first detected barcode result
+  - shows bottom `NEW SCAN` button to start next scan
 - Manual barcode entry fallback
 - Verdict card with status color, reason chips, explanation, confidence
 - Ingredient category rows on every verdict:
