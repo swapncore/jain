@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JainScan</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1>JainScan</h1>
+        <p>Scan a barcode and get a Jain dietary verdict.</p>
+      </header>
+
+      <section class="controls card">
+        <div class="row actions">
+          <button id="startScanBtn" type="button">Start Scan</button>
+          <button id="stopScanBtn" type="button" disabled>Stop Scan</button>
+          <button id="settingsBtn" type="button" class="ghost">Settings</button>
+        </div>
+
+        <div class="video-wrap">
+          <video id="videoPreview" muted playsinline></video>
+          <p id="scanStatus" class="hint">Scanner idle.</p>
+        </div>
+
+        <form id="manualForm" class="manual-form">
+          <label for="manualBarcode">Manual barcode entry</label>
+          <div class="row">
+            <input
+              id="manualBarcode"
+              name="manualBarcode"
+              placeholder="Enter UPC-A or EAN-13"
+              inputmode="numeric"
+              autocomplete="off"
+              required
+            />
+            <button type="submit">Check</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="resultSection" class="result card hidden" aria-live="polite">
+        <div id="verdictCard" class="verdict verdict-UNKNOWN">
+          <p id="statusLabel" class="status">UNKNOWN</p>
+          <p id="explainText" class="explain">Scan a barcode to begin.</p>
+          <p id="confidenceText" class="confidence">Confidence: --</p>
+        </div>
+        <div id="reasonChips" class="chips"></div>
+        <section class="ingredient-section">
+          <h3>Ingredient Categories</h3>
+          <div id="ingredientRows" class="ingredient-rows"></div>
+        </section>
+        <p id="barcodeInfo" class="meta"></p>
+        <div id="errorArea" class="error-area"></div>
+      </section>
+    </main>
+
+    <footer class="ad-strip">Ad placeholder (free tier)</footer>
+
+    <dialog id="settingsModal" class="settings-modal">
+      <form id="settingsForm" method="dialog" class="card settings-card">
+        <h2>API Settings</h2>
+        <label for="apiBaseInput">API base URL</label>
+        <input id="apiBaseInput" name="apiBaseInput" type="url" required />
+        <p id="clientIdText" class="hint"></p>
+        <div class="row actions">
+          <button id="resetApiBtn" type="button" class="ghost">Reset Default</button>
+          <button id="cancelSettingsBtn" type="button" class="ghost">Cancel</button>
+          <button type="submit">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
