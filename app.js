@@ -12,7 +12,7 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULTS = {
-  prodApi: "https://api.jain.swapncore.com",
+  prodApi: "https://api.swapncore.com",
   devApi: "http://localhost:8000",
 };
 
@@ -471,7 +471,7 @@ function bindEvents() {
     event.preventDefault();
     const normalized = normalizeApiBase(el.apiBaseInput.value);
     if (!normalized) {
-      window.alert("Please enter a valid API base URL like https://api.jain.swapncore.com");
+      window.alert("Please enter a valid API base URL like https://api.swapncore.com");
       return;
     }
     if (normalized === defaultApiBaseUrl()) {
