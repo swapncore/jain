@@ -1,6 +1,4 @@
-import {
-  BrowserMultiFormatReader,
-} from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
+import { BrowserMultiFormatReader } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
 import {
   DecodeHintType,
   BarcodeFormat,
@@ -15,6 +13,7 @@ const DEFAULTS = {
   prodApi: "https://api.swapncore.com",
   devApi: "http://localhost:8000",
 };
+
 const LEGACY_PROD_APIS = new Set([
   "https://api.jain.swapncore.com",
   "http://api.jain.swapncore.com",
@@ -30,9 +29,8 @@ const SCAN_FORMATS = [
 ];
 
 const el = {
-  startBtn: document.getElementById("startScanBtn"),
-  stopBtn: document.getElementById("stopScanBtn"),
   settingsBtn: document.getElementById("settingsBtn"),
+  newScanBtn: document.getElementById("newScanBtn"),
   video: document.getElementById("videoPreview"),
   scanStatus: document.getElementById("scanStatus"),
   manualForm: document.getElementById("manualForm"),
@@ -81,8 +79,12 @@ function normalizeApiBase(input) {
   }
 }
 
-function getApiBaseUrl() {
-  return getStoredApiOverride() || defaultApiBaseUrl();
+function saveApiBaseUrl(value) {
+  if (!value) {
+    localStorage.removeItem(STORAGE_KEYS.apiBase);
+    return;
+  }
+  localStorage.setItem(STORAGE_KEYS.apiBase, value);
 }
 
 function getStoredApiOverride() {
@@ -102,6 +104,10 @@ function getStoredApiOverride() {
   }
 
   return stored;
+}
+
+function getApiBaseUrl() {
+  return getStoredApiOverride() || defaultApiBaseUrl();
 }
 
 function getApiBaseCandidates() {
@@ -128,14 +134,6 @@ function getApiBaseCandidates() {
   return candidates;
 }
 
-function saveApiBaseUrl(value) {
-  if (!value) {
-    localStorage.removeItem(STORAGE_KEYS.apiBase);
-    return;
-  }
-  localStorage.setItem(STORAGE_KEYS.apiBase, value);
-}
-
 function makeFallbackId() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
     const r = Math.floor(Math.random() * 16);
@@ -156,11 +154,11 @@ function onlyDigits(value) {
   return (value || "").replace(/\D/g, "");
 }
 
-function renderIngredientRows(categories) {
-  if (!el.ingredientRows) {
-    return;
-  }
+function showNewScanButton(show) {
+  el.newScanBtn.classList.toggle("hidden", !show);
+}
 
+function renderIngredientRows(categories) {
   el.ingredientRows.innerHTML = "";
   INGREDIENT_ROW_ORDER.forEach((level) => {
     const row = document.createElement("div");
@@ -179,6 +177,11 @@ function renderIngredientRows(categories) {
     row.appendChild(value);
     el.ingredientRows.appendChild(row);
   });
+}
+
+function presentOutcome() {
+  stopScanning();
+  showNewScanButton(true);
 }
 
 function renderResult(data) {
@@ -212,6 +215,7 @@ function renderResult(data) {
   const brand = data.brand ? `Brand: ${data.brand}` : "Brand: Unknown";
   el.barcodeInfo.textContent = `${productName} | ${brand} | Matched barcode: ${data.barcode} | Profile: ${data.profile}`;
   el.errorArea.innerHTML = "";
+  presentOutcome();
 }
 
 function renderNotFound(errorJson, requestedBarcode) {
@@ -229,9 +233,10 @@ function renderNotFound(errorJson, requestedBarcode) {
   el.errorArea.innerHTML = `
     <div class="error-card">
       <h3>404 NOT_FOUND</h3>
-      <p>This barcode is not in the demo dataset yet.</p>
+      <p>This barcode is not in the dataset yet.</p>
     </div>
   `;
+  presentOutcome();
 }
 
 function renderRateLimit(errorJson) {
@@ -258,10 +263,10 @@ function renderRateLimit(errorJson) {
     </div>
   `;
 
-  const upgradeBtn = document.getElementById("upgradeBtn");
-  upgradeBtn?.addEventListener("click", () => {
+  document.getElementById("upgradeBtn")?.addEventListener("click", () => {
     window.alert("Upgrade flow placeholder.");
   });
+  presentOutcome();
 }
 
 function renderGenericError(message) {
@@ -274,6 +279,7 @@ function renderGenericError(message) {
   renderIngredientRows(null);
   el.barcodeInfo.textContent = "";
   el.errorArea.innerHTML = "";
+  presentOutcome();
 }
 
 async function fetchVerdict(rawBarcode) {
@@ -319,16 +325,14 @@ async function fetchVerdict(rawBarcode) {
       if (response.ok) {
         renderResult(data);
         el.scanStatus.textContent = switchedFromStaleOverride
-          ? `Last scan OK: ${barcode} (auto-switched to default API)`
+          ? `Last scan OK: ${barcode} (auto-switched API)`
           : `Last scan OK: ${barcode}`;
         return;
       }
 
       if (response.status === 404 && data.error === "NOT_FOUND") {
         renderNotFound(data, barcode);
-        el.scanStatus.textContent = switchedFromStaleOverride
-          ? `No verdict for ${barcode} (switched to default API)`
-          : `No verdict for ${barcode}`;
+        el.scanStatus.textContent = `No verdict for ${barcode}`;
         return;
       }
 
@@ -350,7 +354,7 @@ async function fetchVerdict(rawBarcode) {
 
     renderGenericError("Network error. Check backend/tunnel and API settings.");
     el.scanStatus.textContent = "Network error.";
-  } catch (error) {
+  } catch {
     renderGenericError("Network error. Check backend/tunnel and API settings.");
     el.scanStatus.textContent = "Network error.";
   } finally {
@@ -366,9 +370,7 @@ async function pickBackCameraDeviceId() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videos = devices.filter((device) => device.kind === "videoinput");
-    if (videos.length === 0) {
-      return null;
-    }
+    if (videos.length === 0) return null;
     const preferred = videos.find((device) => /back|rear|environment/i.test(device.label || ""));
     return (preferred || videos[0]).deviceId || null;
   } catch {
@@ -377,8 +379,9 @@ async function pickBackCameraDeviceId() {
 }
 
 function onDecodedText(decodedText) {
-  const now = Date.now();
   const digits = onlyDigits(decodedText);
+  const now = Date.now();
+
   if (!digits || digits.length < 8) {
     return;
   }
@@ -389,6 +392,8 @@ function onDecodedText(decodedText) {
 
   state.lastBarcode = digits;
   state.lastScanAt = now;
+
+  stopScanning();
   el.scanStatus.textContent = `Detected ${digits}. Checking...`;
   fetchVerdict(digits);
 }
@@ -404,44 +409,47 @@ async function startScanning() {
     return;
   }
 
+  showNewScanButton(false);
+
   const hints = new Map();
   hints.set(DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
   hints.set(DecodeHintType.TRY_HARDER, true);
+
   state.reader = new BrowserMultiFormatReader(hints, {
-    delayBetweenScanAttempts: 120,
-    delayBetweenScanSuccess: 700,
+    delayBetweenScanAttempts: 100,
+    delayBetweenScanSuccess: 600,
   });
 
   try {
     const onResult = (result) => {
-      if (!result) {
-        return;
+      if (result) {
+        onDecodedText(result.getText());
       }
-      onDecodedText(result.getText());
     };
 
     const preferredDeviceId = await pickBackCameraDeviceId();
     try {
       state.controls = await state.reader.decodeFromVideoDevice(preferredDeviceId, el.video, onResult);
     } catch {
-      const constraints = {
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+      state.controls = await state.reader.decodeFromConstraints(
+        {
+          audio: false,
+          video: {
+            facingMode: { ideal: "environment" },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
         },
-      };
-      state.controls = await state.reader.decodeFromConstraints(constraints, el.video, onResult);
+        el.video,
+        onResult,
+      );
     }
 
-    el.startBtn.disabled = true;
-    el.stopBtn.disabled = false;
-    el.scanStatus.textContent = "Scanner running. Hold barcode steady 10-15 cm from camera.";
-  } catch (error) {
-    renderGenericError("Camera access failed. Allow camera permissions and retry.");
+    el.scanStatus.textContent = "Scanner live. Point camera at barcode.";
+  } catch {
+    renderGenericError("Camera access failed. Allow camera permission and retry.");
     el.scanStatus.textContent = "Unable to start camera.";
-    state.controls = null;
+    showNewScanButton(true);
   }
 }
 
@@ -454,9 +462,6 @@ function stopScanning() {
     state.reader.reset();
     state.reader = null;
   }
-  el.startBtn.disabled = false;
-  el.stopBtn.disabled = true;
-  el.scanStatus.textContent = "Scanner stopped.";
 }
 
 function openSettings() {
@@ -470,12 +475,16 @@ function closeSettings() {
 }
 
 function bindEvents() {
-  el.startBtn.addEventListener("click", startScanning);
-  el.stopBtn.addEventListener("click", stopScanning);
-
   el.manualForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    stopScanning();
     fetchVerdict(el.manualInput.value);
+  });
+
+  el.newScanBtn.addEventListener("click", () => {
+    el.resultSection.classList.add("hidden");
+    el.errorArea.innerHTML = "";
+    startScanning();
   });
 
   el.settingsBtn.addEventListener("click", openSettings);
@@ -511,7 +520,11 @@ function init() {
   getClientId();
   bindEvents();
   renderIngredientRows(null);
-  el.scanStatus.textContent = `Ready. API: ${getApiBaseUrl()}`;
+  showNewScanButton(false);
+  el.scanStatus.textContent = `Starting camera... API: ${getApiBaseUrl()}`;
+
+  // Auto-start camera to reduce friction on mobile.
+  startScanning();
 }
 
 init();
