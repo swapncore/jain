@@ -33,6 +33,7 @@ const VERDICT_FAILSAFE_MS = 6500;
 const el = {
   settingsBtn: document.getElementById("settingsBtn"),
   newScanBtn: document.getElementById("newScanBtn"),
+  videoWrap: document.getElementById("videoWrap"),
   video: document.getElementById("videoPreview"),
   scanStatus: document.getElementById("scanStatus"),
   manualForm: document.getElementById("manualForm"),
@@ -165,6 +166,13 @@ function showNewScanButton(show) {
   el.newScanBtn.classList.toggle("hidden", !show);
 }
 
+function showCameraPanel(show) {
+  if (!el.videoWrap) {
+    return;
+  }
+  el.videoWrap.classList.toggle("hidden", !show);
+}
+
 function clearVerdictFailsafe() {
   if (state.verdictFailsafeTimer) {
     window.clearTimeout(state.verdictFailsafeTimer);
@@ -208,6 +216,7 @@ function renderIngredientRows(categories) {
 function presentOutcome() {
   stopScanning();
   clearVerdictFailsafe();
+  showCameraPanel(false);
   showNewScanButton(true);
 }
 
@@ -470,6 +479,7 @@ async function startScanning() {
   }
 
   showNewScanButton(false);
+  showCameraPanel(true);
   state.scanLocked = false;
 
   const hints = new Map();
@@ -546,6 +556,8 @@ function closeSettings() {
 function bindEvents() {
   el.manualForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    stopScanning();
+    showCameraPanel(false);
     state.scanLocked = true;
     fetchVerdict(el.manualInput.value);
   });
