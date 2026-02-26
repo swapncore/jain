@@ -15,6 +15,10 @@ const DEFAULTS = {
   prodApi: "https://api.swapncore.com",
   devApi: "http://localhost:8000",
 };
+const LEGACY_PROD_APIS = new Set([
+  "https://api.jain.swapncore.com",
+  "http://api.jain.swapncore.com",
+]);
 
 const STATUS_COLORS = ["GREEN", "YELLOW", "ORANGE", "RED", "UNKNOWN"];
 const INGREDIENT_ROW_ORDER = ["RED", "ORANGE", "YELLOW", "GREEN"];
@@ -82,7 +86,22 @@ function getApiBaseUrl() {
 }
 
 function getStoredApiOverride() {
-  return normalizeApiBase(localStorage.getItem(STORAGE_KEYS.apiBase));
+  const stored = normalizeApiBase(localStorage.getItem(STORAGE_KEYS.apiBase));
+  if (!stored) {
+    return "";
+  }
+
+  if (LEGACY_PROD_APIS.has(stored)) {
+    const replacement = DEFAULTS.prodApi;
+    if (replacement === defaultApiBaseUrl()) {
+      saveApiBaseUrl("");
+      return "";
+    }
+    saveApiBaseUrl(replacement);
+    return replacement;
+  }
+
+  return stored;
 }
 
 function getApiBaseCandidates() {
