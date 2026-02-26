@@ -28,6 +28,7 @@ const SCAN_FORMATS = [
   BarcodeFormat.EAN_8,
 ];
 const REQUEST_TIMEOUT_MS = 9000;
+const VERDICT_FAILSAFE_MS = 6500;
 
 const el = {
   settingsBtn: document.getElementById("settingsBtn"),
@@ -59,6 +60,7 @@ const state = {
   lastScanAt: 0,
   lastBarcode: "",
   inFlight: false,
+  verdictFailsafeTimer: null,
 };
 
 function defaultApiBaseUrl() {
@@ -156,7 +158,29 @@ function onlyDigits(value) {
 }
 
 function showNewScanButton(show) {
+  if (!el.newScanBtn) {
+    return;
+  }
   el.newScanBtn.classList.toggle("hidden", !show);
+}
+
+function clearVerdictFailsafe() {
+  if (state.verdictFailsafeTimer) {
+    window.clearTimeout(state.verdictFailsafeTimer);
+    state.verdictFailsafeTimer = null;
+  }
+}
+
+function startVerdictFailsafe() {
+  clearVerdictFailsafe();
+  state.verdictFailsafeTimer = window.setTimeout(() => {
+    if (!state.inFlight) {
+      return;
+    }
+    state.inFlight = false;
+    renderGenericError("Scan captured, but lookup stalled. Tap NEW SCAN and try again.");
+    el.scanStatus.textContent = "Lookup stalled.";
+  }, VERDICT_FAILSAFE_MS);
 }
 
 function renderIngredientRows(categories) {
@@ -182,6 +206,7 @@ function renderIngredientRows(categories) {
 
 function presentOutcome() {
   stopScanning();
+  clearVerdictFailsafe();
   showNewScanButton(true);
 }
 
@@ -305,6 +330,7 @@ async function fetchVerdict(rawBarcode) {
 
   state.inFlight = true;
   el.scanStatus.textContent = "Checking verdict...";
+  startVerdictFailsafe();
 
   try {
     const override = getStoredApiOverride();
@@ -382,6 +408,7 @@ async function fetchVerdict(rawBarcode) {
     renderGenericError("Network error. Check backend/tunnel and API settings.");
     el.scanStatus.textContent = "Network error.";
   } finally {
+    clearVerdictFailsafe();
     state.inFlight = false;
   }
 }
@@ -417,9 +444,16 @@ function onDecodedText(decodedText) {
   state.lastBarcode = digits;
   state.lastScanAt = now;
 
-  stopScanning();
+  try {
+    stopScanning();
+  } catch {
+    // no-op: camera teardown issues should not block verdict lookup.
+  }
   el.scanStatus.textContent = `Detected ${digits}. Checking...`;
-  fetchVerdict(digits);
+  fetchVerdict(digits).catch(() => {
+    renderGenericError("Unexpected lookup failure. Tap NEW SCAN and retry.");
+    el.scanStatus.textContent = "Lookup failed.";
+  });
 }
 
 async function startScanning() {
@@ -478,12 +512,20 @@ async function startScanning() {
 }
 
 function stopScanning() {
-  if (state.controls) {
-    state.controls.stop();
+  try {
+    if (state.controls) {
+      state.controls.stop();
+      state.controls = null;
+    }
+  } catch {
     state.controls = null;
   }
-  if (state.reader) {
-    state.reader.reset();
+  try {
+    if (state.reader) {
+      state.reader.reset();
+      state.reader = null;
+    }
+  } catch {
     state.reader = null;
   }
 }
