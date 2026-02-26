@@ -51,6 +51,6 @@ jain.swapncore.com
 
 Default production API base is:
 
-- `https://api.jain.swapncore.com`
+- `https://api.swapncore.com`
 
 If you use a Cloudflare quick tunnel URL for testing, open Settings in the app and override API base URL.
