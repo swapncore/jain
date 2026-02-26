@@ -27,6 +27,7 @@ const SCAN_FORMATS = [
   BarcodeFormat.UPC_E,
   BarcodeFormat.EAN_8,
 ];
+const REQUEST_TIMEOUT_MS = 9000;
 
 const el = {
   settingsBtn: document.getElementById("settingsBtn"),
@@ -282,6 +283,16 @@ function renderGenericError(message) {
   presentOutcome();
 }
 
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 async function fetchVerdict(rawBarcode) {
   const barcode = onlyDigits(rawBarcode);
   if (!barcode) {
@@ -298,6 +309,7 @@ async function fetchVerdict(rawBarcode) {
   try {
     const override = getStoredApiOverride();
     const candidates = getApiBaseCandidates();
+    let sawTimeout = false;
 
     for (const baseUrl of candidates) {
       const url = new URL(`${baseUrl}/v1/verdict`);
@@ -306,13 +318,20 @@ async function fetchVerdict(rawBarcode) {
 
       let response;
       try {
-        response = await fetch(url.toString(), {
-          method: "GET",
-          headers: {
-            "X-Client-Id": getClientId(),
+        response = await fetchWithTimeout(
+          url.toString(),
+          {
+            method: "GET",
+            headers: {
+              "X-Client-Id": getClientId(),
+            },
           },
-        });
-      } catch {
+          REQUEST_TIMEOUT_MS,
+        );
+      } catch (err) {
+        if (err?.name === "AbortError") {
+          sawTimeout = true;
+        }
         continue;
       }
 
@@ -352,8 +371,13 @@ async function fetchVerdict(rawBarcode) {
       return;
     }
 
-    renderGenericError("Network error. Check backend/tunnel and API settings.");
-    el.scanStatus.textContent = "Network error.";
+    if (sawTimeout) {
+      renderGenericError("Lookup timed out. Check API reachability and try NEW SCAN.");
+      el.scanStatus.textContent = "Lookup timed out.";
+    } else {
+      renderGenericError("Network error. Check backend/tunnel and API settings.");
+      el.scanStatus.textContent = "Network error.";
+    }
   } catch {
     renderGenericError("Network error. Check backend/tunnel and API settings.");
     el.scanStatus.textContent = "Network error.";
