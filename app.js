@@ -60,6 +60,7 @@ const state = {
   lastScanAt: 0,
   lastBarcode: "",
   inFlight: false,
+  scanLocked: false,
   verdictFailsafeTimer: null,
 };
 
@@ -410,6 +411,7 @@ async function fetchVerdict(rawBarcode) {
   } finally {
     clearVerdictFailsafe();
     state.inFlight = false;
+    state.scanLocked = false;
   }
 }
 
@@ -430,6 +432,10 @@ async function pickBackCameraDeviceId() {
 }
 
 function onDecodedText(decodedText) {
+  if (state.scanLocked || state.inFlight) {
+    return;
+  }
+
   const digits = onlyDigits(decodedText);
   const now = Date.now();
 
@@ -443,12 +449,8 @@ function onDecodedText(decodedText) {
 
   state.lastBarcode = digits;
   state.lastScanAt = now;
+  state.scanLocked = true;
 
-  try {
-    stopScanning();
-  } catch {
-    // no-op: camera teardown issues should not block verdict lookup.
-  }
   el.scanStatus.textContent = `Detected ${digits}. Checking...`;
   fetchVerdict(digits).catch(() => {
     renderGenericError("Unexpected lookup failure. Tap NEW SCAN and retry.");
@@ -468,6 +470,7 @@ async function startScanning() {
   }
 
   showNewScanButton(false);
+  state.scanLocked = false;
 
   const hints = new Map();
   hints.set(DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
@@ -543,7 +546,7 @@ function closeSettings() {
 function bindEvents() {
   el.manualForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    stopScanning();
+    state.scanLocked = true;
     fetchVerdict(el.manualInput.value);
   });
 
