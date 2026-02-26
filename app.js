@@ -33,7 +33,7 @@ const VERDICT_FAILSAFE_MS = 6500;
 const el = {
   settingsBtn: document.getElementById("settingsBtn"),
   newScanBtn: document.getElementById("newScanBtn"),
-  videoWrap: document.getElementById("videoWrap"),
+  videoWrap: document.getElementById("videoWrap") || document.querySelector(".video-wrap"),
   video: document.getElementById("videoPreview"),
   scanStatus: document.getElementById("scanStatus"),
   manualForm: document.getElementById("manualForm"),
@@ -62,6 +62,7 @@ const state = {
   lastBarcode: "",
   inFlight: false,
   scanLocked: false,
+  requestId: 0,
   verdictFailsafeTimer: null,
 };
 
@@ -180,10 +181,10 @@ function clearVerdictFailsafe() {
   }
 }
 
-function startVerdictFailsafe() {
+function startVerdictFailsafe(requestId) {
   clearVerdictFailsafe();
   state.verdictFailsafeTimer = window.setTimeout(() => {
-    if (!state.inFlight) {
+    if (requestId !== state.requestId || !state.inFlight) {
       return;
     }
     state.inFlight = false;
@@ -334,13 +335,11 @@ async function fetchVerdict(rawBarcode) {
     renderGenericError("Please enter or scan a valid numeric barcode.");
     return;
   }
-  if (state.inFlight) {
-    return;
-  }
 
+  const requestId = ++state.requestId;
   state.inFlight = true;
   el.scanStatus.textContent = "Checking verdict...";
-  startVerdictFailsafe();
+  startVerdictFailsafe(requestId);
 
   try {
     const override = getStoredApiOverride();
@@ -348,6 +347,10 @@ async function fetchVerdict(rawBarcode) {
     let sawTimeout = false;
 
     for (const baseUrl of candidates) {
+      if (requestId !== state.requestId) {
+        return;
+      }
+
       const url = new URL(`${baseUrl}/v1/verdict`);
       url.searchParams.set("barcode", barcode);
       url.searchParams.set("profile", "jain");
@@ -365,13 +368,22 @@ async function fetchVerdict(rawBarcode) {
           REQUEST_TIMEOUT_MS,
         );
       } catch (err) {
+        if (requestId !== state.requestId) {
+          return;
+        }
         if (err?.name === "AbortError") {
           sawTimeout = true;
         }
         continue;
       }
 
+      if (requestId !== state.requestId) {
+        return;
+      }
       const data = await response.json().catch(() => ({}));
+      if (requestId !== state.requestId) {
+        return;
+      }
       const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
       if (switchedFromStaleOverride) {
         saveApiBaseUrl("");
@@ -407,6 +419,9 @@ async function fetchVerdict(rawBarcode) {
       return;
     }
 
+    if (requestId !== state.requestId) {
+      return;
+    }
     if (sawTimeout) {
       renderGenericError("Lookup timed out. Check API reachability and try NEW SCAN.");
       el.scanStatus.textContent = "Lookup timed out.";
@@ -415,12 +430,17 @@ async function fetchVerdict(rawBarcode) {
       el.scanStatus.textContent = "Network error.";
     }
   } catch {
+    if (requestId !== state.requestId) {
+      return;
+    }
     renderGenericError("Network error. Check backend/tunnel and API settings.");
     el.scanStatus.textContent = "Network error.";
   } finally {
-    clearVerdictFailsafe();
-    state.inFlight = false;
-    state.scanLocked = false;
+    if (requestId === state.requestId) {
+      clearVerdictFailsafe();
+      state.inFlight = false;
+      state.scanLocked = false;
+    }
   }
 }
 
