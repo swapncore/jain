@@ -11,7 +11,6 @@
       <header class="header">
         <div class="header-bar">
           <h1>JainScan</h1>
-          <button id="settingsBtn" type="button" class="text-link">Settings</button>
         </div>
         <p>Scan a barcode and get a Jain dietary verdict.</p>
       </header>
@@ -56,13 +55,17 @@
         <div id="verdictCard" class="verdict verdict-UNKNOWN">
           <p id="statusLabel" class="status">UNKNOWN</p>
           <p id="explainText" class="explain">Scan a barcode to begin.</p>
-          <p id="confidenceText" class="confidence">Confidence: --</p>
+          <p id="confidenceText" class="confidence">Verdict: -- | Confidence: --</p>
         </div>
         <div id="reasonChips" class="chips"></div>
         <div class="result-actions">
           <p id="savedNote" class="saved-note"></p>
           <a id="reportIssueLink" class="report-link hidden" href="#" rel="nofollow">Report issue</a>
         </div>
+        <section id="ingredientsPanel" class="ingredients-panel hidden">
+          <h3>Ingredients</h3>
+          <p id="ingredientsText" class="ingredients-text"></p>
+        </section>
         <section id="ingredientSection" class="ingredient-section hidden">
           <h3>Ingredient Categories</h3>
           <div id="ingredientRows" class="ingredient-rows" role="list"></div>
@@ -74,20 +77,6 @@
     <footer class="footer-bar">
       <span class="ad-strip">Ad placeholder (free tier)</span>
     </footer>
-
-    <dialog id="settingsModal" class="settings-modal">
-      <form id="settingsForm" method="dialog" class="card settings-card">
-        <h2>API Settings</h2>
-        <label for="apiBaseInput">API base URL</label>
-        <input id="apiBaseInput" name="apiBaseInput" type="url" required />
-        <p id="clientIdText" class="hint"></p>
-        <div class="row actions">
-          <button id="resetApiBtn" type="button" class="ghost">Reset Default</button>
-          <button id="cancelSettingsBtn" type="button" class="ghost">Cancel</button>
-          <button type="submit">Save</button>
-        </div>
-      </form>
-    </dialog>
 
     <script type="module" src="./app.js"></script>
   </body>

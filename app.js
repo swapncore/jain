@@ -5,7 +5,6 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm";
 
 const STORAGE_KEYS = {
-  apiBase: "JAIN_API_BASE_URL",
   clientId: "JAIN_CLIENT_ID",
 };
 
@@ -14,18 +13,13 @@ const DEFAULTS = {
   devApi: "http://localhost:8000",
 };
 
-const LEGACY_PROD_APIS = new Set([
-  "https://api.jain.swapncore.com",
-  "http://api.jain.swapncore.com",
-]);
-
 const STATUS_COLORS = ["GREEN", "YELLOW", "ORANGE", "RED", "UNKNOWN"];
 const INGREDIENT_ROW_ORDER = ["RED", "ORANGE", "YELLOW", "GREEN"];
 const CATEGORY_META = {
-  RED: { icon: "⛔", label: "Not allowed" },
-  ORANGE: { icon: "⚠", label: "Caution" },
-  YELLOW: { icon: "⚠", label: "Caution" },
-  GREEN: { icon: "✅", label: "Allowed" },
+  RED: { label: "Not allowed" },
+  ORANGE: { label: "Caution" },
+  YELLOW: { label: "Caution" },
+  GREEN: { label: "Allowed" },
 };
 
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
@@ -44,7 +38,6 @@ const FRIENDLY_MESSAGES = {
 };
 
 const el = {
-  settingsBtn: document.getElementById("settingsBtn"),
   newScanBtn: document.getElementById("newScanBtn"),
   videoWrap: document.getElementById("videoWrap") || document.querySelector(".video-wrap"),
   video: document.getElementById("videoPreview"),
@@ -64,15 +57,11 @@ const el = {
   reasonChips: document.getElementById("reasonChips"),
   savedNote: document.getElementById("savedNote"),
   reportIssueLink: document.getElementById("reportIssueLink"),
+  ingredientsPanel: document.getElementById("ingredientsPanel"),
+  ingredientsText: document.getElementById("ingredientsText"),
   ingredientSection: document.getElementById("ingredientSection"),
   ingredientRows: document.getElementById("ingredientRows"),
   barcodeInfo: document.getElementById("barcodeInfo"),
-  settingsModal: document.getElementById("settingsModal"),
-  settingsForm: document.getElementById("settingsForm"),
-  apiBaseInput: document.getElementById("apiBaseInput"),
-  resetApiBtn: document.getElementById("resetApiBtn"),
-  cancelSettingsBtn: document.getElementById("cancelSettingsBtn"),
-  clientIdText: document.getElementById("clientIdText"),
 };
 
 const state = {
@@ -95,58 +84,19 @@ function defaultApiBaseUrl() {
   return DEFAULTS.prodApi;
 }
 
-function normalizeApiBase(input) {
-  const value = (input || "").trim().replace(/\/+$/, "");
-  if (!value) return "";
-  try {
-    const parsed = new URL(value);
-    return parsed.origin;
-  } catch {
-    return "";
-  }
-}
-
-function saveApiBaseUrl(value) {
-  if (!value) {
-    localStorage.removeItem(STORAGE_KEYS.apiBase);
-    return;
-  }
-  localStorage.setItem(STORAGE_KEYS.apiBase, value);
-}
-
-function getStoredApiOverride() {
-  const stored = normalizeApiBase(localStorage.getItem(STORAGE_KEYS.apiBase));
-  if (!stored) return "";
-
-  if (LEGACY_PROD_APIS.has(stored)) {
-    const replacement = DEFAULTS.prodApi;
-    if (replacement === defaultApiBaseUrl()) {
-      saveApiBaseUrl("");
-      return "";
-    }
-    saveApiBaseUrl(replacement);
-    return replacement;
-  }
-
-  return stored;
-}
-
 function getApiBaseUrl() {
-  return getStoredApiOverride() || defaultApiBaseUrl();
+  return defaultApiBaseUrl();
 }
 
 function getApiBaseCandidates() {
   const candidates = [];
   const add = (value) => {
-    const normalized = normalizeApiBase(value);
-    if (!normalized || candidates.includes(normalized)) return;
-    candidates.push(normalized);
+    const cleaned = (value || "").trim().replace(/\/+$/, "");
+    if (!cleaned || candidates.includes(cleaned)) return;
+    candidates.push(cleaned);
   };
 
-  const override = getStoredApiOverride();
-  const defaultBase = defaultApiBaseUrl();
-
-  add(override);
+  const defaultBase = getApiBaseUrl();
   add(defaultBase);
 
   if (defaultBase === "http://localhost:8000") {
@@ -222,6 +172,9 @@ function showReportIssue(show) {
 function hideResult() {
   el.resultSection.classList.add("hidden");
   el.ingredientSection.classList.add("hidden");
+  el.ingredientsPanel.classList.add("hidden");
+  el.reasonChips.classList.remove("hidden");
+  el.reasonChips.innerHTML = "";
   showReportIssue(false);
   setSavedBanner("");
 }
@@ -305,11 +258,11 @@ function renderIngredientRows(categories) {
     row.className = "ingredient-row";
     row.setAttribute("role", "listitem");
 
-    const meta = CATEGORY_META[level] || { icon: "", label: level };
+    const meta = CATEGORY_META[level] || { label: level };
 
     const badge = document.createElement("span");
     badge.className = `ingredient-badge ingredient-badge-${level}`;
-    badge.textContent = `${meta.icon} ${level} - ${meta.label}`;
+    badge.textContent = `${level} - ${meta.label}`;
     badge.setAttribute("aria-label", `${level}: ${meta.label}`);
 
     const items = Array.isArray(categories?.[level]) ? categories[level] : [];
@@ -331,32 +284,32 @@ function renderResult(data) {
   const status = STATUS_COLORS.includes(data.status) ? data.status : "UNKNOWN";
   el.resultSection.classList.remove("hidden");
   el.ingredientSection.classList.remove("hidden");
+  el.ingredientsPanel.classList.remove("hidden");
 
   el.verdictCard.className = "verdict";
   el.verdictCard.classList.add(`verdict-${status}`);
-  el.statusLabel.textContent = status;
+  el.statusLabel.textContent = data.product_name || "Product";
   el.explainText.textContent = data.explain || "No explanation available.";
-  el.confidenceText.textContent = `Confidence: ${data.confidence || "--"}`;
+  el.confidenceText.textContent = `Verdict: ${status} | Confidence: ${data.confidence || "--"}`;
 
   el.reasonChips.innerHTML = "";
   const reasons = Array.isArray(data.reasons) ? data.reasons : [];
-  if (reasons.length === 0) {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    chip.textContent = "No reason codes";
-    el.reasonChips.appendChild(chip);
-  } else {
+  if (reasons.length > 0) {
+    el.reasonChips.classList.remove("hidden");
     reasons.forEach((reason) => {
       const chip = document.createElement("span");
       chip.className = "chip";
       chip.textContent = reason;
       el.reasonChips.appendChild(chip);
     });
+  } else {
+    el.reasonChips.classList.add("hidden");
   }
 
-  setSavedBanner(data.saved ? "Saved for future scans ✅" : "");
+  setSavedBanner(data.saved ? "Saved for future scans" : "");
   showReportIssue(true);
 
+  el.ingredientsText.textContent = data.ingredients_text || "Ingredients not available.";
   renderIngredientRows(data.ingredient_categories);
   const productName = data.product_name ? `Product: ${data.product_name}` : "Product: Unknown";
   const brand = data.brand ? `Brand: ${data.brand}` : "Brand: Unknown";
@@ -478,7 +431,6 @@ async function fetchVerdict(rawBarcode) {
   startVerdictFailsafe(requestId);
 
   try {
-    const override = getStoredApiOverride();
     const candidates = getApiBaseCandidates();
     let sawTimeout = false;
 
@@ -514,16 +466,9 @@ async function fetchVerdict(rawBarcode) {
       const data = await response.json().catch(() => ({}));
       if (requestId !== state.requestId) return;
 
-      const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
-      if (switchedFromStaleOverride) {
-        saveApiBaseUrl("");
-      }
-
       if (response.ok) {
         renderResult(data);
-        el.scanStatus.textContent = switchedFromStaleOverride
-          ? `Scan complete: ${barcode} (API updated automatically)`
-          : `Scan complete: ${barcode}`;
+        el.scanStatus.textContent = `Scan complete: ${barcode}`;
         return;
       }
 
@@ -605,7 +550,6 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
   startSubmitProgressTicker(progressEl);
 
   try {
-    const override = getStoredApiOverride();
     const candidates = getApiBaseCandidates();
     let sawTimeout = false;
 
@@ -646,16 +590,9 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
       const data = await response.json().catch(() => ({}));
       if (requestId !== state.requestId) return false;
 
-      const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
-      if (switchedFromStaleOverride) {
-        saveApiBaseUrl("");
-      }
-
       if (response.ok) {
         renderResult({ ...data, saved: true });
-        el.scanStatus.textContent = switchedFromStaleOverride
-          ? `Saved barcode ${cleanBarcode} (API updated automatically)`
-          : `Saved barcode ${cleanBarcode}`;
+        el.scanStatus.textContent = `Saved barcode ${cleanBarcode}`;
         clearMessage();
         return true;
       }
@@ -860,16 +797,6 @@ function stopScanning() {
   }
 }
 
-function openSettings() {
-  el.apiBaseInput.value = getApiBaseUrl();
-  el.clientIdText.textContent = `Client ID: ${getClientId()}`;
-  el.settingsModal.showModal();
-}
-
-function closeSettings() {
-  el.settingsModal.close();
-}
-
 function bindEvents() {
   el.manualInput.addEventListener("input", updateManualInputState);
   el.manualInput.addEventListener("blur", updateManualInputState);
@@ -897,29 +824,6 @@ function bindEvents() {
     hideResult();
     setLoading(false);
     startScanning();
-  });
-
-  el.settingsBtn.addEventListener("click", openSettings);
-  el.cancelSettingsBtn.addEventListener("click", closeSettings);
-
-  el.resetApiBtn.addEventListener("click", () => {
-    el.apiBaseInput.value = defaultApiBaseUrl();
-  });
-
-  el.settingsForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const normalized = normalizeApiBase(el.apiBaseInput.value);
-    if (!normalized) {
-      window.alert("Please enter a valid API URL like https://api.swapncore.com");
-      return;
-    }
-    if (normalized === defaultApiBaseUrl()) {
-      saveApiBaseUrl("");
-    } else {
-      saveApiBaseUrl(normalized);
-    }
-    closeSettings();
-    el.scanStatus.textContent = `Using API: ${getApiBaseUrl()}`;
   });
 
   el.reportIssueLink?.addEventListener("click", (event) => {
