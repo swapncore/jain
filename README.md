@@ -15,6 +15,10 @@ Static barcode scanner web app for Jain dietary verdict checks.
 - Ingredient category rows on every verdict:
   - `RED`, `ORANGE`, `YELLOW`, `GREEN`
 - Error handling for `NOT_FOUND` (404) and `RATE_LIMIT` (429)
+- `NOT_FOUND` submit flow:
+  - button to submit missing product
+  - upload ingredient-label photo(s) or type ingredients manually
+  - backend OCR + classification + save, with immediate verdict response
 - Settings modal for API base URL override (stored in localStorage)
 - Persistent `X-Client-Id` UUID in localStorage
 - Automatic API fallback if a saved override URL is stale/unreachable
@@ -59,3 +63,12 @@ Default production API base is:
 - `https://api.swapncore.com`
 
 If you use a Cloudflare quick tunnel URL for testing, open Settings in the app and override API base URL.
+
+## Manual test checklist
+
+1. Lookup a known code (example `8901234567892`) and verify verdict card.
+2. Lookup an unknown code (example `0999999999999`) and verify `NOT_FOUND`.
+3. Tap `Submit missing product`.
+4. Upload ingredient-label photo or paste manual ingredients.
+5. Verify progress text and immediate verdict with `Saved for future scans`.
+6. Lookup same barcode again and confirm it is now found.
