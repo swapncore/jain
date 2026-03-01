@@ -21,16 +21,27 @@ const LEGACY_PROD_APIS = new Set([
 
 const STATUS_COLORS = ["GREEN", "YELLOW", "ORANGE", "RED", "UNKNOWN"];
 const INGREDIENT_ROW_ORDER = ["RED", "ORANGE", "YELLOW", "GREEN"];
-const SCAN_FORMATS = [
-  BarcodeFormat.EAN_13,
-  BarcodeFormat.UPC_A,
-  BarcodeFormat.UPC_E,
-  BarcodeFormat.EAN_8,
-];
+const CATEGORY_META = {
+  RED: { icon: "⛔", label: "Not allowed" },
+  ORANGE: { icon: "⚠", label: "Caution" },
+  YELLOW: { icon: "⚠", label: "Caution" },
+  GREEN: { icon: "✅", label: "Allowed" },
+};
+
+const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 const REQUEST_TIMEOUT_MS = 9000;
 const SUBMIT_TIMEOUT_MS = 45000;
 const VERDICT_FAILSAFE_MS = 6500;
 const SUBMIT_PROGRESS_STEPS = ["Uploading...", "Reading label...", "Classifying..."];
+
+const FRIENDLY_MESSAGES = {
+  invalidBarcode: "Please enter a valid 12 or 13 digit barcode.",
+  network: "We couldn't retrieve product data. Please check your connection or try again later.",
+  timeout: "This request took too long. Please try again.",
+  cameraPermission: "We couldn't access your camera. Please allow camera access and try again.",
+  cameraUnsupported: "Camera scanning isn't supported in this browser.",
+  scannerStalled: "The scan was captured, but we couldn't finish the lookup. Please try again.",
+};
 
 const el = {
   settingsBtn: document.getElementById("settingsBtn"),
@@ -38,8 +49,13 @@ const el = {
   videoWrap: document.getElementById("videoWrap") || document.querySelector(".video-wrap"),
   video: document.getElementById("videoPreview"),
   scanStatus: document.getElementById("scanStatus"),
+  progressWrap: document.getElementById("progressWrap"),
+  progressText: document.getElementById("progressText"),
+  messageBox: document.getElementById("messageBox"),
   manualForm: document.getElementById("manualForm"),
   manualInput: document.getElementById("manualBarcode"),
+  manualHelp: document.getElementById("manualHelp"),
+  checkBtn: document.getElementById("checkBtn"),
   resultSection: document.getElementById("resultSection"),
   verdictCard: document.getElementById("verdictCard"),
   statusLabel: document.getElementById("statusLabel"),
@@ -48,9 +64,9 @@ const el = {
   reasonChips: document.getElementById("reasonChips"),
   savedNote: document.getElementById("savedNote"),
   reportIssueLink: document.getElementById("reportIssueLink"),
+  ingredientSection: document.getElementById("ingredientSection"),
   ingredientRows: document.getElementById("ingredientRows"),
   barcodeInfo: document.getElementById("barcodeInfo"),
-  errorArea: document.getElementById("errorArea"),
   settingsModal: document.getElementById("settingsModal"),
   settingsForm: document.getElementById("settingsForm"),
   apiBaseInput: document.getElementById("apiBaseInput"),
@@ -100,9 +116,7 @@ function saveApiBaseUrl(value) {
 
 function getStoredApiOverride() {
   const stored = normalizeApiBase(localStorage.getItem(STORAGE_KEYS.apiBase));
-  if (!stored) {
-    return "";
-  }
+  if (!stored) return "";
 
   if (LEGACY_PROD_APIS.has(stored)) {
     const replacement = DEFAULTS.prodApi;
@@ -166,17 +180,50 @@ function onlyDigits(value) {
 }
 
 function showNewScanButton(show) {
-  if (!el.newScanBtn) {
-    return;
-  }
+  if (!el.newScanBtn) return;
   el.newScanBtn.classList.toggle("hidden", !show);
 }
 
 function showCameraPanel(show) {
-  if (!el.videoWrap) {
-    return;
-  }
+  if (!el.videoWrap) return;
   el.videoWrap.classList.toggle("hidden", !show);
+}
+
+function setLoading(active, text = "Looking up product details...") {
+  el.progressWrap.classList.toggle("hidden", !active);
+  el.progressText.textContent = text;
+  if (el.checkBtn) {
+    el.checkBtn.disabled = active || !isManualBarcodeValid();
+  }
+}
+
+function clearMessage() {
+  el.messageBox.className = "message-box hidden";
+  el.messageBox.innerHTML = "";
+}
+
+function showMessage({ title, message, variant = "info", extraHtml = "" }) {
+  const css = variant === "error" ? "message-box message-error" : "message-box";
+  const heading = title ? `<h3>${title}</h3>` : "";
+  const body = message ? `<p>${message}</p>` : "";
+  el.messageBox.className = css;
+  el.messageBox.innerHTML = `${heading}${body}${extraHtml}`;
+  el.messageBox.classList.remove("hidden");
+}
+
+function setSavedBanner(text) {
+  el.savedNote.textContent = text || "";
+}
+
+function showReportIssue(show) {
+  el.reportIssueLink.classList.toggle("hidden", !show);
+}
+
+function hideResult() {
+  el.resultSection.classList.add("hidden");
+  el.ingredientSection.classList.add("hidden");
+  showReportIssue(false);
+  setSavedBanner("");
 }
 
 function clearVerdictFailsafe() {
@@ -193,64 +240,97 @@ function clearSubmitProgressTimer() {
   }
 }
 
-function setSavedBanner(text) {
-  if (!el.savedNote) {
-    return;
-  }
-  el.savedNote.textContent = text || "";
-}
-
-function showReportIssue(show) {
-  if (!el.reportIssueLink) {
-    return;
-  }
-  el.reportIssueLink.classList.toggle("hidden", !show);
-}
-
 function startVerdictFailsafe(requestId) {
   clearVerdictFailsafe();
   state.verdictFailsafeTimer = window.setTimeout(() => {
-    if (requestId !== state.requestId || !state.inFlight) {
-      return;
-    }
+    if (requestId !== state.requestId || !state.inFlight) return;
     state.inFlight = false;
-    renderGenericError("Scan captured, but lookup stalled. Tap NEW SCAN and try again.");
+    renderGenericError(FRIENDLY_MESSAGES.scannerStalled);
     el.scanStatus.textContent = "Lookup stalled.";
   }, VERDICT_FAILSAFE_MS);
-}
-
-function renderIngredientRows(categories) {
-  el.ingredientRows.innerHTML = "";
-  INGREDIENT_ROW_ORDER.forEach((level) => {
-    const row = document.createElement("div");
-    row.className = "ingredient-row";
-
-    const label = document.createElement("div");
-    label.className = `ingredient-label ingredient-label-${level}`;
-    label.textContent = level;
-
-    const value = document.createElement("div");
-    value.className = "ingredient-values";
-    const items = Array.isArray(categories?.[level]) ? categories[level] : [];
-    value.textContent = items.length > 0 ? items.join(", ") : "—";
-
-    row.appendChild(label);
-    row.appendChild(value);
-    el.ingredientRows.appendChild(row);
-  });
 }
 
 function presentOutcome() {
   stopScanning();
   clearVerdictFailsafe();
   clearSubmitProgressTimer();
+  setLoading(false);
   showCameraPanel(false);
   showNewScanButton(true);
+  updateManualInputState();
+}
+
+function isManualBarcodeValid() {
+  const digits = onlyDigits(el.manualInput.value);
+  return digits.length === 12 || digits.length === 13;
+}
+
+function updateManualInputState() {
+  const raw = el.manualInput.value;
+  const digits = onlyDigits(raw).slice(0, 13);
+  const hadNonNumeric = raw !== digits;
+
+  el.manualInput.value = digits;
+
+  let helpText = "Enter 12 or 13 digits.";
+  let isError = false;
+
+  if (hadNonNumeric) {
+    helpText = "Only numbers are allowed.";
+    isError = true;
+  } else if (digits.length > 0 && digits.length < 12) {
+    helpText = `Enter ${12 - digits.length} more digit${12 - digits.length === 1 ? "" : "s"}.`;
+    isError = true;
+  } else if (digits.length === 12) {
+    helpText = "UPC-A detected (12 digits).";
+  } else if (digits.length === 13) {
+    helpText = "EAN-13 detected (13 digits).";
+  }
+
+  el.manualHelp.textContent = helpText;
+  el.manualHelp.classList.toggle("field-help-error", isError && digits.length > 0);
+  el.manualInput.setAttribute("aria-invalid", isError ? "true" : "false");
+  if (el.checkBtn) {
+    el.checkBtn.disabled = !isManualBarcodeValid() || state.inFlight;
+  }
+
+  return isManualBarcodeValid();
+}
+
+function renderIngredientRows(categories) {
+  el.ingredientRows.innerHTML = "";
+
+  INGREDIENT_ROW_ORDER.forEach((level) => {
+    const row = document.createElement("div");
+    row.className = "ingredient-row";
+    row.setAttribute("role", "listitem");
+
+    const meta = CATEGORY_META[level] || { icon: "", label: level };
+
+    const badge = document.createElement("span");
+    badge.className = `ingredient-badge ingredient-badge-${level}`;
+    badge.textContent = `${meta.icon} ${level} - ${meta.label}`;
+    badge.setAttribute("aria-label", `${level}: ${meta.label}`);
+
+    const items = Array.isArray(categories?.[level]) ? categories[level] : [];
+
+    const value = document.createElement("div");
+    value.className = "ingredient-values";
+    value.textContent = items.length > 0 ? items.join(", ") : "-";
+
+    row.appendChild(badge);
+    row.appendChild(value);
+    el.ingredientRows.appendChild(row);
+  });
 }
 
 function renderResult(data) {
+  clearMessage();
+  setLoading(false);
+
   const status = STATUS_COLORS.includes(data.status) ? data.status : "UNKNOWN";
   el.resultSection.classList.remove("hidden");
+  el.ingredientSection.classList.remove("hidden");
 
   el.verdictCard.className = "verdict";
   el.verdictCard.classList.add(`verdict-${status}`);
@@ -274,37 +354,34 @@ function renderResult(data) {
     });
   }
 
-  setSavedBanner(data.saved ? "Saved for future scans \u2705" : "");
+  setSavedBanner(data.saved ? "Saved for future scans ✅" : "");
   showReportIssue(true);
 
   renderIngredientRows(data.ingredient_categories);
   const productName = data.product_name ? `Product: ${data.product_name}` : "Product: Unknown";
   const brand = data.brand ? `Brand: ${data.brand}` : "Brand: Unknown";
   el.barcodeInfo.textContent = `${productName} | ${brand} | Matched barcode: ${data.barcode} | Profile: ${data.profile}`;
-  el.errorArea.innerHTML = "";
   presentOutcome();
 }
 
 function renderNotFound(errorJson, requestedBarcode) {
-  el.resultSection.classList.remove("hidden");
-  el.verdictCard.className = "verdict verdict-UNKNOWN";
-  el.statusLabel.textContent = "NOT_FOUND";
-  el.explainText.textContent = "No precomputed verdict found for this barcode.";
-  el.confidenceText.textContent = "Confidence: --";
-  el.reasonChips.innerHTML = "";
-  setSavedBanner("");
-  showReportIssue(false);
-  renderIngredientRows(null);
+  hideResult();
+  setLoading(false);
 
-  const attempts = Array.isArray(errorJson?.attempts) ? errorJson.attempts.join(", ") : requestedBarcode;
-  el.barcodeInfo.textContent = `Lookup attempts: ${attempts}`;
+  const attempts = Array.isArray(errorJson?.attempts)
+    ? errorJson.attempts.join(", ")
+    : onlyDigits(requestedBarcode);
 
-  el.errorArea.innerHTML = `
-    <div class="error-card">
-      <h3>404 NOT_FOUND</h3>
-      <p>This barcode is not in the dataset yet.</p>
-      <button type="button" id="openSubmitMissingBtn">Submit missing product</button>
-      <form id="submitMissingForm" class="submit-missing hidden">
+  showMessage({
+    title: "Product not found",
+    message: "We don't have this barcode yet. You can submit ingredients now and we'll save it for future scans.",
+    variant: "error",
+    extraHtml: `
+      <p class="hint">Tried: ${attempts}</p>
+      <div class="message-actions">
+        <button type="button" id="openSubmitMissingBtn">Submit missing product</button>
+      </div>
+      <form id="submitMissingForm" class="submit-missing hidden" aria-label="Submit missing product form">
         <label for="submitImages">Take ingredient label photo (up to 3)</label>
         <input
           id="submitImages"
@@ -321,12 +398,177 @@ function renderNotFound(errorJson, requestedBarcode) {
           placeholder="e.g. corn flour, sunflower oil, salt"
         ></textarea>
         <button id="submitMissingBtn" type="submit">Upload and classify</button>
-        <p id="submitProgress" class="submit-progress"></p>
+        <p id="submitProgress" class="submit-progress" aria-live="polite"></p>
       </form>
-    </div>
-  `;
+    `,
+  });
+
   wireSubmitMissingFlow(onlyDigits(requestedBarcode));
   presentOutcome();
+}
+
+function renderRateLimit(errorJson) {
+  hideResult();
+  setLoading(false);
+
+  const limit = errorJson?.limit ?? "?";
+  const count = errorJson?.count ?? "?";
+  const reset = errorJson?.reset ?? "unknown";
+
+  showMessage({
+    title: "Daily limit reached",
+    message: `You've used ${count} of ${limit} free requests today. Your limit resets on ${reset}.`,
+    variant: "error",
+    extraHtml: `
+      <div class="message-actions">
+        <button type="button" id="upgradeBtn">Upgrade</button>
+      </div>
+    `,
+  });
+
+  document.getElementById("upgradeBtn")?.addEventListener("click", () => {
+    window.alert("Upgrade flow placeholder.");
+  });
+
+  presentOutcome();
+}
+
+function renderGenericError(message) {
+  hideResult();
+  setLoading(false);
+  showMessage({
+    title: "Something went wrong",
+    message: message || FRIENDLY_MESSAGES.network,
+    variant: "error",
+  });
+  presentOutcome();
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
+async function fetchVerdict(rawBarcode) {
+  const barcode = onlyDigits(rawBarcode);
+  if (!(barcode.length === 12 || barcode.length === 13)) {
+    updateManualInputState();
+    showMessage({
+      title: "Barcode needed",
+      message: FRIENDLY_MESSAGES.invalidBarcode,
+      variant: "error",
+    });
+    hideResult();
+    return;
+  }
+
+  const requestId = ++state.requestId;
+  state.inFlight = true;
+  state.scanLocked = true;
+
+  clearMessage();
+  hideResult();
+  setLoading(true, "Checking product details...");
+  el.scanStatus.textContent = "Checking verdict...";
+  startVerdictFailsafe(requestId);
+
+  try {
+    const override = getStoredApiOverride();
+    const candidates = getApiBaseCandidates();
+    let sawTimeout = false;
+
+    for (const baseUrl of candidates) {
+      if (requestId !== state.requestId) return;
+
+      const url = new URL(`${baseUrl}/v1/verdict`);
+      url.searchParams.set("barcode", barcode);
+      url.searchParams.set("profile", "jain");
+
+      let response;
+      try {
+        response = await fetchWithTimeout(
+          url.toString(),
+          {
+            method: "GET",
+            headers: {
+              "X-Client-Id": getClientId(),
+            },
+          },
+          REQUEST_TIMEOUT_MS,
+        );
+      } catch (err) {
+        if (requestId !== state.requestId) return;
+        if (err?.name === "AbortError") {
+          sawTimeout = true;
+        }
+        continue;
+      }
+
+      if (requestId !== state.requestId) return;
+
+      const data = await response.json().catch(() => ({}));
+      if (requestId !== state.requestId) return;
+
+      const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
+      if (switchedFromStaleOverride) {
+        saveApiBaseUrl("");
+      }
+
+      if (response.ok) {
+        renderResult(data);
+        el.scanStatus.textContent = switchedFromStaleOverride
+          ? `Scan complete: ${barcode} (API updated automatically)`
+          : `Scan complete: ${barcode}`;
+        return;
+      }
+
+      if (response.status === 404 && data.error === "NOT_FOUND") {
+        renderNotFound(data, barcode);
+        el.scanStatus.textContent = `No result yet for ${barcode}`;
+        return;
+      }
+
+      if (response.status === 429 && data.error === "RATE_LIMIT") {
+        renderRateLimit(data);
+        el.scanStatus.textContent = "Daily limit reached.";
+        return;
+      }
+
+      if (response.status >= 500 && response.status <= 599) {
+        continue;
+      }
+
+      renderGenericError(FRIENDLY_MESSAGES.network);
+      el.scanStatus.textContent = "Lookup failed.";
+      return;
+    }
+
+    if (requestId !== state.requestId) return;
+    if (sawTimeout) {
+      renderGenericError(FRIENDLY_MESSAGES.timeout);
+      el.scanStatus.textContent = "Lookup timed out.";
+    } else {
+      renderGenericError(FRIENDLY_MESSAGES.network);
+      el.scanStatus.textContent = "Network issue.";
+    }
+  } catch {
+    if (requestId !== state.requestId) return;
+    renderGenericError(FRIENDLY_MESSAGES.network);
+    el.scanStatus.textContent = "Network issue.";
+  } finally {
+    if (requestId === state.requestId) {
+      clearVerdictFailsafe();
+      state.inFlight = false;
+      state.scanLocked = false;
+      setLoading(false);
+      updateManualInputState();
+    }
+  }
 }
 
 function startSubmitProgressTicker(progressEl) {
@@ -342,15 +584,15 @@ function startSubmitProgressTicker(progressEl) {
 
 async function submitMissingProduct({ barcode, files, ingredientsText, progressEl, submitBtn }) {
   const cleanBarcode = onlyDigits(barcode);
-  if (!cleanBarcode) {
-    if (progressEl) progressEl.textContent = "Invalid barcode.";
+  if (!(cleanBarcode.length === 12 || cleanBarcode.length === 13)) {
+    if (progressEl) progressEl.textContent = FRIENDLY_MESSAGES.invalidBarcode;
     return false;
   }
 
   const selectedFiles = Array.from(files || []).slice(0, 3);
   const manualText = (ingredientsText || "").trim();
   if (!manualText && selectedFiles.length === 0) {
-    if (progressEl) progressEl.textContent = "Add at least one image or enter ingredients.";
+    if (progressEl) progressEl.textContent = "Add a label photo or enter ingredients.";
     return false;
   }
 
@@ -358,6 +600,8 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
   state.inFlight = true;
   state.scanLocked = true;
   if (submitBtn) submitBtn.disabled = true;
+
+  setLoading(true, "Submitting missing product...");
   startSubmitProgressTicker(progressEl);
 
   try {
@@ -366,9 +610,7 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
     let sawTimeout = false;
 
     for (const baseUrl of candidates) {
-      if (requestId !== state.requestId) {
-        return false;
-      }
+      if (requestId !== state.requestId) return false;
 
       const formData = new FormData();
       formData.append("barcode", cleanBarcode);
@@ -376,9 +618,7 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
       if (manualText) {
         formData.append("ingredients_text", manualText);
       }
-      selectedFiles.forEach((file) => {
-        formData.append("images", file);
-      });
+      selectedFiles.forEach((file) => formData.append("images", file));
 
       let response;
       try {
@@ -394,23 +634,17 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
           SUBMIT_TIMEOUT_MS,
         );
       } catch (err) {
-        if (requestId !== state.requestId) {
-          return false;
-        }
+        if (requestId !== state.requestId) return false;
         if (err?.name === "AbortError") {
           sawTimeout = true;
         }
         continue;
       }
 
-      if (requestId !== state.requestId) {
-        return false;
-      }
+      if (requestId !== state.requestId) return false;
 
       const data = await response.json().catch(() => ({}));
-      if (requestId !== state.requestId) {
-        return false;
-      }
+      if (requestId !== state.requestId) return false;
 
       const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
       if (switchedFromStaleOverride) {
@@ -420,27 +654,28 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
       if (response.ok) {
         renderResult({ ...data, saved: true });
         el.scanStatus.textContent = switchedFromStaleOverride
-          ? `Submitted and saved: ${cleanBarcode} (auto-switched API)`
-          : `Submitted and saved: ${cleanBarcode}`;
+          ? `Saved barcode ${cleanBarcode} (API updated automatically)`
+          : `Saved barcode ${cleanBarcode}`;
+        clearMessage();
         return true;
       }
 
       if (response.status === 429 && data.error === "RATE_LIMIT") {
         renderRateLimit(data);
-        el.scanStatus.textContent = "Submission rate limit reached.";
+        el.scanStatus.textContent = "Submission limit reached.";
         return false;
       }
 
       if (response.status === 413) {
         if (progressEl) {
-          progressEl.textContent = data?.message || "Image too large. Max 5MB per image.";
+          progressEl.textContent = data?.message || "Images must be 5MB or smaller.";
         }
         return false;
       }
 
       if (response.status === 400) {
         if (progressEl) {
-          progressEl.textContent = data?.message || "Submission failed. Adjust input and retry.";
+          progressEl.textContent = data?.message || "Submission failed. Please check your input and retry.";
         }
         return false;
       }
@@ -450,15 +685,13 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
       }
 
       if (progressEl) {
-        progressEl.textContent = data?.message || data?.error || `Request failed (${response.status}).`;
+        progressEl.textContent = data?.message || "We couldn't save this product right now.";
       }
       return false;
     }
 
     if (progressEl) {
-      progressEl.textContent = sawTimeout
-        ? "Submission timed out. You can retry or type ingredients manually."
-        : "Network error while submitting.";
+      progressEl.textContent = sawTimeout ? FRIENDLY_MESSAGES.timeout : FRIENDLY_MESSAGES.network;
     }
     return false;
   } finally {
@@ -466,6 +699,8 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
       clearSubmitProgressTimer();
       state.inFlight = false;
       state.scanLocked = false;
+      setLoading(false);
+      updateManualInputState();
     }
     if (submitBtn) submitBtn.disabled = false;
   }
@@ -479,9 +714,7 @@ function wireSubmitMissingFlow(barcode) {
   const progressEl = document.getElementById("submitProgress");
   const submitBtn = document.getElementById("submitMissingBtn");
 
-  if (!openBtn || !form || !submitBtn) {
-    return;
-  }
+  if (!openBtn || !form || !submitBtn) return;
 
   openBtn.addEventListener("click", () => {
     form.classList.toggle("hidden");
@@ -507,178 +740,6 @@ function wireSubmitMissingFlow(barcode) {
   });
 }
 
-function renderRateLimit(errorJson) {
-  el.resultSection.classList.remove("hidden");
-  el.verdictCard.className = "verdict verdict-UNKNOWN";
-  el.statusLabel.textContent = "RATE_LIMIT";
-  el.explainText.textContent = "Daily free scan limit reached.";
-  el.confidenceText.textContent = "Confidence: --";
-  el.reasonChips.innerHTML = "";
-  setSavedBanner("");
-  showReportIssue(false);
-  renderIngredientRows(null);
-  el.barcodeInfo.textContent = "";
-
-  const limit = errorJson?.limit ?? "?";
-  const count = errorJson?.count ?? "?";
-  const reset = errorJson?.reset ?? "unknown";
-
-  el.errorArea.innerHTML = `
-    <div class="error-card">
-      <h3>429 RATE_LIMIT</h3>
-      <p>Limit: ${limit}, current count: ${count}, reset: ${reset}</p>
-      <div class="row">
-        <button type="button" id="upgradeBtn">Upgrade</button>
-      </div>
-    </div>
-  `;
-
-  document.getElementById("upgradeBtn")?.addEventListener("click", () => {
-    window.alert("Upgrade flow placeholder.");
-  });
-  presentOutcome();
-}
-
-function renderGenericError(message) {
-  el.resultSection.classList.remove("hidden");
-  el.verdictCard.className = "verdict verdict-UNKNOWN";
-  el.statusLabel.textContent = "ERROR";
-  el.explainText.textContent = message || "Unexpected error occurred.";
-  el.confidenceText.textContent = "Confidence: --";
-  el.reasonChips.innerHTML = "";
-  setSavedBanner("");
-  showReportIssue(false);
-  renderIngredientRows(null);
-  el.barcodeInfo.textContent = "";
-  el.errorArea.innerHTML = "";
-  presentOutcome();
-}
-
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
-async function fetchVerdict(rawBarcode) {
-  const barcode = onlyDigits(rawBarcode);
-  if (!barcode) {
-    renderGenericError("Please enter or scan a valid numeric barcode.");
-    return;
-  }
-
-  const requestId = ++state.requestId;
-  state.inFlight = true;
-  el.scanStatus.textContent = "Checking verdict...";
-  startVerdictFailsafe(requestId);
-
-  try {
-    const override = getStoredApiOverride();
-    const candidates = getApiBaseCandidates();
-    let sawTimeout = false;
-
-    for (const baseUrl of candidates) {
-      if (requestId !== state.requestId) {
-        return;
-      }
-
-      const url = new URL(`${baseUrl}/v1/verdict`);
-      url.searchParams.set("barcode", barcode);
-      url.searchParams.set("profile", "jain");
-
-      let response;
-      try {
-        response = await fetchWithTimeout(
-          url.toString(),
-          {
-            method: "GET",
-            headers: {
-              "X-Client-Id": getClientId(),
-            },
-          },
-          REQUEST_TIMEOUT_MS,
-        );
-      } catch (err) {
-        if (requestId !== state.requestId) {
-          return;
-        }
-        if (err?.name === "AbortError") {
-          sawTimeout = true;
-        }
-        continue;
-      }
-
-      if (requestId !== state.requestId) {
-        return;
-      }
-      const data = await response.json().catch(() => ({}));
-      if (requestId !== state.requestId) {
-        return;
-      }
-      const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
-      if (switchedFromStaleOverride) {
-        saveApiBaseUrl("");
-      }
-
-      if (response.ok) {
-        renderResult(data);
-        el.scanStatus.textContent = switchedFromStaleOverride
-          ? `Last scan OK: ${barcode} (auto-switched API)`
-          : `Last scan OK: ${barcode}`;
-        return;
-      }
-
-      if (response.status === 404 && data.error === "NOT_FOUND") {
-        renderNotFound(data, barcode);
-        el.scanStatus.textContent = `No verdict for ${barcode}`;
-        return;
-      }
-
-      if (response.status === 429 && data.error === "RATE_LIMIT") {
-        renderRateLimit(data);
-        el.scanStatus.textContent = "Rate limit reached.";
-        return;
-      }
-
-      if (response.status >= 500 && response.status <= 599) {
-        continue;
-      }
-
-      const err = data?.error ? `${data.error}` : `HTTP ${response.status}`;
-      renderGenericError(`API error: ${err}`);
-      el.scanStatus.textContent = "Scan failed.";
-      return;
-    }
-
-    if (requestId !== state.requestId) {
-      return;
-    }
-    if (sawTimeout) {
-      renderGenericError("Lookup timed out. Check API reachability and try NEW SCAN.");
-      el.scanStatus.textContent = "Lookup timed out.";
-    } else {
-      renderGenericError("Network error. Check backend/tunnel and API settings.");
-      el.scanStatus.textContent = "Network error.";
-    }
-  } catch {
-    if (requestId !== state.requestId) {
-      return;
-    }
-    renderGenericError("Network error. Check backend/tunnel and API settings.");
-    el.scanStatus.textContent = "Network error.";
-  } finally {
-    if (requestId === state.requestId) {
-      clearVerdictFailsafe();
-      state.inFlight = false;
-      state.scanLocked = false;
-    }
-  }
-}
-
 async function pickBackCameraDeviceId() {
   if (!navigator.mediaDevices?.enumerateDevices) {
     return null;
@@ -696,14 +757,12 @@ async function pickBackCameraDeviceId() {
 }
 
 function onDecodedText(decodedText) {
-  if (state.scanLocked || state.inFlight) {
-    return;
-  }
+  if (state.scanLocked || state.inFlight) return;
 
   const digits = onlyDigits(decodedText);
   const now = Date.now();
 
-  if (!digits || digits.length < 8) {
+  if (!(digits.length === 12 || digits.length === 13)) {
     return;
   }
 
@@ -717,19 +776,21 @@ function onDecodedText(decodedText) {
 
   el.scanStatus.textContent = `Detected ${digits}. Checking...`;
   fetchVerdict(digits).catch(() => {
-    renderGenericError("Unexpected lookup failure. Tap NEW SCAN and retry.");
+    renderGenericError(FRIENDLY_MESSAGES.network);
     el.scanStatus.textContent = "Lookup failed.";
   });
 }
 
 async function startScanning() {
-  if (state.controls) {
-    return;
-  }
+  if (state.controls) return;
+
+  clearMessage();
+  hideResult();
+  setLoading(false);
 
   if (!navigator.mediaDevices?.getUserMedia) {
-    renderGenericError("This browser does not support camera scanning.");
-    el.scanStatus.textContent = "Camera API unavailable.";
+    renderGenericError(FRIENDLY_MESSAGES.cameraUnsupported);
+    el.scanStatus.textContent = "Camera not available.";
     return;
   }
 
@@ -771,10 +832,10 @@ async function startScanning() {
       );
     }
 
-    el.scanStatus.textContent = "Scanner live. Point camera at barcode.";
+    el.scanStatus.textContent = "Scanner is live. Point your camera at the barcode.";
   } catch {
-    renderGenericError("Camera access failed. Allow camera permission and retry.");
-    el.scanStatus.textContent = "Unable to start camera.";
+    renderGenericError(FRIENDLY_MESSAGES.cameraPermission);
+    el.scanStatus.textContent = "Camera access needed.";
     showNewScanButton(true);
   }
 }
@@ -788,6 +849,7 @@ function stopScanning() {
   } catch {
     state.controls = null;
   }
+
   try {
     if (state.reader) {
       state.reader.reset();
@@ -809,8 +871,21 @@ function closeSettings() {
 }
 
 function bindEvents() {
+  el.manualInput.addEventListener("input", updateManualInputState);
+  el.manualInput.addEventListener("blur", updateManualInputState);
+
   el.manualForm.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (!updateManualInputState()) {
+      showMessage({
+        title: "Barcode needed",
+        message: FRIENDLY_MESSAGES.invalidBarcode,
+        variant: "error",
+      });
+      hideResult();
+      return;
+    }
+
     stopScanning();
     showCameraPanel(false);
     state.scanLocked = true;
@@ -818,13 +893,13 @@ function bindEvents() {
   });
 
   el.newScanBtn.addEventListener("click", () => {
-    el.resultSection.classList.add("hidden");
-    el.errorArea.innerHTML = "";
+    clearMessage();
+    hideResult();
+    setLoading(false);
     startScanning();
   });
 
   el.settingsBtn.addEventListener("click", openSettings);
-
   el.cancelSettingsBtn.addEventListener("click", closeSettings);
 
   el.resetApiBtn.addEventListener("click", () => {
@@ -835,7 +910,7 @@ function bindEvents() {
     event.preventDefault();
     const normalized = normalizeApiBase(el.apiBaseInput.value);
     if (!normalized) {
-      window.alert("Please enter a valid API base URL like https://api.swapncore.com");
+      window.alert("Please enter a valid API URL like https://api.swapncore.com");
       return;
     }
     if (normalized === defaultApiBaseUrl()) {
@@ -844,7 +919,7 @@ function bindEvents() {
       saveApiBaseUrl(normalized);
     }
     closeSettings();
-    el.scanStatus.textContent = `API base set to ${getApiBaseUrl()}`;
+    el.scanStatus.textContent = `Using API: ${getApiBaseUrl()}`;
   });
 
   el.reportIssueLink?.addEventListener("click", (event) => {
@@ -861,12 +936,14 @@ function init() {
   getClientId();
   bindEvents();
   renderIngredientRows(null);
+  hideResult();
+  clearMessage();
   setSavedBanner("");
   showReportIssue(false);
   showNewScanButton(false);
+  updateManualInputState();
   el.scanStatus.textContent = `Starting camera... API: ${getApiBaseUrl()}`;
 
-  // Auto-start camera to reduce friction on mobile.
   startScanning();
 }
 

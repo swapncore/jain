@@ -9,33 +9,46 @@
   <body>
     <main class="app">
       <header class="header">
-        <h1>JainScan</h1>
+        <div class="header-bar">
+          <h1>JainScan</h1>
+          <button id="settingsBtn" type="button" class="text-link">Settings</button>
+        </div>
         <p>Scan a barcode and get a Jain dietary verdict.</p>
       </header>
 
       <section class="controls card">
-        <div class="row actions">
-          <button id="settingsBtn" type="button" class="ghost">Settings</button>
-        </div>
-
         <div id="videoWrap" class="video-wrap">
           <video id="videoPreview" muted playsinline></video>
           <p id="scanStatus" class="hint">Scanner idle.</p>
         </div>
 
+        <div id="progressWrap" class="progress-wrap hidden" aria-live="polite" aria-atomic="true">
+          <span class="spinner" aria-hidden="true"></span>
+          <span id="progressText">Looking up barcode...</span>
+        </div>
+
+        <div id="messageBox" class="message-box hidden" role="alert" aria-live="assertive"></div>
+
         <form id="manualForm" class="manual-form">
           <label for="manualBarcode">Manual barcode entry</label>
-          <div class="row">
+          <div class="manual-row">
             <input
               id="manualBarcode"
               name="manualBarcode"
-              placeholder="Enter UPC-A or EAN-13"
+              placeholder="e.g., 0123456789012"
               inputmode="numeric"
+              pattern="[0-9]{12,13}"
+              minlength="12"
+              maxlength="13"
+              aria-describedby="manualHelp"
+              aria-label="Manual barcode entry"
               autocomplete="off"
               required
             />
-            <button type="submit">Check</button>
+            <button id="checkBtn" type="submit" disabled>Check</button>
+            <button id="newScanBtn" type="button" class="ghost hidden">New scan</button>
           </div>
+          <p id="manualHelp" class="field-help" aria-live="polite">Enter 12 or 13 digits.</p>
         </form>
       </section>
 
@@ -50,18 +63,17 @@
           <p id="savedNote" class="saved-note"></p>
           <a id="reportIssueLink" class="report-link hidden" href="#" rel="nofollow">Report issue</a>
         </div>
-        <section class="ingredient-section">
+        <section id="ingredientSection" class="ingredient-section hidden">
           <h3>Ingredient Categories</h3>
-          <div id="ingredientRows" class="ingredient-rows"></div>
+          <div id="ingredientRows" class="ingredient-rows" role="list"></div>
         </section>
         <p id="barcodeInfo" class="meta"></p>
-        <div id="errorArea" class="error-area"></div>
       </section>
-
-      <button id="newScanBtn" type="button" class="new-scan hidden">NEW SCAN</button>
     </main>
 
-    <footer class="ad-strip">Ad placeholder (free tier)</footer>
+    <footer class="footer-bar">
+      <span class="ad-strip">Ad placeholder (free tier)</span>
+    </footer>
 
     <dialog id="settingsModal" class="settings-modal">
       <form id="settingsForm" method="dialog" class="card settings-card">
