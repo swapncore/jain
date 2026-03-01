@@ -321,16 +321,11 @@ function renderNotFound(errorJson, requestedBarcode) {
   hideResult();
   setLoading(false);
 
-  const attempts = Array.isArray(errorJson?.attempts)
-    ? errorJson.attempts.join(", ")
-    : onlyDigits(requestedBarcode);
-
   showMessage({
     title: "Product not found",
     message: "We don't have this barcode yet. You can submit ingredients now and we'll save it for future scans.",
     variant: "error",
     extraHtml: `
-      <p class="hint">Tried: ${attempts}</p>
       <div class="message-actions">
         <button type="button" id="openSubmitMissingBtn">Submit missing product</button>
       </div>
@@ -645,6 +640,7 @@ async function submitMissingProduct({ barcode, files, ingredientsText, progressE
 
 function wireSubmitMissingFlow(barcode) {
   const openBtn = document.getElementById("openSubmitMissingBtn");
+  const openActions = openBtn?.closest(".message-actions");
   const form = document.getElementById("submitMissingForm");
   const imagesInput = document.getElementById("submitImages");
   const ingredientsInput = document.getElementById("submitIngredients");
@@ -654,8 +650,13 @@ function wireSubmitMissingFlow(barcode) {
   if (!openBtn || !form || !submitBtn) return;
 
   openBtn.addEventListener("click", () => {
-    form.classList.toggle("hidden");
-    if (!form.classList.contains("hidden") && progressEl) {
+    form.classList.remove("hidden");
+    if (openActions) {
+      openActions.remove();
+    } else {
+      openBtn.remove();
+    }
+    if (progressEl) {
       progressEl.textContent = "";
     }
   });
