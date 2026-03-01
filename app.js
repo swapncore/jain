@@ -28,7 +28,9 @@ const SCAN_FORMATS = [
   BarcodeFormat.EAN_8,
 ];
 const REQUEST_TIMEOUT_MS = 9000;
+const SUBMIT_TIMEOUT_MS = 45000;
 const VERDICT_FAILSAFE_MS = 6500;
+const SUBMIT_PROGRESS_STEPS = ["Uploading...", "Reading label...", "Classifying..."];
 
 const el = {
   settingsBtn: document.getElementById("settingsBtn"),
@@ -44,6 +46,8 @@ const el = {
   explainText: document.getElementById("explainText"),
   confidenceText: document.getElementById("confidenceText"),
   reasonChips: document.getElementById("reasonChips"),
+  savedNote: document.getElementById("savedNote"),
+  reportIssueLink: document.getElementById("reportIssueLink"),
   ingredientRows: document.getElementById("ingredientRows"),
   barcodeInfo: document.getElementById("barcodeInfo"),
   errorArea: document.getElementById("errorArea"),
@@ -64,6 +68,7 @@ const state = {
   scanLocked: false,
   requestId: 0,
   verdictFailsafeTimer: null,
+  submitProgressTimer: null,
 };
 
 function defaultApiBaseUrl() {
@@ -181,6 +186,27 @@ function clearVerdictFailsafe() {
   }
 }
 
+function clearSubmitProgressTimer() {
+  if (state.submitProgressTimer) {
+    window.clearInterval(state.submitProgressTimer);
+    state.submitProgressTimer = null;
+  }
+}
+
+function setSavedBanner(text) {
+  if (!el.savedNote) {
+    return;
+  }
+  el.savedNote.textContent = text || "";
+}
+
+function showReportIssue(show) {
+  if (!el.reportIssueLink) {
+    return;
+  }
+  el.reportIssueLink.classList.toggle("hidden", !show);
+}
+
 function startVerdictFailsafe(requestId) {
   clearVerdictFailsafe();
   state.verdictFailsafeTimer = window.setTimeout(() => {
@@ -217,6 +243,7 @@ function renderIngredientRows(categories) {
 function presentOutcome() {
   stopScanning();
   clearVerdictFailsafe();
+  clearSubmitProgressTimer();
   showCameraPanel(false);
   showNewScanButton(true);
 }
@@ -247,6 +274,9 @@ function renderResult(data) {
     });
   }
 
+  setSavedBanner(data.saved ? "Saved for future scans \u2705" : "");
+  showReportIssue(true);
+
   renderIngredientRows(data.ingredient_categories);
   const productName = data.product_name ? `Product: ${data.product_name}` : "Product: Unknown";
   const brand = data.brand ? `Brand: ${data.brand}` : "Brand: Unknown";
@@ -262,6 +292,8 @@ function renderNotFound(errorJson, requestedBarcode) {
   el.explainText.textContent = "No precomputed verdict found for this barcode.";
   el.confidenceText.textContent = "Confidence: --";
   el.reasonChips.innerHTML = "";
+  setSavedBanner("");
+  showReportIssue(false);
   renderIngredientRows(null);
 
   const attempts = Array.isArray(errorJson?.attempts) ? errorJson.attempts.join(", ") : requestedBarcode;
@@ -271,9 +303,208 @@ function renderNotFound(errorJson, requestedBarcode) {
     <div class="error-card">
       <h3>404 NOT_FOUND</h3>
       <p>This barcode is not in the dataset yet.</p>
+      <button type="button" id="openSubmitMissingBtn">Submit missing product</button>
+      <form id="submitMissingForm" class="submit-missing hidden">
+        <label for="submitImages">Take ingredient label photo (up to 3)</label>
+        <input
+          id="submitImages"
+          name="images"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+        />
+        <label for="submitIngredients">Type ingredients manually (optional fallback)</label>
+        <textarea
+          id="submitIngredients"
+          name="ingredients_text"
+          placeholder="e.g. corn flour, sunflower oil, salt"
+        ></textarea>
+        <button id="submitMissingBtn" type="submit">Upload and classify</button>
+        <p id="submitProgress" class="submit-progress"></p>
+      </form>
     </div>
   `;
+  wireSubmitMissingFlow(onlyDigits(requestedBarcode));
   presentOutcome();
+}
+
+function startSubmitProgressTicker(progressEl) {
+  if (!progressEl) return;
+  clearSubmitProgressTimer();
+  let stepIndex = 0;
+  progressEl.textContent = SUBMIT_PROGRESS_STEPS[stepIndex];
+  state.submitProgressTimer = window.setInterval(() => {
+    stepIndex = Math.min(stepIndex + 1, SUBMIT_PROGRESS_STEPS.length - 1);
+    progressEl.textContent = SUBMIT_PROGRESS_STEPS[stepIndex];
+  }, 1200);
+}
+
+async function submitMissingProduct({ barcode, files, ingredientsText, progressEl, submitBtn }) {
+  const cleanBarcode = onlyDigits(barcode);
+  if (!cleanBarcode) {
+    if (progressEl) progressEl.textContent = "Invalid barcode.";
+    return false;
+  }
+
+  const selectedFiles = Array.from(files || []).slice(0, 3);
+  const manualText = (ingredientsText || "").trim();
+  if (!manualText && selectedFiles.length === 0) {
+    if (progressEl) progressEl.textContent = "Add at least one image or enter ingredients.";
+    return false;
+  }
+
+  const requestId = ++state.requestId;
+  state.inFlight = true;
+  state.scanLocked = true;
+  if (submitBtn) submitBtn.disabled = true;
+  startSubmitProgressTicker(progressEl);
+
+  try {
+    const override = getStoredApiOverride();
+    const candidates = getApiBaseCandidates();
+    let sawTimeout = false;
+
+    for (const baseUrl of candidates) {
+      if (requestId !== state.requestId) {
+        return false;
+      }
+
+      const formData = new FormData();
+      formData.append("barcode", cleanBarcode);
+      formData.append("profile", "jain");
+      if (manualText) {
+        formData.append("ingredients_text", manualText);
+      }
+      selectedFiles.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      let response;
+      try {
+        response = await fetchWithTimeout(
+          `${baseUrl}/v1/submit_missing`,
+          {
+            method: "POST",
+            headers: {
+              "X-Client-Id": getClientId(),
+            },
+            body: formData,
+          },
+          SUBMIT_TIMEOUT_MS,
+        );
+      } catch (err) {
+        if (requestId !== state.requestId) {
+          return false;
+        }
+        if (err?.name === "AbortError") {
+          sawTimeout = true;
+        }
+        continue;
+      }
+
+      if (requestId !== state.requestId) {
+        return false;
+      }
+
+      const data = await response.json().catch(() => ({}));
+      if (requestId !== state.requestId) {
+        return false;
+      }
+
+      const switchedFromStaleOverride = Boolean(override) && baseUrl !== override;
+      if (switchedFromStaleOverride) {
+        saveApiBaseUrl("");
+      }
+
+      if (response.ok) {
+        renderResult({ ...data, saved: true });
+        el.scanStatus.textContent = switchedFromStaleOverride
+          ? `Submitted and saved: ${cleanBarcode} (auto-switched API)`
+          : `Submitted and saved: ${cleanBarcode}`;
+        return true;
+      }
+
+      if (response.status === 429 && data.error === "RATE_LIMIT") {
+        renderRateLimit(data);
+        el.scanStatus.textContent = "Submission rate limit reached.";
+        return false;
+      }
+
+      if (response.status === 413) {
+        if (progressEl) {
+          progressEl.textContent = data?.message || "Image too large. Max 5MB per image.";
+        }
+        return false;
+      }
+
+      if (response.status === 400) {
+        if (progressEl) {
+          progressEl.textContent = data?.message || "Submission failed. Adjust input and retry.";
+        }
+        return false;
+      }
+
+      if (response.status >= 500 && response.status <= 599) {
+        continue;
+      }
+
+      if (progressEl) {
+        progressEl.textContent = data?.message || data?.error || `Request failed (${response.status}).`;
+      }
+      return false;
+    }
+
+    if (progressEl) {
+      progressEl.textContent = sawTimeout
+        ? "Submission timed out. You can retry or type ingredients manually."
+        : "Network error while submitting.";
+    }
+    return false;
+  } finally {
+    if (requestId === state.requestId) {
+      clearSubmitProgressTimer();
+      state.inFlight = false;
+      state.scanLocked = false;
+    }
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+function wireSubmitMissingFlow(barcode) {
+  const openBtn = document.getElementById("openSubmitMissingBtn");
+  const form = document.getElementById("submitMissingForm");
+  const imagesInput = document.getElementById("submitImages");
+  const ingredientsInput = document.getElementById("submitIngredients");
+  const progressEl = document.getElementById("submitProgress");
+  const submitBtn = document.getElementById("submitMissingBtn");
+
+  if (!openBtn || !form || !submitBtn) {
+    return;
+  }
+
+  openBtn.addEventListener("click", () => {
+    form.classList.toggle("hidden");
+    if (!form.classList.contains("hidden") && progressEl) {
+      progressEl.textContent = "";
+    }
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const files = imagesInput?.files || [];
+    const text = ingredientsInput?.value || "";
+    if (progressEl) {
+      progressEl.textContent = "Uploading...";
+    }
+    await submitMissingProduct({
+      barcode,
+      files,
+      ingredientsText: text,
+      progressEl,
+      submitBtn,
+    });
+  });
 }
 
 function renderRateLimit(errorJson) {
@@ -283,6 +514,8 @@ function renderRateLimit(errorJson) {
   el.explainText.textContent = "Daily free scan limit reached.";
   el.confidenceText.textContent = "Confidence: --";
   el.reasonChips.innerHTML = "";
+  setSavedBanner("");
+  showReportIssue(false);
   renderIngredientRows(null);
   el.barcodeInfo.textContent = "";
 
@@ -313,6 +546,8 @@ function renderGenericError(message) {
   el.explainText.textContent = message || "Unexpected error occurred.";
   el.confidenceText.textContent = "Confidence: --";
   el.reasonChips.innerHTML = "";
+  setSavedBanner("");
+  showReportIssue(false);
   renderIngredientRows(null);
   el.barcodeInfo.textContent = "";
   el.errorArea.innerHTML = "";
@@ -612,6 +847,11 @@ function bindEvents() {
     el.scanStatus.textContent = `API base set to ${getApiBaseUrl()}`;
   });
 
+  el.reportIssueLink?.addEventListener("click", (event) => {
+    event.preventDefault();
+    window.alert("Report issue flow placeholder.");
+  });
+
   window.addEventListener("beforeunload", () => {
     stopScanning();
   });
@@ -621,6 +861,8 @@ function init() {
   getClientId();
   bindEvents();
   renderIngredientRows(null);
+  setSavedBanner("");
+  showReportIssue(false);
   showNewScanButton(false);
   el.scanStatus.textContent = `Starting camera... API: ${getApiBaseUrl()}`;
 
