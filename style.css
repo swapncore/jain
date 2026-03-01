@@ -7,10 +7,10 @@
   --brand: #0b5b6f;
   --brand-dark: #074455;
 
-  --ok: #166534;
+  --ok: #14532d;
   --caution-orange: #9a3412;
-  --caution-yellow: #8a5a00;
-  --not-allowed: #b3261e;
+  --caution-yellow: #7c4a03;
+  --not-allowed: #9f1239;
 
   --message-bg: #fff4e5;
   --message-border: #f4c88b;
@@ -247,27 +247,33 @@ button.ghost {
 .verdict {
   border-radius: 12px;
   padding: 0.9rem;
-  color: #ffffff;
+  color: #1d2935;
+  border: 1px solid transparent;
 }
 
 .verdict-RED {
-  background: var(--not-allowed);
+  background: rgba(159, 18, 57, 0.12);
+  border-color: rgba(159, 18, 57, 0.28);
 }
 
 .verdict-ORANGE {
-  background: var(--caution-orange);
+  background: rgba(154, 52, 18, 0.12);
+  border-color: rgba(154, 52, 18, 0.28);
 }
 
 .verdict-YELLOW {
-  background: var(--caution-yellow);
+  background: rgba(124, 74, 3, 0.12);
+  border-color: rgba(124, 74, 3, 0.28);
 }
 
 .verdict-GREEN {
-  background: var(--ok);
+  background: rgba(20, 83, 45, 0.12);
+  border-color: rgba(20, 83, 45, 0.28);
 }
 
 .verdict-UNKNOWN {
-  background: #5e6c78;
+  background: rgba(94, 108, 120, 0.14);
+  border-color: rgba(94, 108, 120, 0.3);
 }
 
 .status {
@@ -322,6 +328,26 @@ button.ghost {
   margin-top: 0.9rem;
 }
 
+.ingredients-panel {
+  margin-top: 0.9rem;
+  border: 1px solid #d9e3ed;
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.ingredients-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.ingredients-text {
+  margin: 0;
+  color: #263340;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .ingredient-section h3 {
   margin: 0;
   font-size: 0.95rem;
@@ -350,33 +376,38 @@ button.ghost {
 .ingredient-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
   width: fit-content;
   max-width: 100%;
   font-weight: 700;
   border-radius: 999px;
-  padding: 0.28rem 0.6rem;
+  padding: 0.26rem 0.58rem;
   line-height: 1.2;
+  border: 1px solid transparent;
+  font-size: 0.8rem;
 }
 
 .ingredient-badge-RED {
-  background: var(--not-allowed);
-  color: #ffffff;
+  background: rgba(159, 18, 57, 0.14);
+  color: #64152f;
+  border-color: rgba(159, 18, 57, 0.26);
 }
 
 .ingredient-badge-ORANGE {
-  background: var(--caution-orange);
-  color: #ffffff;
+  background: rgba(154, 52, 18, 0.14);
+  color: #6f2a12;
+  border-color: rgba(154, 52, 18, 0.28);
 }
 
 .ingredient-badge-YELLOW {
-  background: var(--caution-yellow);
-  color: #ffffff;
+  background: rgba(124, 74, 3, 0.16);
+  color: #5a3601;
+  border-color: rgba(124, 74, 3, 0.28);
 }
 
 .ingredient-badge-GREEN {
-  background: var(--ok);
-  color: #ffffff;
+  background: rgba(20, 83, 45, 0.14);
+  color: #0f4727;
+  border-color: rgba(20, 83, 45, 0.28);
 }
 
 .ingredient-values {
