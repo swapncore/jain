@@ -421,39 +421,6 @@ button.ghost {
   font-size: 0.88rem;
 }
 
-.submit-missing {
-  margin-top: 0.7rem;
-  padding-top: 0.7rem;
-  border-top: 1px solid #f2c7cc;
-}
-
-.submit-missing label {
-  display: block;
-  margin: 0.5rem 0 0.25rem;
-  font-size: 0.87rem;
-}
-
-.submit-missing input[type="file"],
-.submit-missing textarea {
-  width: 100%;
-  border: 1px solid #e2ccd0;
-  border-radius: 8px;
-  padding: 0.5rem;
-  font: inherit;
-  background: #ffffff;
-}
-
-.submit-missing textarea {
-  min-height: 90px;
-  resize: vertical;
-}
-
-.submit-progress {
-  margin: 0.55rem 0 0;
-  color: #8a1f2d;
-  font-size: 0.84rem;
-}
-
 .footer-bar {
   border-top: 1px solid #dae2eb;
   padding: 0.75rem 1rem 1rem;

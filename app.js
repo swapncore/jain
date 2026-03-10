@@ -24,9 +24,7 @@ const CATEGORY_META = {
 
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 const REQUEST_TIMEOUT_MS = 9000;
-const SUBMIT_TIMEOUT_MS = 45000;
 const VERDICT_FAILSAFE_MS = 6500;
-const SUBMIT_PROGRESS_STEPS = ["Uploading...", "Reading label...", "Classifying..."];
 
 const FRIENDLY_MESSAGES = {
   invalidBarcode: "Please enter a valid 12 or 13 digit barcode.",
@@ -73,7 +71,6 @@ const state = {
   scanLocked: false,
   requestId: 0,
   verdictFailsafeTimer: null,
-  submitProgressTimer: null,
 };
 
 function defaultApiBaseUrl() {
@@ -186,13 +183,6 @@ function clearVerdictFailsafe() {
   }
 }
 
-function clearSubmitProgressTimer() {
-  if (state.submitProgressTimer) {
-    window.clearInterval(state.submitProgressTimer);
-    state.submitProgressTimer = null;
-  }
-}
-
 function startVerdictFailsafe(requestId) {
   clearVerdictFailsafe();
   state.verdictFailsafeTimer = window.setTimeout(() => {
@@ -206,7 +196,6 @@ function startVerdictFailsafe(requestId) {
 function presentOutcome() {
   stopScanning();
   clearVerdictFailsafe();
-  clearSubmitProgressTimer();
   setLoading(false);
   showCameraPanel(false);
   showNewScanButton(true);
@@ -317,41 +306,16 @@ function renderResult(data) {
   presentOutcome();
 }
 
-function renderNotFound(errorJson, requestedBarcode) {
+function renderNotFound(_errorJson, requestedBarcode) {
   hideResult();
   setLoading(false);
 
   showMessage({
     title: "Product not found",
-    message: "We don't have this barcode yet. You can submit ingredients now and we'll save it for future scans.",
+    message: `No verdict is available yet for barcode ${onlyDigits(requestedBarcode)} in the current dataset.`,
     variant: "error",
-    extraHtml: `
-      <div class="message-actions">
-        <button type="button" id="openSubmitMissingBtn">Submit missing product</button>
-      </div>
-      <form id="submitMissingForm" class="submit-missing hidden" aria-label="Submit missing product form">
-        <label for="submitImages">Take ingredient label photo (up to 3)</label>
-        <input
-          id="submitImages"
-          name="images"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-        />
-        <label for="submitIngredients">Type ingredients manually (optional fallback)</label>
-        <textarea
-          id="submitIngredients"
-          name="ingredients_text"
-          placeholder="e.g. corn flour, sunflower oil, salt"
-        ></textarea>
-        <button id="submitMissingBtn" type="submit">Upload and classify</button>
-        <p id="submitProgress" class="submit-progress" aria-live="polite"></p>
-      </form>
-    `,
   });
 
-  wireSubmitMissingFlow(onlyDigits(requestedBarcode));
   presentOutcome();
 }
 
@@ -509,173 +473,6 @@ async function fetchVerdict(rawBarcode) {
       updateManualInputState();
     }
   }
-}
-
-function startSubmitProgressTicker(progressEl) {
-  if (!progressEl) return;
-  clearSubmitProgressTimer();
-  let stepIndex = 0;
-  progressEl.textContent = SUBMIT_PROGRESS_STEPS[stepIndex];
-  state.submitProgressTimer = window.setInterval(() => {
-    stepIndex = Math.min(stepIndex + 1, SUBMIT_PROGRESS_STEPS.length - 1);
-    progressEl.textContent = SUBMIT_PROGRESS_STEPS[stepIndex];
-  }, 1200);
-}
-
-async function submitMissingProduct({ barcode, files, ingredientsText, progressEl, submitBtn }) {
-  const cleanBarcode = onlyDigits(barcode);
-  if (!(cleanBarcode.length === 12 || cleanBarcode.length === 13)) {
-    if (progressEl) progressEl.textContent = FRIENDLY_MESSAGES.invalidBarcode;
-    return false;
-  }
-
-  const selectedFiles = Array.from(files || []).slice(0, 3);
-  const manualText = (ingredientsText || "").trim();
-  if (!manualText && selectedFiles.length === 0) {
-    if (progressEl) progressEl.textContent = "Add a label photo or enter ingredients.";
-    return false;
-  }
-
-  const requestId = ++state.requestId;
-  state.inFlight = true;
-  state.scanLocked = true;
-  if (submitBtn) submitBtn.disabled = true;
-
-  setLoading(true, "Submitting missing product...");
-  startSubmitProgressTicker(progressEl);
-
-  try {
-    const candidates = getApiBaseCandidates();
-    let sawTimeout = false;
-
-    for (const baseUrl of candidates) {
-      if (requestId !== state.requestId) return false;
-
-      const formData = new FormData();
-      formData.append("barcode", cleanBarcode);
-      formData.append("profile", "jain");
-      if (manualText) {
-        formData.append("ingredients_text", manualText);
-      }
-      selectedFiles.forEach((file) => formData.append("images", file));
-
-      let response;
-      try {
-        response = await fetchWithTimeout(
-          `${baseUrl}/v1/submit_missing`,
-          {
-            method: "POST",
-            headers: {
-              "X-Client-Id": getClientId(),
-            },
-            body: formData,
-          },
-          SUBMIT_TIMEOUT_MS,
-        );
-      } catch (err) {
-        if (requestId !== state.requestId) return false;
-        if (err?.name === "AbortError") {
-          sawTimeout = true;
-        }
-        continue;
-      }
-
-      if (requestId !== state.requestId) return false;
-
-      const data = await response.json().catch(() => ({}));
-      if (requestId !== state.requestId) return false;
-
-      if (response.ok) {
-        renderResult({ ...data, saved: true });
-        el.scanStatus.textContent = `Saved barcode ${cleanBarcode}`;
-        clearMessage();
-        return true;
-      }
-
-      if (response.status === 429 && data.error === "RATE_LIMIT") {
-        renderRateLimit(data);
-        el.scanStatus.textContent = "Submission limit reached.";
-        return false;
-      }
-
-      if (response.status === 413) {
-        if (progressEl) {
-          progressEl.textContent = data?.message || "Images must be 5MB or smaller.";
-        }
-        return false;
-      }
-
-      if (response.status === 400) {
-        if (progressEl) {
-          progressEl.textContent = data?.message || "Submission failed. Please check your input and retry.";
-        }
-        return false;
-      }
-
-      if (response.status >= 500 && response.status <= 599) {
-        continue;
-      }
-
-      if (progressEl) {
-        progressEl.textContent = data?.message || "We couldn't save this product right now.";
-      }
-      return false;
-    }
-
-    if (progressEl) {
-      progressEl.textContent = sawTimeout ? FRIENDLY_MESSAGES.timeout : FRIENDLY_MESSAGES.network;
-    }
-    return false;
-  } finally {
-    if (requestId === state.requestId) {
-      clearSubmitProgressTimer();
-      state.inFlight = false;
-      state.scanLocked = false;
-      setLoading(false);
-      updateManualInputState();
-    }
-    if (submitBtn) submitBtn.disabled = false;
-  }
-}
-
-function wireSubmitMissingFlow(barcode) {
-  const openBtn = document.getElementById("openSubmitMissingBtn");
-  const openActions = openBtn?.closest(".message-actions");
-  const form = document.getElementById("submitMissingForm");
-  const imagesInput = document.getElementById("submitImages");
-  const ingredientsInput = document.getElementById("submitIngredients");
-  const progressEl = document.getElementById("submitProgress");
-  const submitBtn = document.getElementById("submitMissingBtn");
-
-  if (!openBtn || !form || !submitBtn) return;
-
-  openBtn.addEventListener("click", () => {
-    form.classList.remove("hidden");
-    if (openActions) {
-      openActions.remove();
-    } else {
-      openBtn.remove();
-    }
-    if (progressEl) {
-      progressEl.textContent = "";
-    }
-  });
-
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const files = imagesInput?.files || [];
-    const text = ingredientsInput?.value || "";
-    if (progressEl) {
-      progressEl.textContent = "Uploading...";
-    }
-    await submitMissingProduct({
-      barcode,
-      files,
-      ingredientsText: text,
-      progressEl,
-      submitBtn,
-    });
-  });
 }
 
 async function pickBackCameraDeviceId() {
