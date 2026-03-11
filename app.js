@@ -150,11 +150,23 @@ function clearMessage() {
 }
 
 function showMessage({ title, message, variant = "info", extraHtml = "" }) {
-  const css = variant === "error" ? "message-box message-error" : "message-box";
-  const heading = title ? `<h3>${title}</h3>` : "";
-  const body = message ? `<p>${message}</p>` : "";
-  el.messageBox.className = css;
-  el.messageBox.innerHTML = `${heading}${body}${extraHtml}`;
+  el.messageBox.className = variant === "error" ? "message-box message-error" : "message-box";
+  el.messageBox.textContent = "";
+  if (title) {
+    const h = document.createElement("h3");
+    h.textContent = title;
+    el.messageBox.appendChild(h);
+  }
+  if (message) {
+    const p = document.createElement("p");
+    p.textContent = message;
+    el.messageBox.appendChild(p);
+  }
+  if (extraHtml) {
+    const div = document.createElement("div");
+    div.innerHTML = extraHtml; // static trusted markup (e.g. upgrade button)
+    el.messageBox.appendChild(div);
+  }
   el.messageBox.classList.remove("hidden");
 }
 
