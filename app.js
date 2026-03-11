@@ -277,7 +277,7 @@ function renderResult(data) {
 
   el.verdictCard.className = "verdict";
   el.verdictCard.classList.add(`verdict-${status}`);
-  el.statusLabel.textContent = data.product_name || "Product";
+  el.statusLabel.textContent = status;
   el.explainText.textContent = data.explain || "No explanation available.";
   el.confidenceText.textContent = `Verdict: ${status} | Confidence: ${data.confidence || "--"}`;
 
