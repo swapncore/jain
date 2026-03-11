@@ -9,7 +9,7 @@ const STORAGE_KEYS = {
 };
 
 const DEFAULTS = {
-  prodApi: "https://api.swapncore.com",
+  prodApi: "https://web-production-31034.up.railway.app",
   devApi: "http://localhost:8000",
 };
 
