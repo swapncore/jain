@@ -421,6 +421,26 @@ button.ghost {
   font-size: 0.88rem;
 }
 
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.legend-item {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.legend-GREEN  { background: #dcfce7; color: #14532d; }
+.legend-YELLOW { background: #fef9c3; color: #7c4a03; }
+.legend-ORANGE { background: #ffedd5; color: #9a3412; }
+.legend-RED    { background: #ffe4e6; color: #9f1239; }
+
 .footer-bar {
   border-top: 1px solid #dae2eb;
   padding: 0.75rem 1rem 1rem;

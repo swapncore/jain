@@ -24,7 +24,7 @@ const CATEGORY_META = {
 
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 const REQUEST_TIMEOUT_MS = 9000;
-const VERDICT_FAILSAFE_MS = 6500;
+const VERDICT_FAILSAFE_MS = 3000;
 
 const FRIENDLY_MESSAGES = {
   invalidBarcode: "Please enter a valid 12 or 13 digit barcode.",
@@ -339,7 +339,7 @@ function renderRateLimit(errorJson) {
   });
 
   document.getElementById("upgradeBtn")?.addEventListener("click", () => {
-    window.alert("Upgrade flow placeholder.");
+    window.alert("You've reached your free daily limit. Limit resets at midnight.");
   });
 
   presentOutcome();
