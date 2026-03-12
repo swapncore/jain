@@ -165,7 +165,7 @@ ul, ol { list-style: none; }
 }
 
 .header-logo { display: flex; align-items: center; }
-.header-logo-img { height: 36px; width: auto; display: block; }
+.header-logo-img { height: 44px; width: auto; display: block; }
 
 .header-title {
   font-size: 1.35rem;
