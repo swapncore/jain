@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How JainScan Works</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <div class="header-brand">
+      <a href="./index.html" style="display:flex;align-items:center;gap:0.55rem;text-decoration:none;">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#0b5b6f"/><path d="M9 14.5l3.5 3.5 6.5-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="header-title">JainScan</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main class="legal-page">
+  <a href="./index.html" class="legal-back">← Back to JainScan</a>
+  <h1>How JainScan works</h1>
+  <p class="last-updated">A plain-language explanation of the technology and data behind JainScan.</p>
+
+  <h2>Step 1 — Scan or enter a barcode</h2>
+  <p>You point your phone camera at a product barcode (UPC-A 12-digit or EAN-13 13-digit), or type it manually. The barcode number is extracted on your device — no image is ever uploaded to our servers.</p>
+
+  <h2>Step 2 — Barcode lookup</h2>
+  <p>The barcode number is sent to JainScan's API. The API searches a database of over 1.5 million products sourced from Open Food Facts, USDA FoodData Central, and other public food databases. If a match is found, the product name, brand, and ingredient text are retrieved.</p>
+
+  <h2>Step 3 — Ingredient analysis</h2>
+  <p>The ingredient text is analysed by a rules-based engine that checks for:</p>
+  <ul>
+    <li><strong>Red (Not Jain-friendly):</strong> Meat, poultry, fish, seafood, gelatin from animal sources, rennet, lard, and similar clearly non-Jain ingredients.</li>
+    <li><strong>Yellow (Jain-restricted vegetables):</strong> Onion, garlic, leek, shallot, chive, scallion, potato, carrot, radish, turnip, beetroot, and other root or underground vegetables that many Jains avoid.</li>
+    <li><strong>Orange (Needs verification):</strong> Egg, egg white, egg yolk, albumin, and ingredients with unclear animal origins such as "natural flavors," "mono and diglycerides," "L-cysteine," and similar.</li>
+    <li><strong>Green (Likely Jain-friendly):</strong> No ingredients in the above categories were found in the available data.</li>
+  </ul>
+
+  <h2>Step 4 — Result and confidence</h2>
+  <p>The result is returned with:</p>
+  <ul>
+    <li>A status label (Likely Jain-friendly / Contains Jain-restricted vegetables / Needs verification / Not Jain-friendly / Not enough data)</li>
+    <li>A one-sentence explanation of what triggered the status</li>
+    <li>A confidence level based on how complete and clear the available ingredient data is</li>
+    <li>A breakdown of which ingredients fell into which category</li>
+  </ul>
+
+  <h2>What JainScan cannot do</h2>
+  <ul>
+    <li>Verify the accuracy of ingredient data provided by manufacturers or third-party databases</li>
+    <li>Detect cross-contamination or shared manufacturing equipment</li>
+    <li>Account for regional product formulation differences</li>
+    <li>Guarantee that a product hasn't changed its recipe since the database was last updated</li>
+    <li>Provide religious rulings — only informational guidance based on commonly listed Jain dietary restrictions</li>
+  </ul>
+
+  <h2>Data sources</h2>
+  <ul>
+    <li><strong>Open Food Facts</strong> — A free, open, collaborative food database (openfoodfacts.org)</li>
+    <li><strong>USDA FoodData Central</strong> — The US Department of Agriculture's food composition database</li>
+    <li>Additional sources added over time</li>
+  </ul>
+
+  <h2>How to help improve JainScan</h2>
+  <p>If you find a product that is missing or incorrectly classified, use the "Report incorrect classification" or "Submit missing product" buttons on the result screen. You can also email <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>. Every report helps.</p>
+
+  <h2>Questions?</h2>
+  <p>Contact us at <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>.</p>
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <nav class="footer-nav">
+      <a href="./index.html" class="footer-link">Home</a>
+      <a href="./privacy.html" class="footer-link">Privacy Policy</a>
+      <a href="./disclaimer.html" class="footer-link">Disclaimer</a>
+      <a href="./terms.html" class="footer-link">Terms of Use</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

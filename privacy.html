@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — JainScan</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <div class="header-brand">
+      <a href="./index.html" style="display:flex;align-items:center;gap:0.55rem;text-decoration:none;">
+        <svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#0b5b6f"/><path d="M9 14.5l3.5 3.5 6.5-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="header-title">JainScan</span>
+      </a>
+    </div>
+  </div>
+</header>
+<main class="legal-page">
+  <a href="./index.html" class="legal-back">← Back to JainScan</a>
+  <h1>Privacy Policy</h1>
+  <p class="last-updated">Last updated: March 2025</p>
+
+  <p>JainScan is a lightweight, privacy-respecting tool. This page explains what data is collected when you use the app, how it is used, and your rights.</p>
+
+  <h2>Camera access and video frames</h2>
+  <p><strong>Camera frames are processed entirely on your device.</strong> When you use the camera scanner, the video stream from your camera is decoded locally in your browser using the ZXing barcode library. No camera images, video frames, or screenshots are ever sent to our servers. The camera feed is used only to detect barcode numbers, and is never stored or transmitted.</p>
+  <p>Camera access is only requested after you explicitly tap "Scan with camera." If you deny camera permission or stop the camera, no camera data is accessed at any point.</p>
+
+  <h2>What happens when you scan a barcode</h2>
+  <p>When a barcode is detected or you enter one manually, JainScan sends the following to our API server:</p>
+  <ul>
+    <li>The barcode number (digits only)</li>
+    <li>Your profile setting (always "jain")</li>
+    <li>A randomly generated anonymous client ID stored in your browser's localStorage — used only to apply per-device rate limits. It is not linked to your identity.</li>
+  </ul>
+  <p>No names, no account, no email, and no location are sent with barcode lookups.</p>
+
+  <h2>Anonymous client ID</h2>
+  <p>A random UUID is generated the first time you use JainScan and stored in your browser's localStorage under the key <code>JAIN_CLIENT_ID</code>. This ID has no personal information attached to it. It is used solely for rate-limiting repeated requests. You can clear it at any time by clearing your browser's site data for this domain.</p>
+
+  <h2>Server-side logging</h2>
+  <p>Our API server may log standard request information including the barcode queried, the timestamp, and your IP address. This is standard practice for operating a web service. Logs are used for debugging and abuse prevention and are not shared with third parties.</p>
+
+  <h2>Analytics</h2>
+  <p>JainScan does not currently use third-party analytics services (e.g. Google Analytics). If this changes, this policy will be updated before any analytics are deployed.</p>
+
+  <h2>Cookies</h2>
+  <p>JainScan does not use cookies. The anonymous client ID described above is stored in localStorage, not in a cookie.</p>
+
+  <h2>Voluntary reports and submissions</h2>
+  <p>If you choose to submit a report (incorrect classification or missing product), the information you provide in that form is sent via your email client to <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>. JainScan does not store this information on our servers — it goes directly to our inbox. We use it only to review and improve the dataset.</p>
+
+  <h2>Children</h2>
+  <p>JainScan is not directed at children under 13. We do not knowingly collect any information from children.</p>
+
+  <h2>Your rights (EU / UK / California users)</h2>
+  <p>Because JainScan collects minimal data and does not link barcodes to any identified person, most data protection rights (access, erasure, portability) have limited practical application. However, if you wish to request deletion of any logs associated with your IP address, or have any other privacy concern, please contact us at <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>. We will respond within 30 days.</p>
+
+  <h2>Third-party data sources</h2>
+  <p>JainScan retrieves product ingredient data from third-party food databases. JainScan does not control how those databases collect or manage their data. When we display product data, we are displaying data from those sources.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If we make material changes to this privacy policy, we will update the "Last updated" date at the top of this page. Continued use of JainScan after changes constitutes acceptance of the updated policy.</p>
+
+  <h2>Contact</h2>
+  <p>For privacy questions or data requests: <a href="mailto:hello@swapncore.com">hello@swapncore.com</a></p>
+</main>
+<footer class="site-footer">
+  <div class="footer-inner">
+    <nav class="footer-nav">
+      <a href="./index.html" class="footer-link">Home</a>
+      <a href="./disclaimer.html" class="footer-link">Disclaimer</a>
+      <a href="./terms.html" class="footer-link">Terms of Use</a>
+      <a href="./howitworks.html" class="footer-link">How it works</a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

@@ -4,558 +4,564 @@ import {
   BarcodeFormat,
 } from "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm";
 
-const STORAGE_KEYS = {
-  clientId: "JAIN_CLIENT_ID",
-};
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-const DEFAULTS = {
-  prodApi: "https://web-production-31034.up.railway.app",
-  devApi: "http://localhost:8000",
-};
-
-const STATUS_COLORS = ["GREEN", "YELLOW", "ORANGE", "RED", "UNKNOWN"];
-const INGREDIENT_ROW_ORDER = ["RED", "ORANGE", "YELLOW", "GREEN"];
-const CATEGORY_META = {
-  RED: { label: "Not allowed" },
-  ORANGE: { label: "Verify with maker" },
-  YELLOW: { label: "Strict Jain" },
-  GREEN: { label: "Allowed" },
-};
-
+const API_BASE_PROD = "https://web-production-31034.up.railway.app";
+const API_BASE_DEV  = "http://localhost:8000";
+const REQUEST_TIMEOUT_MS   = 9000;
+const VERDICT_FAILSAFE_MS  = 8500;
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
-const REQUEST_TIMEOUT_MS = 9000;
-const VERDICT_FAILSAFE_MS = 8500; // just under request timeout; only fires if fetch truly stalls
 
-const FRIENDLY_MESSAGES = {
-  invalidBarcode: "Please enter a valid 12 or 13 digit barcode.",
-  network: "We couldn't retrieve product data. Please check your connection or try again later.",
-  timeout: "This request took too long. Please try again.",
-  cameraPermission: "We couldn't access your camera. Please allow camera access and try again.",
-  cameraUnsupported: "Camera scanning isn't supported in this browser.",
-  scannerStalled: "The scan was captured, but we couldn't finish the lookup. Please try again.",
+const STATUS_META = {
+  GREEN:   {
+    label: "Likely Jain-friendly",
+    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+    ariaPrefix: "Likely Jain-friendly:",
+  },
+  YELLOW:  {
+    label: "Contains Jain-restricted vegetables",
+    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    ariaPrefix: "Contains Jain-restricted vegetables:",
+  },
+  ORANGE:  {
+    label: "Needs verification",
+    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    ariaPrefix: "Needs verification:",
+  },
+  RED:     {
+    label: "Not Jain-friendly",
+    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    ariaPrefix: "Not Jain-friendly:",
+  },
+  UNKNOWN: {
+    label: "Not enough data",
+    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+    ariaPrefix: "Not enough data:",
+  },
 };
+
+const INGREDIENT_GROUP_META = {
+  RED:    { label: "Not Jain-friendly",                reason: "Clearly not Jain-friendly ingredient" },
+  ORANGE: { label: "Needs verification",               reason: "May be animal-derived or ambiguous" },
+  YELLOW: { label: "Jain-restricted vegetables",       reason: "Onion, garlic, or root vegetable" },
+  GREEN:  { label: "Allowed / no concern found",       reason: "No Jain concern detected" },
+};
+
+const MESSAGES = {
+  invalidBarcode:   "Enter a 12-digit UPC or 13-digit EAN barcode.",
+  network:          "We couldn't reach the server. Please check your connection and try again.",
+  timeout:          "This request took too long. Please try again.",
+  cameraPermission: "We couldn't access your camera. Enable camera permission in your browser settings for this site, or enter the barcode manually.",
+  cameraUnsupported:"Camera scanning isn't supported in this browser. Please enter the barcode manually.",
+  scannerStalled:   "The scan was captured but the lookup stalled. Please try again.",
+  genericError:     "Something went wrong. Please try again.",
+};
+
+// ─── DOM References ───────────────────────────────────────────────────────────
 
 const el = {
-  newScanBtn: document.getElementById("newScanBtn"),
-  torchBtn: document.getElementById("torchBtn"),
-  videoWrap: document.getElementById("videoWrap") || document.querySelector(".video-wrap"),
-  video: document.getElementById("videoPreview"),
-  scanStatus: document.getElementById("scanStatus"),
-  progressWrap: document.getElementById("progressWrap"),
-  progressText: document.getElementById("progressText"),
-  messageBox: document.getElementById("messageBox"),
-  manualForm: document.getElementById("manualForm"),
-  manualInput: document.getElementById("manualBarcode"),
-  manualHelp: document.getElementById("manualHelp"),
-  checkBtn: document.getElementById("checkBtn"),
-  resultSection: document.getElementById("resultSection"),
-  verdictCard: document.getElementById("verdictCard"),
-  statusLabel: document.getElementById("statusLabel"),
-  explainText: document.getElementById("explainText"),
-  confidenceText: document.getElementById("confidenceText"),
-  reasonChips: document.getElementById("reasonChips"),
-  savedNote: document.getElementById("savedNote"),
-  reportIssueLink: document.getElementById("reportIssueLink"),
-  ingredientsPanel: document.getElementById("ingredientsPanel"),
-  ingredientsText: document.getElementById("ingredientsText"),
+  // Scan card
+  startCameraBtn:    document.getElementById("startCameraBtn"),
+  stopCameraBtn:     document.getElementById("stopCameraBtn"),
+  cameraArea:        document.getElementById("cameraArea"),
+  scanTriggerArea:   document.getElementById("scanTriggerArea"),
+  cameraBlockedMsg:  document.getElementById("cameraBlockedMsg"),
+  videoWrap:         document.getElementById("videoWrap"),
+  video:             document.getElementById("videoPreview"),
+  torchBtn:          document.getElementById("torchBtn"),
+  scanStatus:        document.getElementById("scanStatus"),
+  progressWrap:      document.getElementById("progressWrap"),
+  progressText:      document.getElementById("progressText"),
+  messageBox:        document.getElementById("messageBox"),
+  manualForm:        document.getElementById("manualForm"),
+  manualInput:       document.getElementById("manualBarcode"),
+  manualHelp:        document.getElementById("manualHelp"),
+  checkBtn:          document.getElementById("checkBtn"),
+  newScanBtn:        document.getElementById("newScanBtn"),
+
+  // Result card
+  resultSection:     document.getElementById("resultSection"),
+  verdictCard:       document.getElementById("verdictCard"),
+  verdictBadge:      document.getElementById("verdictBadge"),
+  verdictIcon:       document.getElementById("verdictIcon"),
+  statusLabel:       document.getElementById("statusLabel"),
+  explainText:       document.getElementById("explainText"),
+  confidenceText:    document.getElementById("confidenceText"),
+  dataSourceText:    document.getElementById("dataSourceText"),
+  productDetails:    document.getElementById("productDetails"),
+  productNameText:   document.getElementById("productNameText"),
+  brandText:         document.getElementById("brandText"),
+  barcodeInfo:       document.getElementById("barcodeInfo"),
+  freshnessText:     document.getElementById("freshnessText"),
+  reasonChips:       document.getElementById("reasonChips"),
+  savedNote:         document.getElementById("savedNote"),
+  reportIssueBtn:    document.getElementById("reportIssueBtn"),
+  notFoundState:     document.getElementById("notFoundState"),
   ingredientSection: document.getElementById("ingredientSection"),
-  ingredientRows: document.getElementById("ingredientRows"),
-  barcodeInfo: document.getElementById("barcodeInfo"),
+  ingredientsText:   document.getElementById("ingredientsText"),
+  ingredientRows:    document.getElementById("ingredientRows"),
+
+  // Modals
+  reportModal:       document.getElementById("reportModal"),
+  reportForm:        document.getElementById("reportForm"),
+  reportBarcode:     document.getElementById("reportBarcode"),
+  reportWrong:       document.getElementById("reportWrong"),
+  reportIngredients: document.getElementById("reportIngredients"),
+  reportEmail:       document.getElementById("reportEmail"),
+  reportFormMsg:     document.getElementById("reportFormMsg"),
+  reportSubmitBtn:   document.getElementById("reportSubmitBtn"),
+
+  missingModal:      document.getElementById("missingModal"),
+  missingForm:       document.getElementById("missingForm"),
+  missingBarcode:    document.getElementById("missingBarcode"),
+  missingName:       document.getElementById("missingName"),
+  missingBrand:      document.getElementById("missingBrand"),
+  missingIngredients:document.getElementById("missingIngredients"),
+  missingEmail:      document.getElementById("missingEmail"),
+  missingFormMsg:    document.getElementById("missingFormMsg"),
+  missingSubmitBtn:  document.getElementById("missingSubmitBtn"),
 };
+
+// ─── State ────────────────────────────────────────────────────────────────────
 
 const state = {
-  controls: null,
-  reader: null,
-  lastScanAt: 0,
-  lastBarcode: "",
-  pendingBarcode: "",   // barcode waiting for 2nd consecutive confirmation
-  pendingCount: 0,
-  inFlight: false,
-  scanLocked: false,
-  requestId: 0,
-  verdictFailsafeTimer: null,
-  torchOn: false,
+  reader:              null,
+  controls:            null,
+  torchOn:             false,
+  inFlight:            false,
+  scanLocked:          false,
+  requestId:           0,
+  verdictFailsafeTimer:null,
+  lastBarcode:         "",
+  lastScanAt:          0,
+  pendingBarcode:      "",
+  pendingCount:        0,
+  currentBarcode:      "",   // barcode shown in result card
 };
 
-function defaultApiBaseUrl() {
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") {
-    return DEFAULTS.devApi;
-  }
-  return DEFAULTS.prodApi;
-}
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
-function getApiBaseUrl() {
-  return defaultApiBaseUrl();
-}
+function onlyDigits(v) { return (v || "").replace(/\D/g, ""); }
 
-function getApiBaseCandidates() {
-  const candidates = [];
-  const add = (value) => {
-    const cleaned = (value || "").trim().replace(/\/+$/, "");
-    if (!cleaned || candidates.includes(cleaned)) return;
-    candidates.push(cleaned);
-  };
-
-  const defaultBase = getApiBaseUrl();
-  add(defaultBase);
-
-  if (defaultBase === "http://localhost:8000") {
-    add("http://127.0.0.1:8000");
-  }
-  if (defaultBase === "http://127.0.0.1:8000") {
-    add("http://localhost:8000");
-  }
-
-  return candidates;
-}
-
-function makeFallbackId() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = Math.floor(Math.random() * 16);
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+function getApiBase() {
+  const h = window.location.hostname;
+  return (h === "localhost" || h === "127.0.0.1") ? API_BASE_DEV : API_BASE_PROD;
 }
 
 function getClientId() {
-  const existing = localStorage.getItem(STORAGE_KEYS.clientId);
-  if (existing) return existing;
-  const id = window.crypto?.randomUUID ? window.crypto.randomUUID() : makeFallbackId();
-  localStorage.setItem(STORAGE_KEYS.clientId, id);
+  const KEY = "JAIN_CLIENT_ID";
+  let id = localStorage.getItem(KEY);
+  if (!id) {
+    id = (window.crypto?.randomUUID?.()) ||
+      "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+        const r = Math.floor(Math.random() * 16);
+        return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+      });
+    localStorage.setItem(KEY, id);
+  }
   return id;
 }
 
-function onlyDigits(value) {
-  return (value || "").replace(/\D/g, "");
-}
-
-function showNewScanButton(show) {
-  if (!el.newScanBtn) return;
-  el.newScanBtn.classList.toggle("hidden", !show);
-}
-
-function showCameraPanel(show) {
-  if (!el.videoWrap) return;
-  el.videoWrap.classList.toggle("hidden", !show);
-}
-
-function setLoading(active, text = "Looking up product details...") {
-  el.progressWrap.classList.toggle("hidden", !active);
-  el.progressText.textContent = text;
-  if (el.checkBtn) {
-    el.checkBtn.disabled = active || !isManualBarcodeValid();
+async function fetchWithTimeout(url, options, ms) {
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(tid);
   }
+}
+
+// ─── UI helpers ──────────────────────────────────────────────────────────────
+
+function show(el)  { el?.classList.remove("hidden"); }
+function hide(el)  { el?.classList.add("hidden"); }
+function toggle(el, on) { el?.classList.toggle("hidden", !on); }
+
+function setLoading(active, text = "Looking up product…") {
+  toggle(el.progressWrap, active);
+  el.progressText.textContent = text;
+  if (el.checkBtn) el.checkBtn.disabled = active || !isManualValid();
 }
 
 function clearMessage() {
-  el.messageBox.className = "message-box hidden";
+  el.messageBox.className = "notice hidden";
   el.messageBox.innerHTML = "";
 }
 
-function showMessage({ title, message, variant = "info", extraHtml = "" }) {
-  el.messageBox.className = variant === "error" ? "message-box message-error" : "message-box";
-  el.messageBox.textContent = "";
-  if (title) {
-    const h = document.createElement("h3");
-    h.textContent = title;
-    el.messageBox.appendChild(h);
-  }
-  if (message) {
-    const p = document.createElement("p");
-    p.textContent = message;
-    el.messageBox.appendChild(p);
-  }
-  if (extraHtml) {
-    const div = document.createElement("div");
-    div.innerHTML = extraHtml; // static trusted markup (e.g. upgrade button)
-    el.messageBox.appendChild(div);
-  }
-  el.messageBox.classList.remove("hidden");
-}
+function showMessage({ message, variant = "info" }) {
+  el.messageBox.className = `notice notice-${variant}`;
 
-function setSavedBanner(text) {
-  el.savedNote.textContent = text || "";
-}
+  const iconMap = {
+    error: `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    warn:  `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    info:  `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  };
 
-function showReportIssue(show) {
-  el.reportIssueLink.classList.toggle("hidden", !show);
+  el.messageBox.innerHTML = `${iconMap[variant] || iconMap.info}<div><p>${message}</p></div>`;
+  show(el.messageBox);
 }
 
 function hideResult() {
-  el.resultSection.classList.add("hidden");
-  el.ingredientSection.classList.add("hidden");
-  el.ingredientsPanel.classList.add("hidden");
-  el.reasonChips.classList.remove("hidden");
+  hide(el.resultSection);
+  hide(el.notFoundState);
+  hide(el.ingredientSection);
+  hide(el.productDetails);
+  hide(el.reportIssueBtn);
   el.reasonChips.innerHTML = "";
-  showReportIssue(false);
-  setSavedBanner("");
+  el.savedNote.textContent = "";
 }
 
-function clearVerdictFailsafe() {
-  if (state.verdictFailsafeTimer) {
-    window.clearTimeout(state.verdictFailsafeTimer);
-    state.verdictFailsafeTimer = null;
-  }
+// ─── Manual input validation ─────────────────────────────────────────────────
+
+function isManualValid() {
+  const d = onlyDigits(el.manualInput.value);
+  return d.length === 12 || d.length === 13;
 }
 
-function startVerdictFailsafe(requestId) {
-  clearVerdictFailsafe();
-  state.verdictFailsafeTimer = window.setTimeout(() => {
-    if (requestId !== state.requestId || !state.inFlight) return;
-    state.inFlight = false;
-    renderGenericError(FRIENDLY_MESSAGES.scannerStalled);
-    el.scanStatus.textContent = "Lookup stalled.";
-  }, VERDICT_FAILSAFE_MS);
-}
-
-function presentOutcome() {
-  stopScanning();
-  clearVerdictFailsafe();
-  setLoading(false);
-  showCameraPanel(false);
-  showNewScanButton(true);
-  updateManualInputState();
-}
-
-function isManualBarcodeValid() {
-  const digits = onlyDigits(el.manualInput.value);
-  return digits.length === 12 || digits.length === 13;
-}
-
-function updateManualInputState() {
+function updateManualState() {
   const raw = el.manualInput.value;
-  const allDigits = onlyDigits(raw);
-  const hadNonNumeric = raw !== allDigits;
+  const digits = onlyDigits(raw);
+  const hadNonNumeric = raw !== digits;
 
-  // Strip non-digits but don't truncate — show an explicit error for >13
-  el.manualInput.value = allDigits;
+  el.manualInput.value = digits;
 
-  let helpText = "Enter 12 or 13 digits.";
+  let help = "Enter a 12-digit UPC or 13-digit EAN barcode.";
   let isError = false;
 
   if (hadNonNumeric) {
-    helpText = "Only numbers are allowed.";
+    help = "Only numbers are allowed. Spaces and hyphens are removed automatically.";
     isError = true;
-  } else if (allDigits.length > 13) {
-    helpText = `Too many digits (${allDigits.length}). Barcodes are 12 or 13 digits.`;
+  } else if (digits.length > 13) {
+    help = `Too many digits (${digits.length}). Barcodes are 12 or 13 digits.`;
     isError = true;
-  } else if (allDigits.length > 0 && allDigits.length < 12) {
-    helpText = `Enter ${12 - allDigits.length} more digit${12 - allDigits.length === 1 ? "" : "s"}.`;
-    isError = true;
-  } else if (allDigits.length === 12) {
-    helpText = "UPC-A detected (12 digits).";
-  } else if (allDigits.length === 13) {
-    helpText = "EAN-13 detected (13 digits).";
+  } else if (digits.length > 0 && digits.length < 12) {
+    const need = 12 - digits.length;
+    help = `Enter ${need} more digit${need === 1 ? "" : "s"} (need 12 or 13 total).`;
+    isError = false; // not an error, just incomplete
+  } else if (digits.length === 12) {
+    help = "UPC-A detected — 12 digits. ✓";
+  } else if (digits.length === 13) {
+    help = "EAN-13 detected — 13 digits. ✓";
   }
 
-  el.manualHelp.textContent = helpText;
-  el.manualHelp.classList.toggle("field-help-error", isError && allDigits.length > 0);
+  el.manualHelp.textContent = help;
+  el.manualHelp.classList.toggle("field-help-error", isError && digits.length > 0);
   el.manualInput.setAttribute("aria-invalid", isError ? "true" : "false");
-  if (el.checkBtn) {
-    el.checkBtn.disabled = !isManualBarcodeValid() || state.inFlight;
-  }
+  if (el.checkBtn) el.checkBtn.disabled = !isManualValid() || state.inFlight;
 
-  return isManualBarcodeValid();
+  return isManualValid();
 }
+
+// ─── Verdict failsafe ─────────────────────────────────────────────────────────
+
+function clearFailsafe() {
+  if (state.verdictFailsafeTimer) { clearTimeout(state.verdictFailsafeTimer); state.verdictFailsafeTimer = null; }
+}
+
+function startFailsafe(reqId) {
+  clearFailsafe();
+  state.verdictFailsafeTimer = setTimeout(() => {
+    if (reqId !== state.requestId || !state.inFlight) return;
+    state.inFlight = false;
+    renderError(MESSAGES.scannerStalled);
+    el.scanStatus.textContent = "Lookup stalled — please try again.";
+  }, VERDICT_FAILSAFE_MS);
+}
+
+// ─── Result rendering ─────────────────────────────────────────────────────────
 
 function renderIngredientRows(categories) {
   el.ingredientRows.innerHTML = "";
+  const order = ["RED", "ORANGE", "YELLOW", "GREEN"];
 
-  INGREDIENT_ROW_ORDER.forEach((level) => {
-    const row = document.createElement("div");
-    row.className = "ingredient-row";
-    row.setAttribute("role", "listitem");
+  order.forEach(level => {
+    const items = Array.isArray(categories?.[level]) ? categories[level] : [];
+    const meta  = INGREDIENT_GROUP_META[level];
 
-    const meta = CATEGORY_META[level] || { label: level };
+    const group = document.createElement("div");
+    group.className = "ingredient-group";
+    group.setAttribute("role", "listitem");
+
+    const header = document.createElement("div");
+    header.className = "ingredient-group-header";
 
     const badge = document.createElement("span");
-    badge.className = `ingredient-badge ingredient-badge-${level}`;
-    badge.textContent = `${level} - ${meta.label}`;
-    badge.setAttribute("aria-label", `${level}: ${meta.label}`);
+    badge.className = `ingredient-group-badge badge-${level}`;
+    badge.textContent = meta.label;
+    badge.setAttribute("aria-label", `${meta.label} — ${items.length} ingredient${items.length === 1 ? "" : "s"}`);
 
-    const items = Array.isArray(categories?.[level]) ? categories[level] : [];
+    const count = document.createElement("span");
+    count.className = "ingredient-group-count";
+    count.textContent = items.length > 0 ? `${items.length} found` : "None";
 
-    const value = document.createElement("div");
-    value.className = "ingredient-values";
-    value.textContent = items.length > 0 ? items.join(", ") : "-";
+    header.appendChild(badge);
+    header.appendChild(count);
+    group.appendChild(header);
 
-    row.appendChild(badge);
-    row.appendChild(value);
-    el.ingredientRows.appendChild(row);
+    if (items.length > 0) {
+      const itemsEl = document.createElement("div");
+      itemsEl.className = "ingredient-items";
+      items.forEach(name => {
+        const row = document.createElement("div");
+        row.className = "ingredient-item";
+        const nameEl = document.createElement("span");
+        nameEl.className = "ingredient-name";
+        nameEl.textContent = name;
+        const reasonEl = document.createElement("span");
+        reasonEl.className = "ingredient-reason";
+        reasonEl.textContent = meta.reason;
+        row.appendChild(nameEl);
+        row.appendChild(reasonEl);
+        itemsEl.appendChild(row);
+      });
+      group.appendChild(itemsEl);
+    }
+
+    el.ingredientRows.appendChild(group);
   });
 }
 
 function renderResult(data) {
   clearMessage();
   setLoading(false);
+  hideResult();
 
-  const status = STATUS_COLORS.includes(data.status) ? data.status : "UNKNOWN";
-  el.resultSection.classList.remove("hidden");
-  el.ingredientSection.classList.remove("hidden");
-  el.ingredientsPanel.classList.remove("hidden");
+  const status = STATUS_META[data.status] ? data.status : "UNKNOWN";
+  const meta   = STATUS_META[status];
+  state.currentBarcode = data.barcode || "";
 
-  el.verdictCard.className = "verdict";
-  el.verdictCard.classList.add(`verdict-${status}`);
-  el.statusLabel.textContent = status;
+  // Verdict block
+  show(el.resultSection);
+  el.verdictCard.className = `verdict verdict-${status}`;
+  el.verdictCard.setAttribute("aria-label", `${meta.ariaPrefix} ${data.explain || ""}`);
+  el.verdictIcon.innerHTML  = meta.icon;
+  el.statusLabel.textContent = meta.label;
   el.explainText.textContent = data.explain || "No explanation available.";
-  el.confidenceText.textContent = `Verdict: ${status} | Confidence: ${data.confidence || "--"}`;
 
-  el.reasonChips.innerHTML = "";
+  // Confidence
+  const conf = (data.confidence || "").toLowerCase();
+  el.confidenceText.textContent = conf ? `Confidence: ${capitalize(conf)}` : "";
+  el.confidenceText.className = `confidence-chip${conf === "high" ? " conf-high" : conf === "medium" ? " conf-medium" : conf === "low" ? " conf-low" : ""}`;
+  el.dataSourceText.textContent = "Based on ingredient text in available product data";
+
+  // Product metadata
+  if (data.product_name || data.brand) {
+    show(el.productDetails);
+    el.productNameText.textContent = data.product_name || "Product name unknown";
+    el.brandText.textContent       = data.brand ? `Brand: ${data.brand}` : "";
+    el.barcodeInfo.textContent     = `Barcode: ${data.barcode || "—"}  ·  Profile: ${data.profile || "jain"}`;
+    el.freshnessText.textContent   = data.last_updated
+      ? `Data last updated: ${new Date(data.last_updated).toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" })}`
+      : "Data freshness unknown — verify label directly";
+  }
+
+  // Reason chips
   const reasons = Array.isArray(data.reasons) ? data.reasons : [];
-  if (reasons.length > 0) {
-    el.reasonChips.classList.remove("hidden");
-    reasons.forEach((reason) => {
-      const chip = document.createElement("span");
-      chip.className = "chip";
-      chip.textContent = reason;
-      el.reasonChips.appendChild(chip);
-    });
-  } else {
-    el.reasonChips.classList.add("hidden");
-  }
+  el.reasonChips.innerHTML = "";
+  reasons.forEach(r => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.setAttribute("role", "listitem");
+    chip.textContent = r;
+    el.reasonChips.appendChild(chip);
+  });
 
-  setSavedBanner(data.saved ? "Saved for future scans" : "");
-  showReportIssue(true);
+  // Saved banner
+  el.savedNote.textContent = data.saved ? "✓ Saved for future scans" : "";
 
-  el.ingredientsText.textContent = data.ingredients_text || "Ingredients not available.";
+  // Report link
+  show(el.reportIssueBtn);
+
+  // Ingredients
+  show(el.ingredientSection);
+  el.ingredientsText.textContent = data.ingredients_text || "Ingredient text not available.";
   renderIngredientRows(data.ingredient_categories);
-  const productName = data.product_name ? `Product: ${data.product_name}` : "Product: Unknown";
-  const brand = data.brand ? `Brand: ${data.brand}` : "Brand: Unknown";
-  el.barcodeInfo.textContent = `${productName} | ${brand} | Matched barcode: ${data.barcode} | Profile: ${data.profile}`;
+
   presentOutcome();
 }
 
-function renderNotFound(_errorJson, requestedBarcode) {
-  hideResult();
+function renderNotFound(barcode) {
+  clearMessage();
   setLoading(false);
-
-  showMessage({
-    title: "Product not found",
-    message: `No verdict is available yet for barcode ${onlyDigits(requestedBarcode)} in the current dataset.`,
-    variant: "error",
-  });
-
-  presentOutcome();
-}
-
-function renderRateLimit(errorJson) {
   hideResult();
-  setLoading(false);
 
-  const limit = errorJson?.limit ?? "?";
-  const count = errorJson?.count ?? "?";
-  const reset = errorJson?.reset ?? "unknown";
+  state.currentBarcode = barcode;
+  show(el.resultSection);
+  el.verdictCard.className = "verdict verdict-UNKNOWN";
+  el.verdictIcon.innerHTML  = STATUS_META.UNKNOWN.icon;
+  el.statusLabel.textContent = STATUS_META.UNKNOWN.label;
+  el.explainText.textContent = "";
+  el.confidenceText.textContent = "";
+  el.dataSourceText.textContent = "";
 
-  showMessage({
-    title: "Daily limit reached",
-    message: `You've used ${count} of ${limit} free requests today. Your limit resets on ${reset}.`,
-    variant: "error",
-    extraHtml: `
-      <div class="message-actions">
-        <button type="button" id="upgradeBtn">Upgrade</button>
-      </div>
-    `,
-  });
+  el.barcodeInfo.textContent = `Barcode searched: ${barcode}`;
+  show(el.productDetails);
+  el.productNameText.textContent = "";
+  el.brandText.textContent = "";
+  el.freshnessText.textContent = "";
 
-  document.getElementById("upgradeBtn")?.addEventListener("click", () => {
-    window.open("mailto:hello@swapncore.com?subject=JainScan%20upgrade", "_blank");
-  });
+  show(el.notFoundState);
+  // Pre-fill missing modal
+  if (el.missingBarcode) el.missingBarcode.value = barcode;
 
   presentOutcome();
 }
 
-function renderGenericError(message) {
+function renderRateLimit(data) {
+  clearMessage();
+  setLoading(false);
   hideResult();
-  setLoading(false);
+  const limit = data?.limit ?? "?";
+  const count = data?.count ?? "?";
+  const reset = data?.reset ?? "unknown";
   showMessage({
-    title: "Something went wrong",
-    message: message || FRIENDLY_MESSAGES.network,
-    variant: "error",
+    variant: "warn",
+    message: `You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact <a href="mailto:hello@swapncore.com">hello@swapncore.com</a> to request an increase.`,
   });
   presentOutcome();
 }
 
-async function fetchWithTimeout(url, options, timeoutMs) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...options, signal: controller.signal });
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
+function renderError(message) {
+  clearMessage();
+  setLoading(false);
+  hideResult();
+  showMessage({ variant: "error", message: message || MESSAGES.genericError });
+  presentOutcome();
 }
+
+function presentOutcome() {
+  stopScanning();
+  clearFailsafe();
+  setLoading(false);
+  hide(el.cameraArea);
+  hide(el.scanTriggerArea);
+  show(el.newScanBtn);
+  updateManualState();
+}
+
+function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ""; }
+
+// ─── Network ──────────────────────────────────────────────────────────────────
 
 async function fetchVerdict(rawBarcode) {
   const barcode = onlyDigits(rawBarcode);
-  if (!(barcode.length === 12 || barcode.length === 13)) {
-    updateManualInputState();
-    showMessage({
-      title: "Barcode needed",
-      message: FRIENDLY_MESSAGES.invalidBarcode,
-      variant: "error",
-    });
-    hideResult();
+  if (barcode.length !== 12 && barcode.length !== 13) {
+    updateManualState();
+    showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
     return;
   }
 
-  const requestId = ++state.requestId;
-  state.inFlight = true;
+  const reqId = ++state.requestId;
+  state.inFlight  = true;
   state.scanLocked = true;
 
   clearMessage();
   hideResult();
   setLoading(true, `Looking up barcode ${barcode}…`);
-  el.scanStatus.textContent = `Looking up ${barcode}…`;
-  startVerdictFailsafe(requestId);
+  el.scanStatus && (el.scanStatus.textContent = `Looking up ${barcode}…`);
+  startFailsafe(reqId);
 
   try {
-    const candidates = getApiBaseCandidates();
-    let sawTimeout = false;
+    const url = new URL(`${getApiBase()}/v1/verdict`);
+    url.searchParams.set("barcode", barcode);
+    url.searchParams.set("profile", "jain");
 
-    for (const baseUrl of candidates) {
-      if (requestId !== state.requestId) return;
-
-      const url = new URL(`${baseUrl}/v1/verdict`);
-      url.searchParams.set("barcode", barcode);
-      url.searchParams.set("profile", "jain");
-
-      let response;
-      try {
-        response = await fetchWithTimeout(
-          url.toString(),
-          {
-            method: "GET",
-            headers: {
-              "X-Client-Id": getClientId(),
-            },
-          },
-          REQUEST_TIMEOUT_MS,
-        );
-      } catch (err) {
-        if (requestId !== state.requestId) return;
-        if (err?.name === "AbortError") {
-          sawTimeout = true;
-        }
-        continue;
-      }
-
-      if (requestId !== state.requestId) return;
-
-      const data = await response.json().catch(() => ({}));
-      if (requestId !== state.requestId) return;
-
-      if (response.ok) {
-        renderResult(data);
-        el.scanStatus.textContent = `Scan complete: ${barcode}`;
-        return;
-      }
-
-      if (response.status === 404 && data.error === "NOT_FOUND") {
-        renderNotFound(data, barcode);
-        el.scanStatus.textContent = `No result yet for ${barcode}`;
-        return;
-      }
-
-      if (response.status === 429 && data.error === "RATE_LIMIT") {
-        renderRateLimit(data);
-        el.scanStatus.textContent = "Daily limit reached.";
-        return;
-      }
-
-      if (response.status >= 500 && response.status <= 599) {
-        continue;
-      }
-
-      renderGenericError(FRIENDLY_MESSAGES.network);
-      el.scanStatus.textContent = "Lookup failed.";
+    let resp;
+    try {
+      resp = await fetchWithTimeout(url.toString(), {
+        method: "GET",
+        headers: { "X-Client-Id": getClientId() },
+      }, REQUEST_TIMEOUT_MS);
+    } catch (err) {
+      if (reqId !== state.requestId) return;
+      renderError(err?.name === "AbortError" ? MESSAGES.timeout : MESSAGES.network);
+      el.scanStatus && (el.scanStatus.textContent = err?.name === "AbortError" ? "Request timed out." : "Network error.");
       return;
     }
 
-    if (requestId !== state.requestId) return;
-    if (sawTimeout) {
-      renderGenericError(FRIENDLY_MESSAGES.timeout);
-      el.scanStatus.textContent = "Lookup timed out.";
-    } else {
-      renderGenericError(FRIENDLY_MESSAGES.network);
-      el.scanStatus.textContent = "Network issue.";
+    if (reqId !== state.requestId) return;
+    const data = await resp.json().catch(() => ({}));
+    if (reqId !== state.requestId) return;
+
+    if (resp.ok) {
+      renderResult(data);
+      el.scanStatus && (el.scanStatus.textContent = `Scan complete: ${barcode}`);
+      if (el.reportBarcode) el.reportBarcode.value = barcode;
+      return;
     }
+
+    if (resp.status === 404 && data.error === "NOT_FOUND") {
+      renderNotFound(barcode);
+      el.scanStatus && (el.scanStatus.textContent = `Barcode ${barcode} not found in dataset.`);
+      return;
+    }
+
+    if (resp.status === 429 && data.error === "RATE_LIMIT") {
+      renderRateLimit(data);
+      el.scanStatus && (el.scanStatus.textContent = "Daily lookup limit reached.");
+      return;
+    }
+
+    renderError(MESSAGES.network);
+    el.scanStatus && (el.scanStatus.textContent = "Lookup failed.");
+
   } catch {
-    if (requestId !== state.requestId) return;
-    renderGenericError(FRIENDLY_MESSAGES.network);
-    el.scanStatus.textContent = "Network issue.";
+    if (reqId !== state.requestId) return;
+    renderError(MESSAGES.network);
   } finally {
-    if (requestId === state.requestId) {
-      clearVerdictFailsafe();
-      state.inFlight = false;
+    if (reqId === state.requestId) {
+      clearFailsafe();
+      state.inFlight  = false;
       state.scanLocked = false;
       setLoading(false);
-      updateManualInputState();
+      updateManualState();
     }
   }
 }
 
-async function pickBackCameraDeviceId() {
-  if (!navigator.mediaDevices?.enumerateDevices) {
-    return null;
-  }
+// ─── Camera ───────────────────────────────────────────────────────────────────
 
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videos = devices.filter((device) => device.kind === "videoinput");
-    if (videos.length === 0) return null;
-    const preferred = videos.find((device) => /back|rear|environment/i.test(device.label || ""));
-    return (preferred || videos[0]).deviceId || null;
-  } catch {
-    return null;
-  }
-}
-
-function onDecodedText(decodedText) {
+function onDecodedText(text) {
   if (state.scanLocked || state.inFlight) return;
+  const digits = onlyDigits(text);
+  if (digits.length !== 12 && digits.length !== 13) return;
 
-  const digits = onlyDigits(decodedText);
   const now = Date.now();
+  if (digits === state.lastBarcode && now - state.lastScanAt < 2200) return;
 
-  if (!(digits.length === 12 || digits.length === 13)) {
-    return;
-  }
-
-  // Don't re-trigger for the same barcode within the cooldown window
-  if (digits === state.lastBarcode && now - state.lastScanAt < 2200) {
-    return;
-  }
-
-  // Require 3 consecutive reads of the same barcode before firing.
-  // This filters single-frame and double-frame misreads without noticeable delay
-  // (scan attempts fire every 100ms, so 3 confirmations takes ~200ms at most).
+  // Require 2 consecutive identical reads — filters single-frame misreads
   if (digits !== state.pendingBarcode) {
     state.pendingBarcode = digits;
-    state.pendingCount = 1;
-    el.scanStatus.textContent = `Detected ${digits} — confirming…`;
+    state.pendingCount   = 1;
+    el.scanStatus && (el.scanStatus.textContent = `Detected ${digits} — confirming…`);
     return;
   }
   state.pendingCount++;
-  if (state.pendingCount < 3) {
-    return;
-  }
+  if (state.pendingCount < 2) return;
 
-  // Confirmed — reset pending and proceed
   state.pendingBarcode = "";
-  state.pendingCount = 0;
-  state.lastBarcode = digits;
-  state.lastScanAt = now;
-  state.scanLocked = true;
+  state.pendingCount   = 0;
+  state.lastBarcode    = digits;
+  state.lastScanAt     = now;
+  state.scanLocked     = true;
 
-  el.scanStatus.textContent = `Barcode ${digits} confirmed.`;
-  fetchVerdict(digits).catch(() => {
-    renderGenericError(FRIENDLY_MESSAGES.network);
-    el.scanStatus.textContent = "Lookup failed.";
-  });
+  el.scanStatus && (el.scanStatus.textContent = `Barcode ${digits} confirmed — looking up…`);
+  fetchVerdict(digits).catch(() => renderError(MESSAGES.network));
+}
+
+async function pickBackCamera() {
+  if (!navigator.mediaDevices?.enumerateDevices) return null;
+  try {
+    const devs  = await navigator.mediaDevices.enumerateDevices();
+    const vids  = devs.filter(d => d.kind === "videoinput");
+    const back  = vids.find(d => /back|rear|environment/i.test(d.label || ""));
+    return (back || vids[0])?.deviceId || null;
+  } catch { return null; }
 }
 
 function getActiveTrack() {
-  return el.video.srcObject?.getVideoTracks?.()[0] ?? null;
+  return el.video?.srcObject?.getVideoTracks?.()[0] ?? null;
 }
 
 async function setupTorch() {
@@ -563,7 +569,7 @@ async function setupTorch() {
   if (!track) return;
   const caps = track.getCapabilities?.();
   if (!caps?.torch) return;
-  el.torchBtn.classList.remove("hidden");
+  show(el.torchBtn);
   state.torchOn = false;
 }
 
@@ -575,32 +581,30 @@ async function applyTorch(on) {
     state.torchOn = on;
     el.torchBtn.classList.toggle("torch-on", on);
   } catch {
-    // Torch not supported on this device — hide button
-    el.torchBtn.classList.add("hidden");
+    hide(el.torchBtn);
   }
 }
 
 function resetTorch() {
   state.torchOn = false;
-  el.torchBtn.classList.add("hidden");
-  el.torchBtn.classList.remove("torch-on");
+  hide(el.torchBtn);
+  el.torchBtn?.classList.remove("torch-on");
 }
 
 async function startScanning() {
   if (state.controls) return;
 
-  clearMessage();
-  hideResult();
-  setLoading(false);
-
   if (!navigator.mediaDevices?.getUserMedia) {
-    renderGenericError(FRIENDLY_MESSAGES.cameraUnsupported);
-    el.scanStatus.textContent = "Camera not available.";
+    hide(el.cameraArea);
+    show(el.cameraBlockedMsg);
     return;
   }
 
-  showNewScanButton(false);
-  showCameraPanel(true);
+  clearMessage();
+  hide(el.cameraBlockedMsg);
+  hide(el.newScanBtn);
+  show(el.cameraArea);
+  hide(el.scanTriggerArea);
   state.scanLocked = false;
 
   const hints = new Map();
@@ -608,129 +612,241 @@ async function startScanning() {
   hints.set(DecodeHintType.TRY_HARDER, true);
 
   state.reader = new BrowserMultiFormatReader(hints, {
-    delayBetweenScanAttempts: 100,
+    delayBetweenScanAttempts: 50,
     delayBetweenScanSuccess: 600,
   });
 
+  const onResult = r => { if (r) onDecodedText(r.getText()); };
+
   try {
-    const onResult = (result) => {
-      if (result) {
-        onDecodedText(result.getText());
-      }
-    };
-
-    const preferredDeviceId = await pickBackCameraDeviceId();
-
-    // Always use decodeFromConstraints so focusMode/resolution apply.
-    // Include deviceId when we found a back camera; fall back to facingMode only.
-    const videoConstraints = preferredDeviceId
-      ? { deviceId: { exact: preferredDeviceId }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    const deviceId = await pickBackCamera();
+    const videoConstraints = deviceId
+      ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
 
     try {
       state.controls = await state.reader.decodeFromConstraints(
-        { audio: false, video: videoConstraints },
-        el.video,
-        onResult,
-      );
+        { audio: false, video: videoConstraints }, el.video, onResult);
     } catch {
-      // Last-resort fallback: minimal constraints
       state.controls = await state.reader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: "environment" } } },
-        el.video,
-        onResult,
-      );
+        { audio: false, video: { facingMode: { ideal: "environment" } } }, el.video, onResult);
     }
 
     await setupTorch();
-    el.scanStatus.textContent = "Scanner is live. Point the barcode inside the guide.";
+    el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
   } catch {
-    renderGenericError(FRIENDLY_MESSAGES.cameraPermission);
+    hide(el.cameraArea);
+    show(el.cameraBlockedMsg);
+    show(el.scanTriggerArea);
+    show(el.newScanBtn);
     el.scanStatus.textContent = "Camera access needed.";
-    showNewScanButton(true);
   }
 }
 
 function stopScanning() {
   state.pendingBarcode = "";
-  state.pendingCount = 0;
+  state.pendingCount   = 0;
   resetTorch();
-
-  try {
-    if (state.controls) {
-      state.controls.stop();
-      state.controls = null;
-    }
-  } catch {
-    state.controls = null;
-  }
-
-  try {
-    if (state.reader) {
-      state.reader.reset();
-      state.reader = null;
-    }
-  } catch {
-    state.reader = null;
-  }
+  try { if (state.controls) { state.controls.stop(); state.controls = null; } } catch { state.controls = null; }
+  try { if (state.reader)   { state.reader.reset();   state.reader   = null; } } catch { state.reader   = null; }
 }
 
-function bindEvents() {
-  el.manualInput.addEventListener("input", updateManualInputState);
-  el.manualInput.addEventListener("blur", updateManualInputState);
+// ─── Modals ───────────────────────────────────────────────────────────────────
 
-  el.manualForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (!updateManualInputState()) {
-      showMessage({
-        title: "Barcode needed",
-        message: FRIENDLY_MESSAGES.invalidBarcode,
-        variant: "error",
-      });
-      hideResult();
+function openModal(modal) {
+  show(modal);
+  // Focus first focusable element
+  const first = modal.querySelector("button, input, textarea, select, a[href]");
+  first?.focus();
+}
+
+function closeModal(modal) {
+  hide(modal);
+  clearFormMsg(modal);
+}
+
+function clearFormMsg(modal) {
+  const msg = modal.querySelector(".form-msg");
+  if (msg) { msg.className = "form-msg hidden"; msg.textContent = ""; }
+}
+
+function showFormMsg(modal, message, type = "success") {
+  const msg = modal.querySelector(".form-msg");
+  if (!msg) return;
+  msg.className = `form-msg ${type}`;
+  msg.textContent = message;
+  show(msg);
+}
+
+function handleReportSubmit(e) {
+  e.preventDefault();
+  const wrong = el.reportWrong.value.trim();
+  if (!wrong) {
+    el.reportWrong.focus();
+    showFormMsg(el.reportModal, "Please describe what seems wrong.", "error");
+    return;
+  }
+
+  const subject = encodeURIComponent(`JainScan classification report — ${el.reportBarcode.value}`);
+  const body = encodeURIComponent(
+    `Barcode: ${el.reportBarcode.value}\n\nWhat seems wrong:\n${wrong}\n\n` +
+    (el.reportIngredients.value ? `Corrected ingredients:\n${el.reportIngredients.value}\n\n` : "") +
+    (el.reportEmail.value ? `Reply to: ${el.reportEmail.value}` : "")
+  );
+  window.open(`mailto:hello@swapncore.com?subject=${subject}&body=${body}`, "_blank");
+  showFormMsg(el.reportModal, "Thanks. Your report helps improve JainScan. You can close this window.", "success");
+  el.reportSubmitBtn.disabled = true;
+}
+
+function handleMissingSubmit(e) {
+  e.preventDefault();
+  const ingr = el.missingIngredients.value.trim();
+  if (!ingr) {
+    el.missingIngredients.focus();
+    showFormMsg(el.missingModal, "Please enter the ingredient text from the product label.", "error");
+    return;
+  }
+
+  const subject = encodeURIComponent(`JainScan missing product — ${el.missingBarcode.value}`);
+  const body = encodeURIComponent(
+    `Barcode: ${el.missingBarcode.value}\n` +
+    (el.missingName.value  ? `Product name: ${el.missingName.value}\n` : "") +
+    (el.missingBrand.value ? `Brand: ${el.missingBrand.value}\n` : "") +
+    `\nIngredient text:\n${ingr}\n\n` +
+    (el.missingEmail.value ? `Reply to: ${el.missingEmail.value}` : "")
+  );
+  window.open(`mailto:hello@swapncore.com?subject=${subject}&body=${body}`, "_blank");
+  showFormMsg(el.missingModal, "Thanks. Your submission helps improve JainScan.", "success");
+  el.missingSubmitBtn.disabled = true;
+}
+
+// ─── Event binding ────────────────────────────────────────────────────────────
+
+function bindEvents() {
+  // Manual input
+  el.manualInput.addEventListener("input",  updateManualState);
+  el.manualInput.addEventListener("blur",   updateManualState);
+  el.manualInput.addEventListener("paste",  () => setTimeout(updateManualState, 0));
+
+  // Manual form submit
+  el.manualForm.addEventListener("submit", e => {
+    e.preventDefault();
+    if (!updateManualState()) {
+      showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
       return;
     }
-
     stopScanning();
-    showCameraPanel(false);
+    hide(el.cameraArea);
     state.scanLocked = true;
     fetchVerdict(el.manualInput.value);
   });
 
-  el.newScanBtn.addEventListener("click", () => {
-    clearMessage();
+  // Camera start
+  el.startCameraBtn.addEventListener("click", () => {
     hideResult();
+    clearMessage();
     setLoading(false);
     startScanning();
   });
 
-  el.torchBtn?.addEventListener("click", () => {
-    applyTorch(!state.torchOn);
-  });
-
-  el.reportIssueLink?.addEventListener("click", (event) => {
-    event.preventDefault();
-    window.open("mailto:hello@swapncore.com?subject=JainScan%20verdict%20issue", "_blank");
-  });
-
-  window.addEventListener("beforeunload", () => {
+  // Camera stop
+  el.stopCameraBtn?.addEventListener("click", () => {
     stopScanning();
+    hide(el.cameraArea);
+    show(el.scanTriggerArea);
+    el.scanStatus && (el.scanStatus.textContent = "Camera stopped.");
   });
+
+  // New scan
+  el.newScanBtn.addEventListener("click", () => {
+    clearMessage();
+    hideResult();
+    setLoading(false);
+    hide(el.newScanBtn);
+    show(el.scanTriggerArea);
+    el.manualInput.value = "";
+    updateManualState();
+    el.manualInput.focus();
+  });
+
+  // Torch
+  el.torchBtn?.addEventListener("click", () => applyTorch(!state.torchOn));
+
+  // Report issue button (in result card)
+  el.reportIssueBtn?.addEventListener("click", () => {
+    if (el.reportBarcode) el.reportBarcode.value = state.currentBarcode;
+    el.reportWrong.value = "";
+    el.reportIngredients.value = "";
+    el.reportEmail.value = "";
+    el.reportSubmitBtn.disabled = false;
+    clearFormMsg(el.reportModal);
+    openModal(el.reportModal);
+  });
+
+  // Not found — report missing
+  document.getElementById("reportMissingBtn")?.addEventListener("click", () => {
+    if (el.missingBarcode) el.missingBarcode.value = state.currentBarcode;
+    el.missingName.value = "";
+    el.missingBrand.value = "";
+    el.missingIngredients.value = "";
+    el.missingEmail.value = "";
+    el.missingSubmitBtn.disabled = false;
+    clearFormMsg(el.missingModal);
+    openModal(el.missingModal);
+  });
+
+  // Not found — try another
+  document.getElementById("tryAnotherBtn")?.addEventListener("click", () => {
+    clearMessage();
+    hideResult();
+    hide(el.newScanBtn);
+    show(el.scanTriggerArea);
+    el.manualInput.value = "";
+    updateManualState();
+    el.manualInput.focus();
+  });
+
+  // Report modal
+  document.getElementById("reportModalClose")?.addEventListener("click", () => closeModal(el.reportModal));
+  document.getElementById("reportModalCancel")?.addEventListener("click", () => closeModal(el.reportModal));
+  el.reportForm?.addEventListener("submit", handleReportSubmit);
+
+  // Missing modal
+  document.getElementById("missingModalClose")?.addEventListener("click", () => closeModal(el.missingModal));
+  document.getElementById("missingModalCancel")?.addEventListener("click", () => closeModal(el.missingModal));
+  el.missingForm?.addEventListener("submit", handleMissingSubmit);
+
+  // Close modals on backdrop click
+  [el.reportModal, el.missingModal].forEach(modal => {
+    modal?.addEventListener("click", e => {
+      if (e.target === modal) closeModal(modal);
+    });
+  });
+
+  // Close modals on Escape
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      if (el.reportModal && !el.reportModal.classList.contains("hidden")) closeModal(el.reportModal);
+      if (el.missingModal && !el.missingModal.classList.contains("hidden")) closeModal(el.missingModal);
+    }
+  });
+
+  // Clean up camera on unload
+  window.addEventListener("beforeunload", stopScanning);
 }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 
 function init() {
   getClientId();
   bindEvents();
-  renderIngredientRows(null);
   hideResult();
   clearMessage();
-  setSavedBanner("");
-  showReportIssue(false);
-  showNewScanButton(false);
-  updateManualInputState();
-  el.scanStatus.textContent = "Starting camera...";
-
-  startScanning();
+  updateManualState();
+  hide(el.cameraArea);
+  hide(el.cameraBlockedMsg);
+  hide(el.newScanBtn);
+  show(el.scanTriggerArea);
 }
 
 init();

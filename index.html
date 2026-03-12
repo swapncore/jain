@@ -3,96 +3,380 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JainScan</title>
+    <title>JainScan — Jain Dietary Guidance</title>
+    <meta name="description" content="Scan a product barcode for informational Jain dietary guidance. Uses available ingredient data to flag possible Jain concerns." />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main class="app">
-      <header class="header">
-        <div class="header-bar">
-          <h1>JainScan</h1>
-        </div>
-        <p>Scan a product barcode to instantly check if it's Jain-safe.</p>
-        <div class="legend">
-          <span class="legend-item legend-GREEN">GREEN — Safe</span>
-          <span class="legend-item legend-YELLOW">YELLOW — Onion, garlic, root veg</span>
-          <span class="legend-item legend-ORANGE">ORANGE — Egg / ambiguous</span>
-          <span class="legend-item legend-RED">RED — Meat / forbidden</span>
-          <span class="legend-item legend-UNKNOWN">UNKNOWN — Not in database</span>
-        </div>
-      </header>
 
-      <section class="controls card">
-        <div id="videoWrap" class="video-wrap">
-          <video id="videoPreview" muted playsinline></video>
-          <div class="scan-overlay" aria-hidden="true">
-            <div class="scan-guide">
-              <span class="corner tl"></span>
-              <span class="corner tr"></span>
-              <span class="corner bl"></span>
-              <span class="corner br"></span>
+    <!-- ═══════════════════════════════════════════
+         HEADER
+    ═══════════════════════════════════════════ -->
+    <header class="site-header" role="banner">
+      <div class="header-inner">
+        <div class="header-brand">
+          <span class="header-logo" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+              <circle cx="14" cy="14" r="13" fill="#0b5b6f" />
+              <path d="M9 14.5l3.5 3.5 6.5-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <h1 class="header-title">JainScan</h1>
+        </div>
+        <nav class="header-nav" aria-label="Site navigation">
+          <a href="./howitworks.html" class="nav-link">How it works</a>
+          <a href="./disclaimer.html" class="nav-link">Disclaimer</a>
+          <a href="./privacy.html" class="nav-link">Privacy</a>
+        </nav>
+      </div>
+      <div class="header-sub">
+        <p class="header-subtitle">Scan a barcode for Jain dietary guidance.</p>
+        <p class="header-microcopy">Uses available ingredient data to flag possible Jain concerns. Always verify with the product label.</p>
+      </div>
+    </header>
+
+    <main class="main-content" id="main">
+
+      <!-- ═══════════════════════════════════════════
+           SCAN CARD
+      ═══════════════════════════════════════════ -->
+      <section class="card scan-card" aria-labelledby="scan-heading">
+        <h2 class="card-heading" id="scan-heading">Scan or enter a barcode</h2>
+        <p class="card-sub">Supports UPC-A (12 digits) and EAN-13 (13 digits).</p>
+
+        <!-- Camera area — hidden until user taps button -->
+        <div id="cameraArea" class="camera-area hidden" role="region" aria-label="Camera scanner">
+          <div id="videoWrap" class="video-wrap">
+            <video id="videoPreview" muted playsinline aria-label="Camera preview for barcode scanning"></video>
+            <div class="scan-overlay" aria-hidden="true">
+              <div class="scan-guide">
+                <span class="corner tl"></span>
+                <span class="corner tr"></span>
+                <span class="corner bl"></span>
+                <span class="corner br"></span>
+              </div>
+              <p class="scan-hint-overlay">Align barcode within the guide</p>
             </div>
+            <button id="torchBtn" type="button" class="torch-btn hidden" aria-label="Toggle flashlight" title="Toggle flashlight">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            </button>
           </div>
-          <button id="torchBtn" type="button" class="torch-btn hidden" aria-label="Toggle flashlight" title="Toggle flashlight">⚡</button>
-          <p id="scanStatus" class="hint">Scanner idle.</p>
+          <div class="camera-controls">
+            <p id="scanStatus" class="scan-status-text" aria-live="polite" aria-atomic="true">Scanner ready.</p>
+            <button id="stopCameraBtn" type="button" class="btn btn-ghost btn-sm">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="6" width="12" height="12"/></svg>
+              Stop camera
+            </button>
+          </div>
         </div>
 
-        <div id="progressWrap" class="progress-wrap hidden" aria-live="polite" aria-atomic="true">
+        <!-- Camera permission blocked message -->
+        <div id="cameraBlockedMsg" class="notice notice-warn hidden" role="alert">
+          <svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div>
+            <strong>Camera access is blocked.</strong>
+            <p>Enable camera permission in your browser settings for this site, or enter the barcode manually below.</p>
+          </div>
+        </div>
+
+        <!-- Primary scan button -->
+        <div id="scanTriggerArea" class="scan-trigger-area">
+          <button id="startCameraBtn" type="button" class="btn btn-primary btn-camera">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Scan with camera
+          </button>
+          <span class="scan-or">or</span>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="progressWrap" class="progress-wrap hidden" aria-live="polite" aria-atomic="true" role="status">
           <span class="spinner" aria-hidden="true"></span>
-          <span id="progressText">Looking up barcode...</span>
+          <span id="progressText">Looking up product…</span>
         </div>
 
-        <div id="messageBox" class="message-box hidden" role="alert" aria-live="assertive"></div>
+        <!-- Error / info message box -->
+        <div id="messageBox" class="notice hidden" role="alert" aria-live="assertive"></div>
 
-        <form id="manualForm" class="manual-form">
-          <label for="manualBarcode">Manual barcode entry</label>
+        <!-- Manual entry form -->
+        <form id="manualForm" class="manual-form" novalidate>
+          <label class="field-label" for="manualBarcode">Enter barcode manually</label>
           <div class="manual-row">
-            <input
-              id="manualBarcode"
-              name="manualBarcode"
-              placeholder="e.g., 0123456789012"
-              inputmode="numeric"
-              pattern="[0-9]{12,13}"
-              minlength="12"
-              maxlength="13"
-              aria-describedby="manualHelp"
-              aria-label="Manual barcode entry"
-              autocomplete="off"
-              required
-            />
-            <button id="checkBtn" type="submit" disabled>Check</button>
-            <button id="newScanBtn" type="button" class="btn-scan hidden">New scan</button>
+            <div class="input-wrap">
+              <input
+                id="manualBarcode"
+                name="manualBarcode"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]{12,13}"
+                minlength="12"
+                maxlength="13"
+                placeholder="e.g. 012345678901"
+                aria-describedby="manualHelp"
+                aria-invalid="false"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <button id="checkBtn" type="submit" class="btn btn-primary" disabled>Check</button>
           </div>
-          <p id="manualHelp" class="field-help" aria-live="polite">Enter 12 or 13 digits.</p>
+          <p id="manualHelp" class="field-help" aria-live="polite">Enter a 12-digit UPC or 13-digit EAN barcode.</p>
         </form>
+
+        <!-- New scan button (shown after result) -->
+        <button id="newScanBtn" type="button" class="btn btn-ghost btn-block hidden">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>
+          Scan another barcode
+        </button>
       </section>
 
-      <section id="resultSection" class="result card hidden" aria-live="polite">
-        <div id="verdictCard" class="verdict verdict-UNKNOWN">
-          <p id="statusLabel" class="status">UNKNOWN</p>
-          <p id="explainText" class="explain">Scan a barcode to begin.</p>
-          <p id="confidenceText" class="confidence">Verdict: -- | Confidence: --</p>
+      <!-- ═══════════════════════════════════════════
+           RESULT CARD
+      ═══════════════════════════════════════════ -->
+      <section id="resultSection" class="card result-card hidden" aria-live="polite" aria-labelledby="result-heading">
+        <h2 class="sr-only" id="result-heading">Scan result</h2>
+
+        <!-- Status badge -->
+        <div id="verdictCard" class="verdict verdict-UNKNOWN" role="status">
+          <div class="verdict-badge" id="verdictBadge">
+            <span id="verdictIcon" class="verdict-icon" aria-hidden="true"></span>
+            <span id="statusLabel" class="verdict-label">—</span>
+          </div>
+          <p id="explainText" class="verdict-explain">—</p>
+          <div class="verdict-meta-row">
+            <span id="confidenceText" class="confidence-chip"></span>
+            <span id="dataSourceText" class="data-source-text"></span>
+          </div>
         </div>
-        <div id="reasonChips" class="chips"></div>
+
+        <!-- Product details -->
+        <div id="productDetails" class="product-details hidden">
+          <div class="product-meta">
+            <p id="productNameText" class="product-name"></p>
+            <p id="brandText" class="product-brand"></p>
+            <p id="barcodeInfo" class="product-barcode-info"></p>
+            <p id="freshnessText" class="product-freshness"></p>
+          </div>
+        </div>
+
+        <!-- Reason chips -->
+        <div id="reasonChips" class="chips" role="list" aria-label="Flagged reasons"></div>
+
+        <!-- Not found state -->
+        <div id="notFoundState" class="not-found-state hidden">
+          <div class="not-found-icon" aria-hidden="true">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </div>
+          <p class="not-found-primary">We couldn't find this barcode in the current dataset.</p>
+          <p class="not-found-secondary">That does not mean the product is Jain-friendly or not Jain-friendly. Please read the packaging label directly.</p>
+          <div class="not-found-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="reportMissingBtn">Report missing product</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="tryAnotherBtn">Try another barcode</button>
+            <a href="./disclaimer.html" class="btn btn-ghost btn-sm">Read disclaimer</a>
+          </div>
+        </div>
+
+        <!-- Ingredient review -->
+        <section id="ingredientSection" class="ingredient-section hidden" aria-labelledby="ingredients-heading">
+          <h3 id="ingredients-heading" class="section-heading">Ingredient review</h3>
+
+          <!-- Raw ingredient text -->
+          <details class="ingredients-raw-details">
+            <summary class="ingredients-raw-summary">View full ingredient text</summary>
+            <p id="ingredientsText" class="ingredients-raw-text"></p>
+          </details>
+
+          <!-- Categorised rows -->
+          <div id="ingredientRows" class="ingredient-rows" role="list" aria-label="Ingredients by category"></div>
+        </section>
+
+        <!-- Inline disclaimer -->
+        <aside class="inline-disclaimer" aria-label="Disclaimer">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          JainScan provides informational dietary guidance based on available product data. It is not a certification service and may be incomplete or inaccurate. Always read the product label and use your own judgment.
+        </aside>
+
+        <!-- Result actions -->
         <div class="result-actions">
-          <p id="savedNote" class="saved-note"></p>
-          <a id="reportIssueLink" class="report-link hidden" href="#" rel="nofollow">Report issue</a>
+          <button type="button" id="reportIssueBtn" class="btn-link hidden">Report incorrect classification</button>
+          <span id="savedNote" class="saved-note" aria-live="polite"></span>
         </div>
-        <section id="ingredientsPanel" class="ingredients-panel hidden">
-          <h3>Ingredients</h3>
-          <p id="ingredientsText" class="ingredients-text"></p>
-        </section>
-        <section id="ingredientSection" class="ingredient-section hidden">
-          <h3>Ingredient Categories</h3>
-          <div id="ingredientRows" class="ingredient-rows" role="list"></div>
-        </section>
-        <p id="barcodeInfo" class="meta"></p>
       </section>
+
+      <!-- ═══════════════════════════════════════════
+           STATUS LEGEND
+      ═══════════════════════════════════════════ -->
+      <section class="card legend-card" aria-labelledby="legend-heading">
+        <h2 class="card-heading" id="legend-heading">What the results mean</h2>
+        <p class="card-sub">Results are based on available ingredient data and should not be treated as certification.</p>
+        <ul class="legend-list" role="list">
+          <li class="legend-item legend-GREEN" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Likely Jain-friendly</strong>
+              <p class="legend-desc">No obvious meat, egg, onion, garlic, or root-vegetable concern found in available data.</p>
+            </div>
+          </li>
+          <li class="legend-item legend-YELLOW" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Contains Jain-restricted vegetables</strong>
+              <p class="legend-desc">Contains onion, garlic, root vegetables, or related ingredients that many Jains avoid.</p>
+            </div>
+          </li>
+          <li class="legend-item legend-ORANGE" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Needs verification</strong>
+              <p class="legend-desc">Contains egg, unclear ingredients, or ingredients that may be animal-derived or ambiguous.</p>
+            </div>
+          </li>
+          <li class="legend-item legend-RED" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Not Jain-friendly</strong>
+              <p class="legend-desc">Contains meat, fish, gelatin from animal sources, or other clearly non-Jain ingredients.</p>
+            </div>
+          </li>
+          <li class="legend-item legend-UNKNOWN" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Not enough data</strong>
+              <p class="legend-desc">Product was not found or ingredient data is incomplete. Read the label directly.</p>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
+           HOW JAINSCAN DECIDES
+      ═══════════════════════════════════════════ -->
+      <section class="card how-card" aria-labelledby="how-heading">
+        <h2 class="card-heading" id="how-heading">How JainScan decides</h2>
+        <ul class="how-list">
+          <li>Checks available ingredient text and product metadata from multiple food databases</li>
+          <li>Flags ingredients commonly avoided in Jain diets (meat, fish, eggs, onion, garlic, root vegetables)</li>
+          <li>Marks unclear or ambiguous ingredients for manual verification</li>
+          <li>Cannot guarantee manufacturer accuracy — formulations can change at any time</li>
+          <li>Provides a confidence level based on completeness of available ingredient data</li>
+        </ul>
+        <div class="confidence-guide">
+          <h3 class="confidence-guide-title">Confidence levels</h3>
+          <dl class="confidence-dl">
+            <dt><span class="conf-pill conf-high">High</span></dt>
+            <dd>Clear ingredient list with direct matches to known Jain categories</dd>
+            <dt><span class="conf-pill conf-medium">Medium</span></dt>
+            <dd>Partial ingredient data or some normalized ingredient mapping</dd>
+            <dt><span class="conf-pill conf-low">Low</span></dt>
+            <dd>Sparse or ambiguous ingredient text — always verify label directly</dd>
+          </dl>
+        </div>
+      </section>
+
     </main>
 
-    <footer class="footer-bar">
-      <span>JainScan — Jain dietary compliance checker</span>
+    <!-- ═══════════════════════════════════════════
+         FOOTER
+    ═══════════════════════════════════════════ -->
+    <footer class="site-footer" role="contentinfo">
+      <div class="footer-inner">
+        <nav class="footer-nav" aria-label="Legal navigation">
+          <a href="./privacy.html" class="footer-link">Privacy Policy</a>
+          <a href="./disclaimer.html" class="footer-link">Disclaimer</a>
+          <a href="./terms.html" class="footer-link">Terms of Use</a>
+          <a href="./howitworks.html" class="footer-link">How it works</a>
+          <a href="mailto:hello@swapncore.com?subject=JainScan%20feedback" class="footer-link">Contact / Report issue</a>
+        </nav>
+        <p class="footer-legal">
+          JainScan is an informational tool only. It does not certify products, does not replace reading the label, and does not provide medical, nutritional, or religious advice.
+        </p>
+        <p class="footer-copy">© 2025 JainScan · <a href="./privacy.html" class="footer-link">Camera &amp; data disclosure</a></p>
+      </div>
     </footer>
+
+    <!-- ═══════════════════════════════════════════
+         REPORT ISSUE MODAL
+    ═══════════════════════════════════════════ -->
+    <div id="reportModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+      <div class="modal-box">
+        <button type="button" class="modal-close" id="reportModalClose" aria-label="Close dialog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h2 class="modal-title" id="report-modal-title">Report incorrect classification</h2>
+        <form id="reportForm" class="modal-form" novalidate>
+          <div class="field-group">
+            <label class="field-label" for="reportBarcode">Barcode</label>
+            <input type="text" id="reportBarcode" name="barcode" class="field-input" readonly />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="reportWrong">What seems wrong? <span class="field-required" aria-hidden="true">*</span></label>
+            <textarea id="reportWrong" name="what_wrong" class="field-textarea" rows="3" placeholder="Describe the issue…" required aria-required="true"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="reportIngredients">Corrected ingredients (optional)</label>
+            <textarea id="reportIngredients" name="corrected_ingredients" class="field-textarea" rows="2" placeholder="Paste the correct ingredient text from the label…"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="reportEmail">Your email (optional)</label>
+            <input type="email" id="reportEmail" name="email" class="field-input" placeholder="you@example.com" />
+            <p class="field-help">Only used to follow up on your report. Not stored beyond this request.</p>
+          </div>
+          <div id="reportFormMsg" class="form-msg hidden" role="status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="reportModalCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="reportSubmitBtn">Submit report</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         SUBMIT MISSING PRODUCT MODAL
+    ═══════════════════════════════════════════ -->
+    <div id="missingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="missing-modal-title">
+      <div class="modal-box">
+        <button type="button" class="modal-close" id="missingModalClose" aria-label="Close dialog">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <h2 class="modal-title" id="missing-modal-title">Submit missing product</h2>
+        <form id="missingForm" class="modal-form" novalidate>
+          <div class="field-group">
+            <label class="field-label" for="missingBarcode">Barcode <span class="field-required" aria-hidden="true">*</span></label>
+            <input type="text" id="missingBarcode" name="barcode" class="field-input" readonly />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="missingName">Product name</label>
+            <input type="text" id="missingName" name="product_name" class="field-input" placeholder="e.g. Organic Almond Milk" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="missingBrand">Brand</label>
+            <input type="text" id="missingBrand" name="brand" class="field-input" placeholder="e.g. Silk" />
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="missingIngredients">Ingredient text <span class="field-required" aria-hidden="true">*</span></label>
+            <textarea id="missingIngredients" name="ingredients_text" class="field-textarea" rows="4" placeholder="Paste or type the full ingredient list from the label…" required aria-required="true"></textarea>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="missingEmail">Your email (optional)</label>
+            <input type="email" id="missingEmail" name="email" class="field-input" placeholder="you@example.com" />
+          </div>
+          <div id="missingFormMsg" class="form-msg hidden" role="status" aria-live="polite"></div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="missingModalCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="missingSubmitBtn">Submit product</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script type="module" src="./app.js"></script>
   </body>
