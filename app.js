@@ -18,13 +18,13 @@ const INGREDIENT_ROW_ORDER = ["RED", "ORANGE", "YELLOW", "GREEN"];
 const CATEGORY_META = {
   RED: { label: "Not allowed" },
   ORANGE: { label: "Verify with maker" },
-  YELLOW: { label: "Caution (strict Jain)" },
+  YELLOW: { label: "Strict Jain" },
   GREEN: { label: "Allowed" },
 };
 
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 const REQUEST_TIMEOUT_MS = 9000;
-const VERDICT_FAILSAFE_MS = 3000;
+const VERDICT_FAILSAFE_MS = 8500; // just under request timeout; only fires if fetch truly stalls
 
 const FRIENDLY_MESSAGES = {
   invalidBarcode: "Please enter a valid 12 or 13 digit barcode.",
