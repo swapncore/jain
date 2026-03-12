@@ -687,14 +687,14 @@ function handleReportSubmit(e) {
     return;
   }
 
-  const subject = encodeURIComponent(`JainScan classification report — ${el.reportBarcode.value}`);
+  const subject = encodeURIComponent(`Jaini classification report — ${el.reportBarcode.value}`);
   const body = encodeURIComponent(
     `Barcode: ${el.reportBarcode.value}\n\nWhat seems wrong:\n${wrong}\n\n` +
     (el.reportIngredients.value ? `Corrected ingredients:\n${el.reportIngredients.value}\n\n` : "") +
     (el.reportEmail.value ? `Reply to: ${el.reportEmail.value}` : "")
   );
   window.open(`mailto:hello@swapncore.com?subject=${subject}&body=${body}`, "_blank");
-  showFormMsg(el.reportModal, "Thanks. Your report helps improve JainScan. You can close this window.", "success");
+  showFormMsg(el.reportModal, "Thanks. Your report helps improve Jaini. You can close this window.", "success");
   el.reportSubmitBtn.disabled = true;
 }
 
@@ -707,7 +707,7 @@ function handleMissingSubmit(e) {
     return;
   }
 
-  const subject = encodeURIComponent(`JainScan missing product — ${el.missingBarcode.value}`);
+  const subject = encodeURIComponent(`Jaini missing product — ${el.missingBarcode.value}`);
   const body = encodeURIComponent(
     `Barcode: ${el.missingBarcode.value}\n` +
     (el.missingName.value  ? `Product name: ${el.missingName.value}\n` : "") +
@@ -716,7 +716,7 @@ function handleMissingSubmit(e) {
     (el.missingEmail.value ? `Reply to: ${el.missingEmail.value}` : "")
   );
   window.open(`mailto:hello@swapncore.com?subject=${subject}&body=${body}`, "_blank");
-  showFormMsg(el.missingModal, "Thanks. Your submission helps improve JainScan.", "success");
+  showFormMsg(el.missingModal, "Thanks. Your submission helps improve Jaini.", "success");
   el.missingSubmitBtn.disabled = true;
 }
 
