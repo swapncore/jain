@@ -37,6 +37,7 @@ const FRIENDLY_MESSAGES = {
 
 const el = {
   newScanBtn: document.getElementById("newScanBtn"),
+  torchBtn: document.getElementById("torchBtn"),
   videoWrap: document.getElementById("videoWrap") || document.querySelector(".video-wrap"),
   video: document.getElementById("videoPreview"),
   scanStatus: document.getElementById("scanStatus"),
@@ -71,6 +72,7 @@ const state = {
   scanLocked: false,
   requestId: 0,
   verdictFailsafeTimer: null,
+  torchOn: false,
 };
 
 function defaultApiBaseUrl() {
@@ -532,6 +534,38 @@ function onDecodedText(decodedText) {
   });
 }
 
+function getActiveTrack() {
+  return el.video.srcObject?.getVideoTracks?.()[0] ?? null;
+}
+
+async function setupTorch() {
+  const track = getActiveTrack();
+  if (!track) return;
+  const caps = track.getCapabilities?.();
+  if (!caps?.torch) return;
+  el.torchBtn.classList.remove("hidden");
+  state.torchOn = false;
+}
+
+async function applyTorch(on) {
+  const track = getActiveTrack();
+  if (!track) return;
+  try {
+    await track.applyConstraints({ advanced: [{ torch: on }] });
+    state.torchOn = on;
+    el.torchBtn.classList.toggle("torch-on", on);
+  } catch {
+    // Torch not supported on this device — hide button
+    el.torchBtn.classList.add("hidden");
+  }
+}
+
+function resetTorch() {
+  state.torchOn = false;
+  el.torchBtn.classList.add("hidden");
+  el.torchBtn.classList.remove("torch-on");
+}
+
 async function startScanning() {
   if (state.controls) return;
 
@@ -574,6 +608,7 @@ async function startScanning() {
           audio: false,
           video: {
             facingMode: { ideal: "environment" },
+            focusMode: { ideal: "continuous" },
             width: { ideal: 1920 },
             height: { ideal: 1080 },
           },
@@ -583,7 +618,8 @@ async function startScanning() {
       );
     }
 
-    el.scanStatus.textContent = "Scanner is live. Point your camera at the barcode.";
+    await setupTorch();
+    el.scanStatus.textContent = "Scanner is live. Point the barcode inside the guide.";
   } catch {
     renderGenericError(FRIENDLY_MESSAGES.cameraPermission);
     el.scanStatus.textContent = "Camera access needed.";
@@ -592,6 +628,8 @@ async function startScanning() {
 }
 
 function stopScanning() {
+  resetTorch();
+
   try {
     if (state.controls) {
       state.controls.stop();
@@ -638,6 +676,10 @@ function bindEvents() {
     hideResult();
     setLoading(false);
     startScanning();
+  });
+
+  el.torchBtn?.addEventListener("click", () => {
+    applyTorch(!state.torchOn);
   });
 
   el.reportIssueLink?.addEventListener("click", (event) => {

@@ -134,6 +134,7 @@ button.btn-scan:focus-visible {
 
 .video-wrap {
   margin-top: 0.2rem;
+  position: relative;
 }
 
 #videoPreview {
@@ -144,6 +145,69 @@ button.btn-scan:focus-visible {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #0d1217;
+  display: block;
+}
+
+/* Scan guide overlay — shows where to aim the barcode */
+.scan-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.scan-guide {
+  position: relative;
+  width: 68%;
+  aspect-ratio: 2.5 / 1;
+}
+
+.corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: rgba(255, 255, 255, 0.85);
+  border-style: solid;
+}
+
+.corner.tl { top: 0; left: 0;  border-width: 3px 0 0 3px; border-radius: 3px 0 0 0; }
+.corner.tr { top: 0; right: 0; border-width: 3px 3px 0 0; border-radius: 0 3px 0 0; }
+.corner.bl { bottom: 0; left: 0;  border-width: 0 0 3px 3px; border-radius: 0 0 0 3px; }
+.corner.br { bottom: 0; right: 0; border-width: 0 3px 3px 0; border-radius: 0 0 3px 0; }
+
+/* Torch / flashlight toggle */
+.torch-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.torch-btn:hover,
+.torch-btn:focus-visible {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.torch-btn.torch-on {
+  background: rgba(255, 220, 50, 0.75);
+  color: #1a1000;
+  border-color: rgba(255, 200, 0, 0.5);
 }
 
 .hint {

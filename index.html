@@ -25,6 +25,15 @@
       <section class="controls card">
         <div id="videoWrap" class="video-wrap">
           <video id="videoPreview" muted playsinline></video>
+          <div class="scan-overlay" aria-hidden="true">
+            <div class="scan-guide">
+              <span class="corner tl"></span>
+              <span class="corner tr"></span>
+              <span class="corner bl"></span>
+              <span class="corner br"></span>
+            </div>
+          </div>
+          <button id="torchBtn" type="button" class="torch-btn hidden" aria-label="Toggle flashlight" title="Toggle flashlight">⚡</button>
           <p id="scanStatus" class="hint">Scanner idle.</p>
         </div>
 
