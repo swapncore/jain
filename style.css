@@ -436,10 +436,11 @@ button.ghost {
   letter-spacing: 0.01em;
 }
 
-.legend-GREEN  { background: #dcfce7; color: #14532d; }
-.legend-YELLOW { background: #fef9c3; color: #7c4a03; }
-.legend-ORANGE { background: #ffedd5; color: #9a3412; }
-.legend-RED    { background: #ffe4e6; color: #9f1239; }
+.legend-GREEN   { background: #dcfce7; color: #14532d; }
+.legend-YELLOW  { background: #fef9c3; color: #7c4a03; }
+.legend-ORANGE  { background: #ffedd5; color: #9a3412; }
+.legend-RED     { background: #ffe4e6; color: #9f1239; }
+.legend-UNKNOWN { background: #f0f4f8; color: #4f6779; }
 
 .footer-bar {
   border-top: 1px solid #dae2eb;
