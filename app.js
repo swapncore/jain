@@ -221,10 +221,11 @@ function isManualBarcodeValid() {
 
 function updateManualInputState() {
   const raw = el.manualInput.value;
-  const digits = onlyDigits(raw).slice(0, 13);
-  const hadNonNumeric = raw !== digits;
+  const allDigits = onlyDigits(raw);
+  const hadNonNumeric = raw !== allDigits;
 
-  el.manualInput.value = digits;
+  // Strip non-digits but don't truncate — show an explicit error for >13
+  el.manualInput.value = allDigits;
 
   let helpText = "Enter 12 or 13 digits.";
   let isError = false;
@@ -232,17 +233,20 @@ function updateManualInputState() {
   if (hadNonNumeric) {
     helpText = "Only numbers are allowed.";
     isError = true;
-  } else if (digits.length > 0 && digits.length < 12) {
-    helpText = `Enter ${12 - digits.length} more digit${12 - digits.length === 1 ? "" : "s"}.`;
+  } else if (allDigits.length > 13) {
+    helpText = `Too many digits (${allDigits.length}). Barcodes are 12 or 13 digits.`;
     isError = true;
-  } else if (digits.length === 12) {
+  } else if (allDigits.length > 0 && allDigits.length < 12) {
+    helpText = `Enter ${12 - allDigits.length} more digit${12 - allDigits.length === 1 ? "" : "s"}.`;
+    isError = true;
+  } else if (allDigits.length === 12) {
     helpText = "UPC-A detected (12 digits).";
-  } else if (digits.length === 13) {
+  } else if (allDigits.length === 13) {
     helpText = "EAN-13 detected (13 digits).";
   }
 
   el.manualHelp.textContent = helpText;
-  el.manualHelp.classList.toggle("field-help-error", isError && digits.length > 0);
+  el.manualHelp.classList.toggle("field-help-error", isError && allDigits.length > 0);
   el.manualInput.setAttribute("aria-invalid", isError ? "true" : "false");
   if (el.checkBtn) {
     el.checkBtn.disabled = !isManualBarcodeValid() || state.inFlight;
