@@ -405,8 +405,8 @@ async function fetchVerdict(rawBarcode) {
 
   clearMessage();
   hideResult();
-  setLoading(true, "Checking product details...");
-  el.scanStatus.textContent = "Checking verdict...";
+  setLoading(true, `Looking up barcode ${barcode}…`);
+  el.scanStatus.textContent = `Looking up ${barcode}…`;
   startVerdictFailsafe(requestId);
 
   try {
@@ -526,17 +526,17 @@ function onDecodedText(decodedText) {
     return;
   }
 
-  // Require 2 consecutive reads of the same barcode before firing.
-  // This filters out single-frame misreads without adding noticeable delay
-  // (scan attempts fire every 100ms, so confirmation takes ~100ms at most).
+  // Require 3 consecutive reads of the same barcode before firing.
+  // This filters single-frame and double-frame misreads without noticeable delay
+  // (scan attempts fire every 100ms, so 3 confirmations takes ~200ms at most).
   if (digits !== state.pendingBarcode) {
     state.pendingBarcode = digits;
     state.pendingCount = 1;
-    el.scanStatus.textContent = `Detected ${digits}. Confirming...`;
+    el.scanStatus.textContent = `Detected ${digits} — confirming…`;
     return;
   }
   state.pendingCount++;
-  if (state.pendingCount < 2) {
+  if (state.pendingCount < 3) {
     return;
   }
 
@@ -547,7 +547,7 @@ function onDecodedText(decodedText) {
   state.lastScanAt = now;
   state.scanLocked = true;
 
-  el.scanStatus.textContent = `Confirmed ${digits}. Checking...`;
+  el.scanStatus.textContent = `Barcode ${digits} confirmed.`;
   fetchVerdict(digits).catch(() => {
     renderGenericError(FRIENDLY_MESSAGES.network);
     el.scanStatus.textContent = "Lookup failed.";
