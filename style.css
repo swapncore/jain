@@ -106,6 +106,17 @@ button.ghost {
   border-color: var(--border);
 }
 
+button.btn-scan {
+  background: #16a34a;
+  color: #ffffff;
+  border-color: #15803d;
+}
+
+button.btn-scan:hover,
+button.btn-scan:focus-visible {
+  background: #15803d;
+}
+
 .text-link {
   border: none;
   background: transparent;
