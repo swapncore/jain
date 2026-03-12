@@ -17,8 +17,8 @@ const STATUS_COLORS = ["GREEN", "YELLOW", "ORANGE", "RED", "UNKNOWN"];
 const INGREDIENT_ROW_ORDER = ["RED", "ORANGE", "YELLOW", "GREEN"];
 const CATEGORY_META = {
   RED: { label: "Not allowed" },
-  ORANGE: { label: "Caution" },
-  YELLOW: { label: "Caution" },
+  ORANGE: { label: "Verify with maker" },
+  YELLOW: { label: "Caution (strict Jain)" },
   GREEN: { label: "Allowed" },
 };
 
