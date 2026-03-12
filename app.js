@@ -68,6 +68,8 @@ const state = {
   reader: null,
   lastScanAt: 0,
   lastBarcode: "",
+  pendingBarcode: "",   // barcode waiting for 2nd consecutive confirmation
+  pendingCount: 0,
   inFlight: false,
   scanLocked: false,
   requestId: 0,
@@ -519,15 +521,33 @@ function onDecodedText(decodedText) {
     return;
   }
 
+  // Don't re-trigger for the same barcode within the cooldown window
   if (digits === state.lastBarcode && now - state.lastScanAt < 2200) {
     return;
   }
 
+  // Require 2 consecutive reads of the same barcode before firing.
+  // This filters out single-frame misreads without adding noticeable delay
+  // (scan attempts fire every 100ms, so confirmation takes ~100ms at most).
+  if (digits !== state.pendingBarcode) {
+    state.pendingBarcode = digits;
+    state.pendingCount = 1;
+    el.scanStatus.textContent = `Detected ${digits}. Confirming...`;
+    return;
+  }
+  state.pendingCount++;
+  if (state.pendingCount < 2) {
+    return;
+  }
+
+  // Confirmed — reset pending and proceed
+  state.pendingBarcode = "";
+  state.pendingCount = 0;
   state.lastBarcode = digits;
   state.lastScanAt = now;
   state.scanLocked = true;
 
-  el.scanStatus.textContent = `Detected ${digits}. Checking...`;
+  el.scanStatus.textContent = `Confirmed ${digits}. Checking...`;
   fetchVerdict(digits).catch(() => {
     renderGenericError(FRIENDLY_MESSAGES.network);
     el.scanStatus.textContent = "Lookup failed.";
@@ -600,19 +620,23 @@ async function startScanning() {
     };
 
     const preferredDeviceId = await pickBackCameraDeviceId();
+
+    // Always use decodeFromConstraints so focusMode/resolution apply.
+    // Include deviceId when we found a back camera; fall back to facingMode only.
+    const videoConstraints = preferredDeviceId
+      ? { deviceId: { exact: preferredDeviceId }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
+
     try {
-      state.controls = await state.reader.decodeFromVideoDevice(preferredDeviceId, el.video, onResult);
-    } catch {
       state.controls = await state.reader.decodeFromConstraints(
-        {
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            focusMode: { ideal: "continuous" },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        },
+        { audio: false, video: videoConstraints },
+        el.video,
+        onResult,
+      );
+    } catch {
+      // Last-resort fallback: minimal constraints
+      state.controls = await state.reader.decodeFromConstraints(
+        { audio: false, video: { facingMode: { ideal: "environment" } } },
         el.video,
         onResult,
       );
@@ -628,6 +652,8 @@ async function startScanning() {
 }
 
 function stopScanning() {
+  state.pendingBarcode = "";
+  state.pendingCount = 0;
   resetTorch();
 
   try {
