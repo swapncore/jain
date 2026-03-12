@@ -22,13 +22,13 @@
   <h1>How Jaini works</h1>
   <p class="last-updated">A plain-language explanation of the technology and data behind Jaini.</p>
 
-  <h2>Step 1 — Scan or enter a barcode</h2>
-  <p>You point your phone camera at a product barcode (UPC-A 12-digit or EAN-13 13-digit), or type it manually. The barcode number is extracted on your device — no image is ever uploaded to our servers.</p>
+  <h2>Step 1: Scan or enter a barcode</h2>
+  <p>You point your phone camera at a product barcode (UPC-A 12-digit or EAN-13 13-digit), or type it manually. The barcode number is extracted on your device. No image is ever uploaded to our servers.</p>
 
-  <h2>Step 2 — Barcode lookup</h2>
+  <h2>Step 2: Barcode lookup</h2>
   <p>The barcode number is sent to Jaini's API. The API searches a database of over 1.5 million products sourced from Open Food Facts, USDA FoodData Central, and other public food databases. If a match is found, the product name, brand, and ingredient text are retrieved.</p>
 
-  <h2>Step 3 — Ingredient analysis</h2>
+  <h2>Step 3: Ingredient analysis</h2>
   <p>The ingredient text is analysed by a rules-based engine that checks for:</p>
   <ul>
     <li><strong>Red (Not Jain-friendly):</strong> Meat, poultry, fish, seafood, gelatin from animal sources, rennet, lard, and similar clearly non-Jain ingredients.</li>
@@ -37,7 +37,7 @@
     <li><strong>Green (Likely Jain-friendly):</strong> No ingredients in the above categories were found in the available data.</li>
   </ul>
 
-  <h2>Step 4 — Result and confidence</h2>
+  <h2>Step 4: Result and confidence</h2>
   <p>The result is returned with:</p>
   <ul>
     <li>A status label (Likely Jain-friendly / Contains Jain-restricted vegetables / Needs verification / Not Jain-friendly / Not enough data)</li>
@@ -52,13 +52,13 @@
     <li>Detect cross-contamination or shared manufacturing equipment</li>
     <li>Account for regional product formulation differences</li>
     <li>Guarantee that a product hasn't changed its recipe since the database was last updated</li>
-    <li>Provide religious rulings — only informational guidance based on commonly listed Jain dietary restrictions</li>
+    <li>Provide religious rulings. Only informational guidance based on commonly listed Jain dietary restrictions</li>
   </ul>
 
   <h2>Data sources</h2>
   <ul>
-    <li><strong>Open Food Facts</strong> — A free, open, collaborative food database (openfoodfacts.org)</li>
-    <li><strong>USDA FoodData Central</strong> — The US Department of Agriculture's food composition database</li>
+    <li><strong>Open Food Facts</strong>: A free, open, collaborative food database (openfoodfacts.org)</li>
+    <li><strong>USDA FoodData Central</strong>: The US Department of Agriculture's food composition database</li>
     <li>Additional sources added over time</li>
   </ul>
 

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jaini — Jain Dietary Guidance</title>
+    <title></title>
     <link rel="icon" type="image/png" href="./logo.png" />
     <meta name="description" content="Scan a product barcode for informational Jain dietary guidance. Uses available ingredient data to flag possible Jain concerns." />
     <link rel="stylesheet" href="./style.css" />
@@ -134,9 +134,9 @@
         <div id="verdictCard" class="verdict verdict-UNKNOWN" role="status">
           <div class="verdict-badge" id="verdictBadge">
             <span id="verdictIcon" class="verdict-icon" aria-hidden="true"></span>
-            <span id="statusLabel" class="verdict-label">—</span>
+            <span id="statusLabel" class="verdict-label"></span>
           </div>
-          <p id="explainText" class="verdict-explain">—</p>
+          <p id="explainText" class="verdict-explain"></p>
           <div class="verdict-meta-row">
             <span id="confidenceText" class="confidence-chip"></span>
             <span id="dataSourceText" class="data-source-text"></span>
@@ -149,7 +149,6 @@
             <p id="productNameText" class="product-name"></p>
             <p id="brandText" class="product-brand"></p>
             <p id="barcodeInfo" class="product-barcode-info"></p>
-            <p id="freshnessText" class="product-freshness"></p>
           </div>
         </div>
 
@@ -261,7 +260,7 @@
           <li>Checks available ingredient text and product metadata from multiple food databases</li>
           <li>Flags ingredients commonly avoided in Jain diets (meat, fish, eggs, onion, garlic, root vegetables)</li>
           <li>Marks unclear or ambiguous ingredients for manual verification</li>
-          <li>Cannot guarantee manufacturer accuracy — formulations can change at any time</li>
+          <li>Cannot guarantee manufacturer accuracy. Formulations can change at any time.</li>
           <li>Provides a confidence level based on completeness of available ingredient data</li>
         </ul>
         <div class="confidence-guide">
@@ -272,7 +271,7 @@
             <dt><span class="conf-pill conf-medium">Medium</span></dt>
             <dd>Partial ingredient data or some normalized ingredient mapping</dd>
             <dt><span class="conf-pill conf-low">Low</span></dt>
-            <dd>Sparse or ambiguous ingredient text — always verify label directly</dd>
+            <dd>Sparse or ambiguous ingredient text. Always verify label directly.</dd>
           </dl>
         </div>
       </section>

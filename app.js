@@ -9,7 +9,7 @@ import {
 const API_BASE_PROD = "https://web-production-31034.up.railway.app";
 const API_BASE_DEV  = "http://localhost:8000";
 const REQUEST_TIMEOUT_MS   = 9000;
-const VERDICT_FAILSAFE_MS  = 8500;
+const VERDICT_FAILSAFE_MS  = 9500;
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 
 const STATUS_META = {
@@ -92,7 +92,6 @@ const el = {
   productNameText:   document.getElementById("productNameText"),
   brandText:         document.getElementById("brandText"),
   barcodeInfo:       document.getElementById("barcodeInfo"),
-  freshnessText:     document.getElementById("freshnessText"),
   reasonChips:       document.getElementById("reasonChips"),
   savedNote:         document.getElementById("savedNote"),
   reportIssueBtn:    document.getElementById("reportIssueBtn"),
@@ -240,9 +239,9 @@ function updateManualState() {
     help = `Enter ${need} more digit${need === 1 ? "" : "s"} (need 12 or 13 total).`;
     isError = false; // not an error, just incomplete
   } else if (digits.length === 12) {
-    help = "UPC-A detected — 12 digits. ✓";
+    help = "UPC-A detected. 12 digits ✓";
   } else if (digits.length === 13) {
-    help = "EAN-13 detected — 13 digits. ✓";
+    help = "EAN-13 detected. 13 digits ✓";
   }
 
   el.manualHelp.textContent = help;
@@ -265,7 +264,7 @@ function startFailsafe(reqId) {
     if (reqId !== state.requestId || !state.inFlight) return;
     state.inFlight = false;
     renderError(MESSAGES.scannerStalled);
-    el.scanStatus.textContent = "Lookup stalled — please try again.";
+    el.scanStatus.textContent = "Lookup stalled. Please try again.";
   }, VERDICT_FAILSAFE_MS);
 }
 
@@ -289,7 +288,7 @@ function renderIngredientRows(categories) {
     const badge = document.createElement("span");
     badge.className = `ingredient-group-badge badge-${level}`;
     badge.textContent = meta.label;
-    badge.setAttribute("aria-label", `${meta.label} — ${items.length} ingredient${items.length === 1 ? "" : "s"}`);
+    badge.setAttribute("aria-label", `${meta.label}: ${items.length} ingredient${items.length === 1 ? "" : "s"}`);
 
     const count = document.createElement("span");
     count.className = "ingredient-group-count";
@@ -350,10 +349,7 @@ function renderResult(data) {
     show(el.productDetails);
     el.productNameText.textContent = data.product_name || "Product name unknown";
     el.brandText.textContent       = data.brand ? `Brand: ${data.brand}` : "";
-    el.barcodeInfo.textContent     = `Barcode: ${data.barcode || "—"}  ·  Profile: ${data.profile || "jain"}`;
-    el.freshnessText.textContent   = data.last_updated
-      ? `Data last updated: ${new Date(data.last_updated).toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" })}`
-      : "Data freshness unknown — verify label directly";
+    el.barcodeInfo.textContent     = `Barcode: ${data.barcode || ""}  ·  Profile: ${data.profile || "jain"}`;
   }
 
   // Reason chips
@@ -399,7 +395,6 @@ function renderNotFound(barcode) {
   show(el.productDetails);
   el.productNameText.textContent = "";
   el.brandText.textContent = "";
-  el.freshnessText.textContent = "";
 
   show(el.notFoundState);
   // Pre-fill missing modal
@@ -530,11 +525,11 @@ function onDecodedText(text) {
   const now = Date.now();
   if (digits === state.lastBarcode && now - state.lastScanAt < 2200) return;
 
-  // Require 2 consecutive identical reads — filters single-frame misreads
+  // Require 2 consecutive identical reads - filters single-frame misreads
   if (digits !== state.pendingBarcode) {
     state.pendingBarcode = digits;
     state.pendingCount   = 1;
-    el.scanStatus && (el.scanStatus.textContent = `Detected ${digits} — confirming…`);
+    el.scanStatus && (el.scanStatus.textContent = `Detected ${digits}... confirming`);
     return;
   }
   state.pendingCount++;
@@ -546,7 +541,7 @@ function onDecodedText(text) {
   state.lastScanAt     = now;
   state.scanLocked     = true;
 
-  el.scanStatus && (el.scanStatus.textContent = `Barcode ${digits} confirmed — looking up…`);
+  el.scanStatus && (el.scanStatus.textContent = `Barcode ${digits} confirmed. Looking up...`);
   fetchVerdict(digits).catch(() => renderError(MESSAGES.network));
 }
 
@@ -687,7 +682,7 @@ function handleReportSubmit(e) {
     return;
   }
 
-  const subject = encodeURIComponent(`Jaini classification report — ${el.reportBarcode.value}`);
+  const subject = encodeURIComponent(`Jaini classification report: ${el.reportBarcode.value}`);
   const body = encodeURIComponent(
     `Barcode: ${el.reportBarcode.value}\n\nWhat seems wrong:\n${wrong}\n\n` +
     (el.reportIngredients.value ? `Corrected ingredients:\n${el.reportIngredients.value}\n\n` : "") +
@@ -707,7 +702,7 @@ function handleMissingSubmit(e) {
     return;
   }
 
-  const subject = encodeURIComponent(`Jaini missing product — ${el.missingBarcode.value}`);
+  const subject = encodeURIComponent(`Jaini missing product: ${el.missingBarcode.value}`);
   const body = encodeURIComponent(
     `Barcode: ${el.missingBarcode.value}\n` +
     (el.missingName.value  ? `Product name: ${el.missingName.value}\n` : "") +
@@ -783,7 +778,7 @@ function bindEvents() {
     openModal(el.reportModal);
   });
 
-  // Not found — report missing
+  // Not found - report missing
   document.getElementById("reportMissingBtn")?.addEventListener("click", () => {
     if (el.missingBarcode) el.missingBarcode.value = state.currentBarcode;
     el.missingName.value = "";
@@ -795,7 +790,7 @@ function bindEvents() {
     openModal(el.missingModal);
   });
 
-  // Not found — try another
+  // Not found - try another
   document.getElementById("tryAnotherBtn")?.addEventListener("click", () => {
     clearMessage();
     hideResult();

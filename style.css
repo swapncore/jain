@@ -692,11 +692,6 @@ ul, ol { list-style: none; }
   font-variant-numeric: tabular-nums;
 }
 
-.product-freshness {
-  font-size: 0.78rem;
-  color: var(--muted-2);
-  font-style: italic;
-}
 
 /* Reason chips */
 .chips {
