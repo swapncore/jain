@@ -351,7 +351,7 @@ function renderRateLimit(errorJson) {
   });
 
   document.getElementById("upgradeBtn")?.addEventListener("click", () => {
-    window.alert("You've reached your free daily limit. Limit resets at midnight.");
+    window.open("mailto:hello@swapncore.com?subject=JainScan%20upgrade", "_blank");
   });
 
   presentOutcome();
@@ -638,7 +638,7 @@ function bindEvents() {
 
   el.reportIssueLink?.addEventListener("click", (event) => {
     event.preventDefault();
-    window.alert("Report issue flow placeholder.");
+    window.open("mailto:hello@swapncore.com?subject=JainScan%20verdict%20issue", "_blank");
   });
 
   window.addEventListener("beforeunload", () => {
@@ -656,7 +656,7 @@ function init() {
   showReportIssue(false);
   showNewScanButton(false);
   updateManualInputState();
-  el.scanStatus.textContent = `Starting camera... API: ${getApiBaseUrl()}`;
+  el.scanStatus.textContent = "Starting camera...";
 
   startScanning();
 }
