@@ -562,6 +562,28 @@ async function fetchVerdict(rawBarcode) {
       return;
     }
 
+    // Temporary compatibility shim: if the server doesn't yet recognise the
+    // profile (old deploy), fall back silently to "jain" so users aren't blocked.
+    if (resp.status === 400 && data.error === "BAD_REQUEST" && data.message?.includes("profile")) {
+      const fallbackUrl = new URL(`${getApiBase()}/v1/verdict`);
+      fallbackUrl.searchParams.set("barcode", barcode);
+      fallbackUrl.searchParams.set("profile", "jain");
+      try {
+        const fr = await fetchWithTimeout(fallbackUrl.toString(), {
+          method: "GET",
+          headers: { "X-Client-Id": getClientId() },
+        }, REQUEST_TIMEOUT_MS);
+        if (reqId !== state.requestId) return;
+        const fd = await fr.json().catch(() => ({}));
+        if (fr.ok) {
+          renderResult(fd);
+          el.scanStatus && (el.scanStatus.textContent = `Scan complete: ${barcode}`);
+          if (el.reportBarcode) el.reportBarcode.value = barcode;
+          return;
+        }
+      } catch { /* fall through to normal error handling */ }
+    }
+
     if (resp.status === 404 && data.error === "NOT_FOUND") {
       renderNotFound(barcode);
       el.scanStatus && (el.scanStatus.textContent = `Barcode ${barcode} not found in dataset.`);
