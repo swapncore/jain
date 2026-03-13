@@ -87,7 +87,6 @@ const el = {
   statusLabel:       document.getElementById("statusLabel"),
   explainText:       document.getElementById("explainText"),
   confidenceText:    document.getElementById("confidenceText"),
-  dataSourceText:    document.getElementById("dataSourceText"),
   productDetails:    document.getElementById("productDetails"),
   productNameText:   document.getElementById("productNameText"),
   brandText:         document.getElementById("brandText"),
@@ -342,7 +341,6 @@ function renderResult(data) {
   const conf = (data.confidence || "").toLowerCase();
   el.confidenceText.textContent = conf ? `Confidence: ${capitalize(conf)}` : "";
   el.confidenceText.className = `confidence-chip${conf === "high" ? " conf-high" : conf === "medium" ? " conf-medium" : conf === "low" ? " conf-low" : ""}`;
-  el.dataSourceText.textContent = "Based on ingredient text in available product data";
 
   // Product metadata
   if (data.product_name || data.brand) {
@@ -389,7 +387,6 @@ function renderNotFound(barcode) {
   el.statusLabel.textContent = STATUS_META.UNKNOWN.label;
   el.explainText.textContent = "";
   el.confidenceText.textContent = "";
-  el.dataSourceText.textContent = "";
 
   el.barcodeInfo.textContent = `Barcode searched: ${barcode}`;
   show(el.productDetails);

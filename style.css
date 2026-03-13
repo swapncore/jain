@@ -20,7 +20,7 @@
   --brand-dark:   #074455;
   --brand-light:  #e0f2f7;
 
-  /* Status — never use color alone; always pair with icon + text */
+  /* Status: never use color alone; always pair with icon + text */
   --green:        #15803d;
   --green-bg:     #f0fdf4;
   --green-border: #bbf7d0;
@@ -117,7 +117,7 @@ ul, ol { list-style: none; }
   border: 0;
 }
 
-/* Strong visible focus ring — never suppress */
+/* Strong visible focus ring: never suppress */
 :focus-visible {
   outline: 3px solid var(--brand);
   outline-offset: 3px;
@@ -639,7 +639,7 @@ ul, ol { list-style: none; }
   font-style: italic;
 }
 
-/* Status colours — background + border + icon */
+/* Status colours: background + border + icon */
 .verdict-GREEN {
   background: var(--green-bg);
   border-color: var(--green-border);
