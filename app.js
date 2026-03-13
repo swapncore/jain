@@ -12,6 +12,33 @@ const REQUEST_TIMEOUT_MS   = 9000;
 const VERDICT_FAILSAFE_MS  = 9500;
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 
+// ─── Profiles ─────────────────────────────────────────────────────────────────
+
+const PROFILES = [
+  {
+    id:    "everyday_jain",
+    label: "Everyday",
+    desc:  "Standard Jain — avoids meat, fish, eggs, alliums & root vegetables",
+  },
+  {
+    id:    "temple_mode",
+    label: "Temple",
+    desc:  "Temple / puja strictness — honey also restricted",
+  },
+  {
+    id:    "paryushan_mode",
+    label: "Paryushan",
+    desc:  "Paryushan strictness — also restricts greens, sprouts & fungi",
+  },
+  {
+    id:    "greens_sensitive_mode",
+    label: "Greens+",
+    desc:  "Everyday + extra caution around green vegetables",
+  },
+];
+const PROFILE_KEY     = "JAIN_PROFILE";
+const PROFILE_DEFAULT = "everyday_jain";
+
 const STATUS_META = {
   GREEN:   {
     label: "Likely Jain-friendly",
@@ -98,6 +125,10 @@ const el = {
   ingredientSection: document.getElementById("ingredientSection"),
   ingredientsText:   document.getElementById("ingredientsText"),
   ingredientRows:    document.getElementById("ingredientRows"),
+  modeChip:          document.getElementById("modeChip"),
+
+  // Mode bar (pills rendered dynamically)
+  modeBar:           document.getElementById("modeBar"),
 
   // Modals
   reportModal:       document.getElementById("reportModal"),
@@ -158,6 +189,48 @@ function getClientId() {
     localStorage.setItem(KEY, id);
   }
   return id;
+}
+
+function getActiveProfile() {
+  const stored = localStorage.getItem(PROFILE_KEY);
+  return PROFILES.some(p => p.id === stored) ? stored : PROFILE_DEFAULT;
+}
+
+function setActiveProfile(profileId) {
+  if (!PROFILES.some(p => p.id === profileId)) return;
+  localStorage.setItem(PROFILE_KEY, profileId);
+  // Update pill UI
+  document.querySelectorAll(".mode-pill").forEach(btn => {
+    const active = btn.dataset.profile === profileId;
+    btn.classList.toggle("mode-pill--active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function initProfileSelector() {
+  const bar = el.modeBar;
+  if (!bar) return;
+
+  // Label
+  const lbl = document.createElement("span");
+  lbl.className = "mode-bar-label";
+  lbl.textContent = "Mode:";
+  bar.appendChild(lbl);
+
+  const current = getActiveProfile();
+  PROFILES.forEach(p => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "mode-pill";
+    btn.dataset.profile = p.id;
+    btn.textContent = p.label;
+    btn.title = p.desc;
+    const active = p.id === current;
+    btn.classList.toggle("mode-pill--active", active);
+    btn.setAttribute("aria-pressed", active ? "true" : "false");
+    btn.addEventListener("click", () => setActiveProfile(p.id));
+    bar.appendChild(btn);
+  });
 }
 
 async function fetchWithTimeout(url, options, ms) {
@@ -342,6 +415,12 @@ function renderResult(data) {
   el.confidenceText.textContent = conf ? `Confidence: ${capitalize(conf)}` : "";
   el.confidenceText.className = `confidence-chip${conf === "high" ? " conf-high" : conf === "medium" ? " conf-medium" : conf === "low" ? " conf-low" : ""}`;
 
+  // Mode chip — shows which strictness was used
+  if (el.modeChip) {
+    const activeProfile = PROFILES.find(p => p.id === getActiveProfile());
+    el.modeChip.textContent = activeProfile ? `${activeProfile.label} mode` : "";
+  }
+
   // Product metadata
   if (data.product_name || data.brand) {
     show(el.productDetails);
@@ -457,7 +536,7 @@ async function fetchVerdict(rawBarcode) {
   try {
     const url = new URL(`${getApiBase()}/v1/verdict`);
     url.searchParams.set("barcode", barcode);
-    url.searchParams.set("profile", "jain");
+    url.searchParams.set("profile", getActiveProfile());
 
     let resp;
     try {
@@ -831,6 +910,7 @@ function bindEvents() {
 
 function init() {
   getClientId();
+  initProfileSelector();
   bindEvents();
   hideResult();
   clearMessage();
