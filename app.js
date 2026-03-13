@@ -347,7 +347,7 @@ function renderResult(data) {
     show(el.productDetails);
     el.productNameText.textContent = data.product_name || "Product name unknown";
     el.brandText.textContent       = data.brand ? `Brand: ${data.brand}` : "";
-    el.barcodeInfo.textContent     = `Barcode: ${data.barcode || ""}  ·  Profile: ${data.profile || "jain"}`;
+    el.barcodeInfo.textContent     = "";
   }
 
   // Reason chips
@@ -388,7 +388,7 @@ function renderNotFound(barcode) {
   el.explainText.textContent = "";
   el.confidenceText.textContent = "";
 
-  el.barcodeInfo.textContent = `Barcode searched: ${barcode}`;
+  el.barcodeInfo.textContent = "";
   show(el.productDetails);
   el.productNameText.textContent = "";
   el.brandText.textContent = "";
