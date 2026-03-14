@@ -276,24 +276,141 @@ function getShareUrl(barcode, profileId) {
   return `${base}?${params}`;
 }
 
-async function handleShare(barcode, status, productName) {
+// ─── Verdict card image generation (canvas-based) ─────────────────────────────
+
+const STATUS_COLORS = {
+  GREEN:   { bg: "#f0fdf4", border: "#22c55e", text: "#166534", icon: "✓" },
+  YELLOW:  { bg: "#fefce8", border: "#eab308", text: "#854d0e", icon: "◐" },
+  ORANGE:  { bg: "#fff7ed", border: "#f97316", text: "#9a3412", icon: "?" },
+  RED:     { bg: "#fef2f2", border: "#ef4444", text: "#991b1b", icon: "✕" },
+  UNKNOWN: { bg: "#f9fafb", border: "#9ca3af", text: "#374151", icon: "—" },
+};
+
+function buildVerdictImage(barcode, status, productName, brand, reasons) {
+  const W = 600, H = 340;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  const col = STATUS_COLORS[status] || STATUS_COLORS.UNKNOWN;
+  const label = STATUS_META[status]?.label ?? status;
+
+  // Background
+  ctx.fillStyle = col.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Left accent bar
+  ctx.fillStyle = col.border;
+  ctx.fillRect(0, 0, 8, H);
+
+  // Brand strip top-right
+  ctx.fillStyle = "#1a1a1a";
+  ctx.font = "bold 18px system-ui, sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("jaini", W - 28, 38);
+  ctx.fillStyle = "#666";
+  ctx.font = "13px system-ui, sans-serif";
+  ctx.fillText("jain.swapncore.com", W - 28, 56);
+
+  // Big status icon
+  ctx.fillStyle = col.border;
+  ctx.font = "bold 64px system-ui, sans-serif";
+  ctx.textAlign = "left";
+  ctx.fillText(col.icon, 30, 100);
+
+  // Status label
+  ctx.fillStyle = col.text;
+  ctx.font = "bold 30px system-ui, sans-serif";
+  ctx.fillText(label, 30, 148);
+
+  // Product name (truncate if needed)
+  const maxNameW = W - 60;
+  ctx.fillStyle = "#1a1a1a";
+  ctx.font = "bold 20px system-ui, sans-serif";
+  let displayName = productName || "Unknown product";
+  while (displayName.length > 4 && ctx.measureText(displayName).width > maxNameW) {
+    displayName = displayName.slice(0, -1);
+  }
+  if (displayName !== (productName || "Unknown product")) displayName += "…";
+  ctx.fillText(displayName, 30, 188);
+
+  // Brand
+  if (brand) {
+    ctx.fillStyle = "#555";
+    ctx.font = "15px system-ui, sans-serif";
+    ctx.fillText(brand, 30, 212);
+  }
+
+  // Reason chips
+  if (reasons && reasons.length) {
+    const chipY = brand ? 238 : 224;
+    ctx.font = "13px system-ui, sans-serif";
+    let x = 30;
+    reasons.slice(0, 5).forEach(r => {
+      const label = r.replace(/_/g, " ").toLowerCase();
+      const tw = ctx.measureText(label).width + 20;
+      if (x + tw > W - 30) return;
+      ctx.fillStyle = col.border + "30";
+      ctx.strokeStyle = col.border;
+      ctx.lineWidth = 1;
+      const rx = x, ry = chipY - 16, rw = tw, rh = 22;
+      ctx.beginPath();
+      ctx.roundRect(rx, ry, rw, rh, 11);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = col.text;
+      ctx.fillText(label, rx + 10, chipY);
+      x += tw + 8;
+    });
+  }
+
+  // Barcode at bottom
+  ctx.fillStyle = "#999";
+  ctx.font = "12px monospace, system-ui";
+  ctx.fillText(barcode, 30, H - 18);
+
+  // Divider line
+  ctx.strokeStyle = col.border + "40";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(30, H - 34); ctx.lineTo(W - 30, H - 34);
+  ctx.stroke();
+
+  return c;
+}
+
+async function handleShare(barcode, status, productName, brand, reasons) {
   const profile  = getActiveProfile();
   const url      = getShareUrl(barcode, profile);
   const verdict  = STATUS_META[status]?.label ?? "Unknown";
-  const name     = productName ? `${productName} — ` : "";
-  const title    = `Jaini: ${name}${verdict}`;
-  const text     = `${name}${verdict} (Jaini Jain dietary check)`;
+  const title    = `Jaini: ${productName ? productName + " — " : ""}${verdict}`;
+  const text     = `${productName ? productName + " — " : ""}${verdict} (Jaini Jain dietary check)`;
 
+  // Try to share as image first (modern browsers + mobile)
+  if (navigator.share && navigator.canShare) {
+    try {
+      const canvas = buildVerdictImage(barcode, status, productName, brand, reasons);
+      const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+      const file = new File([blob], "jaini-verdict.png", { type: "image/png" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ title, text, url, files: [file] });
+        return;
+      }
+    } catch (err) {
+      if (err?.name === "AbortError") return;
+      // fall through — image share failed, try URL share
+    }
+  }
+
+  // Fallback: share URL only (desktop / unsupported browsers)
   if (navigator.share) {
     try {
       await navigator.share({ title, text, url });
       return;
     } catch (err) {
-      if (err?.name === "AbortError") return;   // user dismissed
-      // fall through to clipboard
+      if (err?.name === "AbortError") return;
     }
   }
 
+  // Last resort: copy URL to clipboard
   try {
     await navigator.clipboard.writeText(url);
     showShareToast("Link copied to clipboard");
@@ -819,11 +936,13 @@ function renderResult(data) {
   // Saved banner
   el.savedNote.textContent = data.saved ? "✓ Saved for future scans" : "";
 
-  // Share button — store barcode + status on element for click handler
+  // Share button — store all card data for image generation
   if (el.shareBtn && state.currentBarcode) {
-    el.shareBtn.dataset.barcode = state.currentBarcode;
-    el.shareBtn.dataset.status  = status;
-    el.shareBtn.dataset.name    = data.product_name || "";
+    el.shareBtn.dataset.barcode  = state.currentBarcode;
+    el.shareBtn.dataset.status   = status;
+    el.shareBtn.dataset.name     = data.product_name || "";
+    el.shareBtn.dataset.brand    = data.brand || "";
+    el.shareBtn.dataset.reasons  = JSON.stringify(data.reasons || []);
     show(el.shareBtn);
   }
 
@@ -1347,8 +1466,8 @@ function bindEvents() {
 
   // Share button
   el.shareBtn?.addEventListener("click", () => {
-    const { barcode, status, name } = el.shareBtn.dataset;
-    if (barcode) handleShare(barcode, status, name);
+    const { barcode, status, name, brand, reasons } = el.shareBtn.dataset;
+    if (barcode) handleShare(barcode, status, name, brand, JSON.parse(reasons || "[]"));
   });
 
   // Report issue button (in result card)
