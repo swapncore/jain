@@ -3,115 +3,32 @@ import {
   DecodeHintType,
   BarcodeFormat,
 } from "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm";
+import {
+  API_BASE_PROD, API_BASE_DEV,
+  REQUEST_TIMEOUT_MS, VERDICT_FAILSAFE_MS,
+  PROFILES, PROFILE_DEFAULT, PROFILE_KEY,
+  HISTORY_KEY, HISTORY_MAX,
+  STATUS_META as _STATUS_META,
+  INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES,
+} from "./config/shared-config.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const API_BASE_PROD = "https://web-production-31034.up.railway.app";
-const API_BASE_DEV  = "http://localhost:8000";
-const REQUEST_TIMEOUT_MS   = 9000;
-const VERDICT_FAILSAFE_MS  = 9500;
 const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
 
-// ─── Profiles ─────────────────────────────────────────────────────────────────
-
-const PROFILES = [
-  {
-    id:    "everyday_jain",
-    label: "Everyday",
-    desc:  "Standard Jain — avoids meat, fish, eggs, alliums & root vegetables",
-  },
-  {
-    id:    "temple_mode",
-    label: "Temple",
-    desc:  "Temple / puja strictness — honey also restricted",
-  },
-  {
-    id:    "paryushan_mode",
-    label: "Paryushan",
-    desc:  "Paryushan strictness — also restricts greens, sprouts & fungi",
-  },
-  {
-    id:    "greens_sensitive_mode",
-    label: "Greens+",
-    desc:  "Everyday + extra caution around green vegetables",
-  },
-];
-const PROFILE_KEY     = "JAIN_PROFILE";
-const PROFILE_DEFAULT = "everyday_jain";
-
-const HISTORY_KEY     = "JAIN_HISTORY";
-const HISTORY_MAX     = 20;
-
-const STATUS_META = {
-  GREEN:   {
-    label: "Jain-Friendly",
-    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-    ariaPrefix: "Jain-Friendly:",
-  },
-  YELLOW:  {
-    label: "Jain-Restricted",
-    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    ariaPrefix: "Jain-Restricted:",
-  },
-  ORANGE:  {
-    label: "Eggs and Ambiguous",
-    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    ariaPrefix: "Eggs and Ambiguous:",
-  },
-  RED:     {
-    label: "Meat Detected",
-    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-    ariaPrefix: "Meat Detected:",
-  },
-  UNKNOWN: {
-    label: "Not enough data",
-    icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
-    ariaPrefix: "Not enough data:",
-  },
+// ─── Web-only: SVG icons merged into STATUS_META ──────────────────────────────
+// Labels, descriptions, and ariaPrefix come from shared/verdicts.json via shared-config.js.
+// Icons are SVG strings and are web-specific — kept here, not in shared config.
+const STATUS_ICONS = {
+  GREEN:   `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
+  YELLOW:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  ORANGE:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  RED:     `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+  UNKNOWN: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
 };
-
-const REASON_LABELS = {
-  MEAT:                 "Meat / Fish",
-  GELATIN:              "Gelatin",
-  RENNET:               "Animal Rennet",
-  CARMINE_E120:         "Carmine (E120)",
-  SHELLAC_E904:         "Shellac (E904)",
-  INSECT_DERIVED:       "Insect-derived",
-  HONEY:                "Honey",
-  EGG:                  "Egg-derived",
-  DAIRY:                "Dairy",
-  ONION_GARLIC:         "Onion / Garlic",
-  ROOT_VEG:             "Root Vegetables",
-  LEAFY_GREEN:          "Leafy Greens",
-  GREEN_VEG:            "Green Vegetables",
-  SPROUT:               "Sprouts",
-  FUNGI:                "Fungi / Yeast",
-  FERMENTATION:         "Fermented Ingredient",
-  ALCOHOL:              "Alcohol",
-  AMBIGUOUS_ADDITIVE:   "Ambiguous Additive",
-  AMBIGUOUS_ENZYME:     "Ambiguous Enzyme",
-  AMBIGUOUS_EMULSIFIER: "Ambiguous Emulsifier",
-  AMBIGUOUS_FLAVOR:     "Ambiguous Flavour",
-  AMBIGUOUS_ROOT:       "Ambiguous Root",
-  AMBIGUOUS_CULTURE:    "Ambiguous Culture",
-};
-
-const INGREDIENT_GROUP_META = {
-  RED:    { label: "Meat Detected",           reason: "Contains non-Jain animal ingredients" },
-  ORANGE: { label: "Eggs and Ambiguous",      reason: "May be animal-derived or ambiguous" },
-  YELLOW: { label: "Jain-Restricted",         reason: "Restricted in Jain practice" },
-  GREEN:  { label: "Jain-Friendly",           reason: "No Jain dietary concern detected" },
-};
-
-const MESSAGES = {
-  invalidBarcode:   "Enter a 12-digit UPC or 13-digit EAN barcode.",
-  network:          "We couldn't reach the server. Please check your connection and try again.",
-  timeout:          "This request took too long. Please try again.",
-  cameraPermission: "We couldn't access your camera. Enable camera permission in your browser settings for this site, or enter the barcode manually.",
-  cameraUnsupported:"Camera scanning isn't supported in this browser. Please enter the barcode manually.",
-  scannerStalled:   "The scan was captured but the lookup stalled. Please try again.",
-  genericError:     "Something went wrong. Please try again.",
-};
+const STATUS_META = Object.fromEntries(
+  Object.entries(_STATUS_META).map(([k, v]) => [k, { ...v, icon: STATUS_ICONS[k] }])
+);
 
 // ─── DOM References ───────────────────────────────────────────────────────────
 
@@ -288,7 +205,14 @@ function initProfileSelector() {
     const active = p.id === current;
     btn.classList.toggle("mode-pill--active", active);
     btn.setAttribute("aria-pressed", active ? "true" : "false");
-    btn.addEventListener("click", () => setActiveProfile(p.id));
+    btn.addEventListener("click", () => {
+      const prev = getActiveProfile();
+      setActiveProfile(p.id);
+      // Re-fetch verdict if a result is currently displayed
+      if (prev !== p.id && state.lastBarcode && !el.resultSection?.classList.contains("hidden")) {
+        fetchVerdict(state.lastBarcode);
+      }
+    });
     bar.appendChild(btn);
   });
 }
@@ -647,7 +571,7 @@ async function submitFeedback(barcode, signal) {
 async function reportClientEvent(eventType, opts = {}) {
   // opts: { barcode, profile, error_code, error_msg, response_ms }
   try {
-    await fetch(`${getApiBase()}/v1/client_event`, {
+    await fetchWithTimeout(`${getApiBase()}/v1/client_event`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
       body: JSON.stringify({
@@ -658,7 +582,7 @@ async function reportClientEvent(eventType, opts = {}) {
         error_msg: opts.error_msg,
         response_ms: opts.response_ms,
       }),
-    });
+    }, REQUEST_TIMEOUT_MS);
   } catch { /* fire-and-forget, never throw */ }
 }
 
@@ -1540,6 +1464,8 @@ function bindEvents() {
     const reader = new FileReader();
     reader.onload = (ev) => setMissingPhoto(ev.target.result);
     reader.readAsDataURL(file);
+    // Reset so re-selecting the same file triggers change event
+    e.target.value = "";
   });
   el.missingCloseBtn?.addEventListener("click", () => {
     stopMissingCamera();
@@ -1579,8 +1505,8 @@ function bindEvents() {
     }
   });
 
-  // Clean up camera on unload
-  window.addEventListener("beforeunload", stopScanning);
+  // Clean up cameras on unload
+  window.addEventListener("beforeunload", () => { stopScanning(); stopMissingCamera(); });
 
   // Offline / online detection
   window.addEventListener("offline", () => {
