@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jaini</title>
     <link rel="icon" type="image/png" href="./logo.png" />
-    <meta name="description" content="Scan a product barcode for informational Jain dietary guidance. Uses available ingredient data to flag possible Jain concerns." />
+    <meta name="description" content="Jaini — Jain dietary barcode scanner. Scan any food barcode to instantly check if it's Jain-friendly. Supports Everyday Jain, Temple, Paryushan and Greens+ modes." />
 
     <!-- Open Graph / WhatsApp / iMessage preview -->
     <meta property="og:type"        content="website" />
@@ -40,6 +40,9 @@
       <!-- Mode selector — pills rendered by app.js -->
       <div class="header-mode" id="modeBar" role="group" aria-label="Scan strictness mode"></div>
     </header>
+
+    <!-- Offline banner (initially hidden) -->
+    <div id="offlineBanner" class="offline-banner hidden" role="alert">No internet connection — scan results unavailable</div>
 
     <main class="main-content" id="main">
 
@@ -222,6 +225,15 @@
           <span id="feedbackThanks" class="feedback-thanks hidden" aria-live="polite"></span>
         </div>
 
+        <!-- Alternatives (shown for RED/ORANGE) -->
+        <div id="alternativesSection" class="alternatives-section hidden" aria-label="Jain-friendly alternatives">
+          <div class="alternatives-header">
+            <span class="alternatives-title">Jain-friendly alternatives</span>
+            <span id="alternativesBrand" class="alternatives-brand"></span>
+          </div>
+          <ul id="alternativesList" class="alternatives-list"></ul>
+        </div>
+
         <!-- Inline disclaimer -->
         <aside class="inline-disclaimer" aria-label="Disclaimer">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -262,7 +274,7 @@
             </span>
             <div class="legend-body">
               <strong class="legend-label">Contains Jain-restricted vegetables</strong>
-              <p class="legend-desc">Contains onion, garlic, root vegetables, or related ingredients that many Jains avoid.</p>
+              <p class="legend-desc">Contains ingredients restricted in your current mode — root vegetables in Everyday Jain, plus fermented/honey in Temple mode, plus leafy greens in Paryushan mode.</p>
             </div>
           </li>
           <li class="legend-item legend-ORANGE" role="listitem">
@@ -306,6 +318,7 @@
           <li>Marks unclear or ambiguous ingredients for manual verification</li>
           <li>Cannot guarantee manufacturer accuracy. Formulations can change at any time.</li>
           <li>Provides a confidence level based on completeness of available ingredient data</li>
+          <li>The verdict depends on your selected mode — tap the mode name to switch between Everyday Jain, Temple, Paryushan, and Greens+ standards.</li>
         </ul>
         <div class="confidence-guide">
           <h3 class="confidence-guide-title">Confidence levels</h3>

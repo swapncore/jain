@@ -1516,3 +1516,97 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   }
   .confidence-dl dt { margin-top: 0.5rem; }
 }
+
+/* ============================================================
+   ALTERNATIVES
+   ============================================================ */
+.alternatives-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-light);
+}
+.alternatives-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.alternatives-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.alternatives-brand {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.alternatives-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.alternatives-item { display: flex; }
+.alt-scan-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-sm);
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background var(--transition), border-color var(--transition);
+}
+.alt-scan-btn:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.alt-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--r-pill);
+  flex-shrink: 0;
+}
+.alt-badge--green {
+  color: var(--green);
+  background: var(--green-bg);
+}
+.alt-badge--yellow {
+  color: var(--yellow);
+  background: var(--yellow-bg);
+}
+.alt-name {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 500;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alt-brand {
+  font-size: 0.75rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   OFFLINE BANNER
+   ============================================================ */
+.offline-banner {
+  background: #fff3cd;
+  color: #856404;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  border-bottom: 1px solid #ffc107;
+}

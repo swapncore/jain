@@ -140,6 +140,14 @@ const el = {
   feedbackIncorrectBtn: document.getElementById("feedbackIncorrectBtn"),
   feedbackThanks:       document.getElementById("feedbackThanks"),
 
+  // Alternatives
+  alternativesSection: document.getElementById("alternativesSection"),
+  alternativesBrand:   document.getElementById("alternativesBrand"),
+  alternativesList:    document.getElementById("alternativesList"),
+
+  // Offline banner
+  offlineBanner: document.getElementById("offlineBanner"),
+
   // Mode bar (pills rendered dynamically)
   modeBar:           document.getElementById("modeBar"),
 
@@ -480,6 +488,68 @@ async function submitFeedback(barcode, signal) {
   } catch { /* fire-and-forget — UI already updated optimistically */ }
 }
 
+// ─── Alternatives ─────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function triggerManualBarcode(barcode) {
+  if (el.manualInput) {
+    el.manualInput.value = barcode;
+    fetchVerdict(barcode).catch(() => renderError(MESSAGES.genericError));
+  }
+}
+
+function hideAlternatives() {
+  hide(el.alternativesSection);
+  if (el.alternativesList) el.alternativesList.innerHTML = "";
+  if (el.alternativesBrand) el.alternativesBrand.textContent = "";
+}
+
+async function fetchAndRenderAlternatives(barcode, status) {
+  if (status !== "RED" && status !== "ORANGE") { hideAlternatives(); return; }
+  if (!el.alternativesSection) return;
+
+  const profile = getActiveProfile();
+  const url = new URL(`${getApiBase()}/v1/alternatives`);
+  url.searchParams.set("barcode", barcode);
+  url.searchParams.set("profile", profile);
+
+  try {
+    const resp = await fetchWithTimeout(url.toString(), {
+      headers: { "X-Client-Id": getClientId() }
+    }, REQUEST_TIMEOUT_MS);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const alts = data.alternatives || [];
+    if (!alts.length) return;
+
+    el.alternativesList.innerHTML = alts.map(a => `
+      <li class="alternatives-item">
+        <button type="button" class="alt-scan-btn" data-barcode="${escHtml(a.barcode)}" aria-label="Scan ${escHtml(a.product_name)}">
+          <span class="alt-badge alt-badge--${a.status.toLowerCase()}">${a.status === "GREEN" ? "Green" : "Yellow"}</span>
+          <span class="alt-name">${escHtml(a.product_name)}</span>
+          ${a.brand ? `<span class="alt-brand">${escHtml(a.brand)}</span>` : ""}
+        </button>
+      </li>
+    `).join("");
+
+    // Bind click handlers
+    el.alternativesList.querySelectorAll(".alt-scan-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const bc = btn.dataset.barcode;
+        if (bc) triggerManualBarcode(bc);
+      });
+    });
+
+    if (data.based_on === "brand" && alts[0]?.brand) {
+      el.alternativesBrand.textContent = `from ${alts[0].brand}`;
+    }
+    show(el.alternativesSection);
+  } catch { /* fire-and-forget */ }
+}
+
 async function fetchWithTimeout(url, options, ms) {
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), ms);
@@ -528,6 +598,7 @@ function hideResult() {
   hide(el.reportIssueBtn);
   hide(el.shareBtn);
   hideCommunitySection();
+  hideAlternatives();
   el.reasonChips.innerHTML = "";
   el.savedNote.textContent = "";
 }
@@ -691,6 +762,9 @@ function renderResult(data) {
 
   // Community verification section
   showCommunitySection(state.currentBarcode, data.community || null);
+
+  // Jain-friendly alternatives (for RED/ORANGE)
+  fetchAndRenderAlternatives(state.currentBarcode, data.status);
 
   // Persist to scan history
   historyPush({
@@ -1247,6 +1321,18 @@ function bindEvents() {
 
   // Clean up camera on unload
   window.addEventListener("beforeunload", stopScanning);
+
+  // Offline / online detection
+  window.addEventListener("offline", () => {
+    show(el.offlineBanner);
+    if (el.startCameraBtn) el.startCameraBtn.disabled = true;
+    if (el.checkBtn) el.checkBtn.disabled = true;
+  });
+  window.addEventListener("online", () => {
+    hide(el.offlineBanner);
+    if (el.startCameraBtn) el.startCameraBtn.disabled = false;
+    updateManualState();
+  });
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
