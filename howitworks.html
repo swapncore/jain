@@ -39,22 +39,22 @@
       <tr>
         <td><strong>Everyday Jain</strong></td>
         <td>Daily use for most Jains</td>
-        <td>Avoids all meat, fish, eggs, root vegetables (onion, garlic, potato, carrot, etc.). Honey flagged as RED. Yeast treated as acceptable (GREEN).</td>
+        <td>Avoids all meat, fish, and eggs (Meat Detected). Root vegetables and alliums (onion, garlic, potato, carrot, etc.) flagged as Jain-Restricted. Honey flagged as Jain-Restricted. Yeast treated as acceptable (Jain-Friendly).</td>
       </tr>
       <tr>
         <td><strong>Temple Mode</strong></td>
         <td>Temple visits, religious occasions</td>
-        <td>Stricter than Everyday. Honey is flagged YELLOW (use discretion). Yeast and fermented ingredients flagged YELLOW. Above-ground green vegetables allowed.</td>
+        <td>Stricter than Everyday. Honey flagged Jain-Restricted. Yeast and fermented ingredients flagged Jain-Restricted. Above-ground green vegetables allowed.</td>
       </tr>
       <tr>
         <td><strong>Paryushan Mode</strong></td>
         <td>Paryushan &amp; Das Lakshana periods</td>
-        <td>Most restrictive. All green leafy vegetables, sprouts, and multi-seed fruits flagged YELLOW. Follows the strictest Paryushan dietary norms.</td>
+        <td>Most restrictive. All green leafy vegetables, sprouts, and multi-seed fruits flagged Jain-Restricted. Honey flagged Jain-Restricted. Follows the strictest Paryushan dietary norms.</td>
       </tr>
       <tr>
         <td><strong>Greens+</strong></td>
         <td>Jains who also avoid green vegetables</td>
-        <td>Like Everyday Jain, plus above-ground green vegetables (spinach, cabbage, broccoli, etc.) are flagged YELLOW year-round.</td>
+        <td>Like Everyday Jain, plus above-ground green vegetables (spinach, cabbage, broccoli, etc.) are flagged Jain-Restricted year-round. Honey flagged Jain-Restricted.</td>
       </tr>
     </tbody>
   </table>
@@ -62,10 +62,10 @@
   <h2>Step 4: Ingredient analysis</h2>
   <p>The ingredient text is analysed by Jaini's ontology-driven verdict engine — a knowledge base of over 230 ingredient entries and 600+ ingredient name aliases. Each ingredient in the product's label is matched against this knowledge base and classified:</p>
   <ul>
-    <li><strong>Red (Not Jain-friendly):</strong> Clearly non-Jain ingredients — meat, poultry, fish, seafood, lard, gelatin from animal sources, carmine (E120), shellac (E904), and similar.</li>
-    <li><strong>Yellow (Restricted in your mode):</strong> Ingredients that your selected mode flags for caution — root and underground vegetables (onion, garlic, potato, carrot, radish…), or in stricter modes, fermented ingredients, honey, green vegetables, and sprouts.</li>
-    <li><strong>Orange (Needs verification):</strong> Ingredients with ambiguous animal origins that require label or manufacturer verification — for example, "natural flavors," "enzymes," "mono and diglycerides," "L-cysteine," or "cultures."</li>
-    <li><strong>Green (Likely Jain-friendly):</strong> No flagged ingredients were found in the available data for your selected mode.</li>
+    <li><strong>Meat Detected (Red):</strong> Clearly non-Jain ingredients — meat, poultry, fish, seafood, lard, gelatin from animal sources, carmine (E120), shellac (E904), insect-derived ingredients, and eggs.</li>
+    <li><strong>Jain-Restricted (Yellow):</strong> Ingredients that your selected mode restricts — root and underground vegetables (onion, garlic, potato, carrot, radish…), honey (restricted in all modes), or in stricter modes, fermented ingredients, green vegetables, and sprouts.</li>
+    <li><strong>Eggs and Ambiguous (Orange):</strong> Ingredients with ambiguous origins that require label or manufacturer verification — for example, "natural flavors," "enzymes," "mono and diglycerides," "L-cysteine," or "cultures."</li>
+    <li><strong>Jain-Friendly (Green):</strong> No flagged ingredients were found in the available data for your selected mode.</li>
   </ul>
   <p>When multiple flagged ingredients are found, the result reflects the most serious concern (Red takes priority over Yellow, which takes priority over Orange).</p>
 
