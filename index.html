@@ -393,39 +393,53 @@
     <!-- ═══════════════════════════════════════════
          SUBMIT MISSING PRODUCT MODAL
     ═══════════════════════════════════════════ -->
-    <div id="missingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="missing-modal-title">
+    <div id="missingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="missingModalTitle">
       <div class="modal-box">
-        <button type="button" class="modal-close" id="missingModalClose" aria-label="Close dialog">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-        <h2 class="modal-title" id="missing-modal-title">Submit missing product</h2>
-        <form id="missingForm" class="modal-form" novalidate>
-          <div class="field-group">
-            <label class="field-label" for="missingBarcode">Barcode <span class="field-required" aria-hidden="true">*</span></label>
-            <input type="text" id="missingBarcode" name="barcode" class="field-input" readonly />
+        <div class="modal-header">
+          <h2 id="missingModalTitle" class="modal-title">Submit Product Photo</h2>
+          <button type="button" class="modal-close" id="missingCloseBtn" aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <!-- Step 1: Barcode confirm + photo capture -->
+        <div id="missingStep1" class="missing-step">
+          <p class="missing-intro">Take a clear photo of the <strong>ingredient label</strong> on the back of the packaging. We'll extract the ingredients automatically.</p>
+
+          <div id="missingCameraArea" class="missing-camera-area">
+            <video id="missingVideo" class="missing-video" autoplay playsinline muted></video>
+            <canvas id="missingCanvas" class="hidden"></canvas>
+            <div id="missingPreview" class="missing-preview hidden">
+              <img id="missingPreviewImg" alt="Ingredient label photo" />
+              <button type="button" id="missingRetakeBtn" class="btn-secondary btn-sm">Retake</button>
+            </div>
+            <div class="missing-camera-controls">
+              <button type="button" id="missingCaptureBtn" class="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                Capture
+              </button>
+              <span class="or-divider">or</span>
+              <label class="btn-upload" for="missingFileInput">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+                Upload photo
+              </label>
+              <input type="file" id="missingFileInput" accept="image/*" capture="environment" class="hidden" />
+            </div>
           </div>
-          <div class="field-group">
-            <label class="field-label" for="missingName">Product name</label>
-            <input type="text" id="missingName" name="product_name" class="field-input" placeholder="e.g. Organic Almond Milk" />
+
+          <div class="missing-meta">
+            <input type="text" id="missingBarcode" class="form-input" placeholder="Barcode (auto-filled)" readonly />
+            <input type="text" id="missingName" class="form-input" placeholder="Product name (optional)" maxlength="300" autocomplete="off" />
           </div>
-          <div class="field-group">
-            <label class="field-label" for="missingBrand">Brand</label>
-            <input type="text" id="missingBrand" name="brand" class="field-input" placeholder="e.g. Silk" />
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="missingIngredients">Ingredient text <span class="field-required" aria-hidden="true">*</span></label>
-            <textarea id="missingIngredients" name="ingredients_text" class="field-textarea" rows="4" placeholder="Paste or type the full ingredient list from the label…" required aria-required="true"></textarea>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="missingEmail">Your email (optional)</label>
-            <input type="email" id="missingEmail" name="email" class="field-input" placeholder="you@example.com" />
-          </div>
-          <div id="missingFormMsg" class="form-msg hidden" role="status" aria-live="polite"></div>
+
+          <div id="missingFormMsg" class="form-msg hidden" aria-live="polite"></div>
+
           <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" id="missingModalCancel">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="missingSubmitBtn">Submit product</button>
+            <button type="button" id="missingSubmitBtn" class="btn btn-primary" disabled>
+              <span id="missingSubmitLabel">Capture a photo first</span>
+            </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
 

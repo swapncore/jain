@@ -44,24 +44,24 @@ const HISTORY_MAX     = 20;
 
 const STATUS_META = {
   GREEN:   {
-    label: "Likely Jain-friendly",
+    label: "Jain-Friendly",
     icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
-    ariaPrefix: "Likely Jain-friendly:",
+    ariaPrefix: "Jain-Friendly:",
   },
   YELLOW:  {
-    label: "Contains Jain-restricted vegetables",
+    label: "Jain-Restricted",
     icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    ariaPrefix: "Contains Jain-restricted vegetables:",
+    ariaPrefix: "Jain-Restricted:",
   },
   ORANGE:  {
-    label: "Needs verification",
+    label: "Eggs and Ambiguous",
     icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    ariaPrefix: "Needs verification:",
+    ariaPrefix: "Eggs and Ambiguous:",
   },
   RED:     {
-    label: "Not Jain-friendly",
+    label: "Meat Detected",
     icon:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-    ariaPrefix: "Not Jain-friendly:",
+    ariaPrefix: "Meat Detected:",
   },
   UNKNOWN: {
     label: "Not enough data",
@@ -71,10 +71,10 @@ const STATUS_META = {
 };
 
 const INGREDIENT_GROUP_META = {
-  RED:    { label: "Not Jain-friendly",                reason: "Clearly not Jain-friendly ingredient" },
-  ORANGE: { label: "Needs verification",               reason: "May be animal-derived or ambiguous" },
-  YELLOW: { label: "Jain-restricted vegetables",       reason: "Onion, garlic, or root vegetable" },
-  GREEN:  { label: "Allowed / no concern found",       reason: "No Jain concern detected" },
+  RED:    { label: "Meat Detected",           reason: "Contains non-Jain animal ingredients" },
+  ORANGE: { label: "Eggs and Ambiguous",      reason: "May be animal-derived or ambiguous" },
+  YELLOW: { label: "Jain-Restricted",         reason: "Restricted in Jain practice" },
+  GREEN:  { label: "Jain-Friendly",           reason: "No Jain dietary concern detected" },
 };
 
 const MESSAGES = {
@@ -167,14 +167,21 @@ const el = {
   reportSubmitBtn:   document.getElementById("reportSubmitBtn"),
 
   missingModal:      document.getElementById("missingModal"),
-  missingForm:       document.getElementById("missingForm"),
+  missingStep1:      document.getElementById("missingStep1"),
+  missingCameraArea: document.getElementById("missingCameraArea"),
+  missingVideo:      document.getElementById("missingVideo"),
+  missingCanvas:     document.getElementById("missingCanvas"),
+  missingPreview:    document.getElementById("missingPreview"),
+  missingPreviewImg: document.getElementById("missingPreviewImg"),
+  missingCaptureBtn: document.getElementById("missingCaptureBtn"),
+  missingRetakeBtn:  document.getElementById("missingRetakeBtn"),
+  missingFileInput:  document.getElementById("missingFileInput"),
   missingBarcode:    document.getElementById("missingBarcode"),
   missingName:       document.getElementById("missingName"),
-  missingBrand:      document.getElementById("missingBrand"),
-  missingIngredients:document.getElementById("missingIngredients"),
-  missingEmail:      document.getElementById("missingEmail"),
   missingFormMsg:    document.getElementById("missingFormMsg"),
   missingSubmitBtn:  document.getElementById("missingSubmitBtn"),
+  missingSubmitLabel:document.getElementById("missingSubmitLabel"),
+  missingCloseBtn:   document.getElementById("missingCloseBtn"),
 };
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -192,6 +199,7 @@ const state = {
   pendingBarcode:      "",
   pendingCount:        0,
   currentBarcode:      "",   // barcode shown in result card
+  missingPhotoData:    null, // base64 string of captured image for missing modal
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
@@ -486,7 +494,29 @@ async function submitFeedback(barcode, signal) {
       const data = await resp.json().catch(() => ({}));
       if (data.community) renderCommunityBadge(data.community);
     }
-  } catch { /* fire-and-forget — UI already updated optimistically */ }
+  } catch { /* fire-and-forget — UI already updated optimistically */
+    reportClientEvent("feedback_failed", { barcode, error_msg: "network_error" });
+  }
+}
+
+// ─── Client failure telemetry ──────────────────────────────────────────────
+
+async function reportClientEvent(eventType, opts = {}) {
+  // opts: { barcode, profile, error_code, error_msg, response_ms }
+  try {
+    await fetch(`${getApiBase()}/v1/client_event`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
+      body: JSON.stringify({
+        event_type: eventType,
+        barcode: opts.barcode || state.currentBarcode || undefined,
+        profile: opts.profile || getActiveProfile(),
+        error_code: opts.error_code,
+        error_msg: opts.error_msg,
+        response_ms: opts.response_ms,
+      }),
+    });
+  } catch { /* fire-and-forget, never throw */ }
 }
 
 // ─── Alternatives ─────────────────────────────────────────────────────────────
@@ -666,6 +696,7 @@ function startFailsafe(reqId) {
     state.inFlight = false;
     renderError(MESSAGES.scannerStalled);
     el.scanStatus.textContent = "Lookup stalled. Please try again.";
+    reportClientEvent("scan_timeout", { response_ms: VERDICT_FAILSAFE_MS });
   }, VERDICT_FAILSAFE_MS);
 }
 
@@ -886,6 +917,8 @@ async function fetchVerdict(rawBarcode) {
   el.scanStatus && (el.scanStatus.textContent = `Looking up ${barcode}…`);
   startFailsafe(reqId);
 
+  const tStart = Date.now();
+
   try {
     const url = new URL(`${getApiBase()}/v1/verdict`);
     url.searchParams.set("barcode", barcode);
@@ -901,6 +934,11 @@ async function fetchVerdict(rawBarcode) {
       if (reqId !== state.requestId) return;
       renderError(err?.name === "AbortError" ? MESSAGES.timeout : MESSAGES.network);
       el.scanStatus && (el.scanStatus.textContent = err?.name === "AbortError" ? "Request timed out." : "Network error.");
+      reportClientEvent("api_error", {
+        error_code: "network",
+        error_msg: err?.message || "network",
+        response_ms: Date.now() - tStart,
+      });
       return;
     }
 
@@ -929,6 +967,11 @@ async function fetchVerdict(rawBarcode) {
 
     renderError(MESSAGES.network);
     el.scanStatus && (el.scanStatus.textContent = "Lookup failed.");
+    reportClientEvent("api_error", {
+      error_code: String(resp?.status || "network"),
+      error_msg: data?.error || data?.message || "",
+      response_ms: Date.now() - tStart,
+    });
 
   } catch {
     if (reqId !== state.requestId) return;
@@ -1021,6 +1064,7 @@ async function startScanning() {
   if (!navigator.mediaDevices?.getUserMedia) {
     hide(el.cameraArea);
     show(el.cameraBlockedMsg);
+    reportClientEvent("camera_error", { error_msg: "permission_denied" });
     return;
   }
 
@@ -1058,12 +1102,13 @@ async function startScanning() {
 
     await setupTorch();
     el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
-  } catch {
+  } catch (err) {
     hide(el.cameraArea);
     show(el.cameraBlockedMsg);
     show(el.scanTriggerArea);
     show(el.newScanBtn);
     el.scanStatus.textContent = "Camera access needed.";
+    reportClientEvent("camera_error", { error_msg: err?.message || "unknown" });
   }
 }
 
@@ -1142,56 +1187,95 @@ function handleReportSubmit(e) {
   el.reportSubmitBtn.disabled = true;
 }
 
+// Missing product photo flow
+let _missingStream = null;
+
+async function startMissingCamera() {
+  if (_missingStream) return;  // already started
+  try {
+    _missingStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    el.missingVideo.srcObject = _missingStream;
+    show(el.missingVideo);
+  } catch (err) {
+    // Camera not available — show upload-only mode
+    hide(el.missingVideo);
+    reportClientEvent("camera_error", { error_msg: "missing_modal_" + (err?.name || "unknown") });
+  }
+}
+
+function stopMissingCamera() {
+  if (_missingStream) {
+    _missingStream.getTracks().forEach(t => t.stop());
+    _missingStream = null;
+  }
+  if (el.missingVideo) el.missingVideo.srcObject = null;
+}
+
+function captureFromMissingCamera() {
+  if (!el.missingVideo || !el.missingCanvas) return;
+  const v = el.missingVideo;
+  const c = el.missingCanvas;
+  c.width = v.videoWidth || 640;
+  c.height = v.videoHeight || 480;
+  c.getContext("2d").drawImage(v, 0, 0);
+  const dataUrl = c.toDataURL("image/jpeg", 0.85);
+  setMissingPhoto(dataUrl);
+}
+
+function setMissingPhoto(dataUrl) {
+  state.missingPhotoData = dataUrl;
+  if (el.missingPreviewImg) el.missingPreviewImg.src = dataUrl;
+  show(el.missingPreview);
+  hide(el.missingVideo);
+  stopMissingCamera();
+  // Enable submit
+  if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = false;
+  if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Submit Photo";
+}
+
 async function handleMissingSubmit(e) {
-  e.preventDefault();
-  const ingr = el.missingIngredients.value.trim();
-  if (!ingr) {
-    el.missingIngredients.focus();
-    showFormMsg(el.missingModal, "Please enter the ingredient text from the product label.", "error");
+  if (e) e.preventDefault();
+  if (!state.missingPhotoData) {
+    showFormMsg(el.missingModal, "Please capture or upload a photo first.", "error");
     return;
   }
-
   el.missingSubmitBtn.disabled = true;
-  showFormMsg(el.missingModal, "Submitting…", "info");
+  if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Submitting\u2026";
+  showFormMsg(el.missingModal, "Submitting photo\u2026", "info");
 
   try {
     const resp = await fetchWithTimeout(
-      `${getApiBase()}/v1/submit_missing`,
+      `${getApiBase()}/v1/submit_missing_photo`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Client-Id": getClientId(),
-        },
+        headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
         body: JSON.stringify({
-          barcode:          el.missingBarcode.value,
-          product_name:     el.missingName.value.trim(),
-          brand:            el.missingBrand.value.trim(),
-          ingredients_text: ingr,
-          profile:          getActiveProfile(),
-          email:            el.missingEmail.value.trim(),
+          barcode: el.missingBarcode?.value || state.currentBarcode || "",
+          product_name: el.missingName?.value?.trim() || "",
+          photo_b64: state.missingPhotoData.split(",")[1],  // strip data:image/jpeg;base64,
         }),
       },
-      REQUEST_TIMEOUT_MS,
+      15000,
     );
-
     const data = await resp.json().catch(() => ({}));
-
-    if (resp.ok && data.saved) {
-      closeModal(el.missingModal);
-      renderResult(data);
-      if (el.reportBarcode) el.reportBarcode.value = el.missingBarcode.value;
+    if (resp.ok) {
+      showFormMsg(el.missingModal, "Thanks! We received your photo and will review it shortly.", "success");
+      setTimeout(() => closeModal(el.missingModal), 2500);
     } else {
       const msg = data.message || "Submission failed. Please try again.";
       showFormMsg(el.missingModal, msg, "error");
       el.missingSubmitBtn.disabled = false;
+      if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Submit Photo";
+      reportClientEvent("submission_failed", { error_msg: msg });
     }
   } catch (err) {
-    const msg = err?.name === "AbortError"
-      ? "Request timed out. Please try again."
-      : "Network error. Please check your connection and try again.";
+    const msg = "Network error \u2014 please check your connection and try again.";
     showFormMsg(el.missingModal, msg, "error");
     el.missingSubmitBtn.disabled = false;
+    if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Submit Photo";
+    reportClientEvent("submission_failed", { error_msg: err?.message || "network" });
   }
 }
 
@@ -1280,15 +1364,38 @@ function bindEvents() {
 
   // Not found - report missing
   document.getElementById("reportMissingBtn")?.addEventListener("click", () => {
-    if (el.missingBarcode) el.missingBarcode.value = state.currentBarcode;
-    el.missingName.value = "";
-    el.missingBrand.value = "";
-    el.missingIngredients.value = "";
-    el.missingEmail.value = "";
-    el.missingSubmitBtn.disabled = false;
+    if (el.missingBarcode) el.missingBarcode.value = state.currentBarcode || "";
+    if (el.missingName) el.missingName.value = "";
+    state.missingPhotoData = null;
+    if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
+    if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Capture a photo first";
+    hide(el.missingPreview);
     clearFormMsg(el.missingModal);
+    startMissingCamera();
     openModal(el.missingModal);
   });
+
+  // Missing modal camera/photo controls
+  el.missingCaptureBtn?.addEventListener("click", captureFromMissingCamera);
+  el.missingRetakeBtn?.addEventListener("click", () => {
+    state.missingPhotoData = null;
+    hide(el.missingPreview);
+    startMissingCamera();
+    if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
+    if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Capture a photo first";
+  });
+  el.missingFileInput?.addEventListener("change", (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setMissingPhoto(ev.target.result);
+    reader.readAsDataURL(file);
+  });
+  el.missingCloseBtn?.addEventListener("click", () => {
+    stopMissingCamera();
+    closeModal(el.missingModal);
+  });
+  el.missingSubmitBtn?.addEventListener("click", handleMissingSubmit);
 
   // Not found - try another
   document.getElementById("tryAnotherBtn")?.addEventListener("click", () => {
@@ -1306,23 +1413,19 @@ function bindEvents() {
   document.getElementById("reportModalCancel")?.addEventListener("click", () => closeModal(el.reportModal));
   el.reportForm?.addEventListener("submit", handleReportSubmit);
 
-  // Missing modal
-  document.getElementById("missingModalClose")?.addEventListener("click", () => closeModal(el.missingModal));
-  document.getElementById("missingModalCancel")?.addEventListener("click", () => closeModal(el.missingModal));
-  el.missingForm?.addEventListener("submit", handleMissingSubmit);
-
   // Close modals on backdrop click
-  [el.reportModal, el.missingModal].forEach(modal => {
-    modal?.addEventListener("click", e => {
-      if (e.target === modal) closeModal(modal);
-    });
+  el.reportModal?.addEventListener("click", e => {
+    if (e.target === el.reportModal) closeModal(el.reportModal);
+  });
+  el.missingModal?.addEventListener("click", e => {
+    if (e.target === el.missingModal) { stopMissingCamera(); closeModal(el.missingModal); }
   });
 
   // Close modals on Escape
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       if (el.reportModal && !el.reportModal.classList.contains("hidden")) closeModal(el.reportModal);
-      if (el.missingModal && !el.missingModal.classList.contains("hidden")) closeModal(el.missingModal);
+      if (el.missingModal && !el.missingModal.classList.contains("hidden")) { stopMissingCamera(); closeModal(el.missingModal); }
     }
   });
 
