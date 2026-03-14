@@ -1348,6 +1348,32 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
 }
 
 /* ============================================================
+   GET THE APP BANNER
+   ============================================================ */
+.get-app-banner {
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem 1rem;
+  margin-top: 1rem;
+}
+.get-app-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.5rem;
+  background: var(--brand);
+  color: #fff;
+  border-radius: var(--radius-pill, 100px);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.1s;
+}
+.get-app-btn:hover { background: var(--brand-hover, #1d4ed8); transform: translateY(-1px); }
+.get-app-btn:active { transform: translateY(0); }
+.get-app-btn svg { flex-shrink: 0; }
+
+/* ============================================================
    FOOTER
    ============================================================ */
 .site-footer {

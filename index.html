@@ -337,6 +337,16 @@
     </main>
 
     <!-- ═══════════════════════════════════════════
+         GET THE APP
+    ═══════════════════════════════════════════ -->
+    <div class="get-app-banner">
+      <a id="getAppLink" href="#" class="get-app-btn" aria-label="Get Jaini on your phone">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+        Get the App
+      </a>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
          FOOTER
     ═══════════════════════════════════════════ -->
     <footer class="site-footer" role="contentinfo">
@@ -445,5 +455,17 @@
     </div>
 
     <script type="module" src="./app.js"></script>
+    <script>
+      (function() {
+        var ua = navigator.userAgent || '';
+        var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var link = document.getElementById('getAppLink');
+        if (link) {
+          link.href = isIOS
+            ? 'https://apps.apple.com/app/whatsapp-messenger/id310633997'
+            : 'https://play.google.com/store/apps/details?id=com.whatsapp';
+        }
+      })();
+    </script>
   </body>
 </html>
