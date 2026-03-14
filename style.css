@@ -750,11 +750,16 @@ ul, ol { list-style: none; }
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--text);
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .product-brand {
   font-size: 0.88rem;
   color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .product-barcode-info {

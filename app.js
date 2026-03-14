@@ -367,6 +367,7 @@ function renderHistory() {
     btn.setAttribute("aria-label", `Re-scan ${entry.product_name || entry.barcode}`);
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>`;
     btn.addEventListener("click", () => {
+      if (state.inFlight || state.scanLocked) return;
       fetchVerdict(entry.barcode).catch(() => renderError(MESSAGES.genericError));
     });
 
@@ -510,6 +511,7 @@ function hideAlternatives() {
 async function fetchAndRenderAlternatives(barcode, status) {
   if (status !== "RED" && status !== "ORANGE") { hideAlternatives(); return; }
   if (!el.alternativesSection) return;
+  const reqId = state.requestId;   // capture NOW before any await
 
   const profile = getActiveProfile();
   const url = new URL(`${getApiBase()}/v1/alternatives`);
@@ -525,15 +527,21 @@ async function fetchAndRenderAlternatives(barcode, status) {
     const alts = data.alternatives || [];
     if (!alts.length) return;
 
-    el.alternativesList.innerHTML = alts.map(a => `
-      <li class="alternatives-item">
-        <button type="button" class="alt-scan-btn" data-barcode="${escHtml(a.barcode)}" aria-label="Scan ${escHtml(a.product_name)}">
-          <span class="alt-badge alt-badge--${a.status.toLowerCase()}">${a.status === "GREEN" ? "Green" : "Yellow"}</span>
-          <span class="alt-name">${escHtml(a.product_name)}</span>
-          ${a.brand ? `<span class="alt-brand">${escHtml(a.brand)}</span>` : ""}
-        </button>
-      </li>
-    `).join("");
+    if (reqId !== state.requestId) return;  // a newer scan has started
+
+    el.alternativesList.innerHTML = alts.map(a => {
+      const safeStatus = ["green","yellow"].includes((a.status||"").toLowerCase()) ? a.status.toLowerCase() : "unknown";
+      const label = safeStatus === "green" ? "Green" : safeStatus === "yellow" ? "Yellow" : a.status;
+      return `
+        <li class="alternatives-item">
+          <button type="button" class="alt-scan-btn" data-barcode="${escHtml(a.barcode)}" aria-label="Scan ${escHtml(a.product_name)}">
+            <span class="alt-badge alt-badge--${safeStatus}">${label}</span>
+            <span class="alt-name">${escHtml(a.product_name)}</span>
+            ${a.brand ? `<span class="alt-brand">${escHtml(a.brand)}</span>` : ""}
+          </button>
+        </li>
+      `;
+    }).join("");
 
     // Bind click handlers
     el.alternativesList.querySelectorAll(".alt-scan-btn").forEach(btn => {
@@ -601,6 +609,7 @@ function hideResult() {
   hideAlternatives();
   el.reasonChips.innerHTML = "";
   el.savedNote.textContent = "";
+  state.currentBarcode = "";
 }
 
 // ─── Manual input validation ─────────────────────────────────────────────────
@@ -906,28 +915,6 @@ async function fetchVerdict(rawBarcode) {
       return;
     }
 
-    // Temporary compatibility shim: if the server doesn't yet recognise the
-    // profile (old deploy), fall back silently to "jain" so users aren't blocked.
-    if (resp.status === 400 && data.error === "BAD_REQUEST" && data.message?.includes("profile")) {
-      const fallbackUrl = new URL(`${getApiBase()}/v1/verdict`);
-      fallbackUrl.searchParams.set("barcode", barcode);
-      fallbackUrl.searchParams.set("profile", "jain");
-      try {
-        const fr = await fetchWithTimeout(fallbackUrl.toString(), {
-          method: "GET",
-          headers: { "X-Client-Id": getClientId() },
-        }, REQUEST_TIMEOUT_MS);
-        if (reqId !== state.requestId) return;
-        const fd = await fr.json().catch(() => ({}));
-        if (fr.ok) {
-          renderResult(fd);
-          el.scanStatus && (el.scanStatus.textContent = `Scan complete: ${barcode}`);
-          if (el.reportBarcode) el.reportBarcode.value = barcode;
-          return;
-        }
-      } catch { /* fall through to normal error handling */ }
-    }
-
     if (resp.status === 404 && data.error === "NOT_FOUND") {
       renderNotFound(barcode);
       el.scanStatus && (el.scanStatus.textContent = `Barcode ${barcode} not found in dataset.`);
@@ -947,10 +934,10 @@ async function fetchVerdict(rawBarcode) {
     if (reqId !== state.requestId) return;
     renderError(MESSAGES.network);
   } finally {
+    state.inFlight   = false;
+    state.scanLocked = false;
     if (reqId === state.requestId) {
       clearFailsafe();
-      state.inFlight  = false;
-      state.scanLocked = false;
       setLoading(false);
       updateManualState();
     }
@@ -1090,14 +1077,34 @@ function stopScanning() {
 
 // ─── Modals ───────────────────────────────────────────────────────────────────
 
+function trapFocus(modal, e) {
+  if (e.key !== "Tab") return;
+  const focusable = modal.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  );
+  const first = focusable[0];
+  const last  = focusable[focusable.length - 1];
+  if (e.shiftKey) {
+    if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+  } else {
+    if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+
 function openModal(modal) {
   show(modal);
   // Focus first focusable element
   const first = modal.querySelector("button, input, textarea, select, a[href]");
   first?.focus();
+  modal._trapFocusHandler = (e) => trapFocus(modal, e);
+  modal.addEventListener("keydown", modal._trapFocusHandler);
 }
 
 function closeModal(modal) {
+  if (modal._trapFocusHandler) {
+    modal.removeEventListener("keydown", modal._trapFocusHandler);
+    modal._trapFocusHandler = null;
+  }
   hide(modal);
   clearFormMsg(modal);
 }
