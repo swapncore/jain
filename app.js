@@ -851,7 +851,7 @@ function handleReportSubmit(e) {
   el.reportSubmitBtn.disabled = true;
 }
 
-function handleMissingSubmit(e) {
+async function handleMissingSubmit(e) {
   e.preventDefault();
   const ingr = el.missingIngredients.value.trim();
   if (!ingr) {
@@ -860,17 +860,48 @@ function handleMissingSubmit(e) {
     return;
   }
 
-  const subject = encodeURIComponent(`Jaini missing product: ${el.missingBarcode.value}`);
-  const body = encodeURIComponent(
-    `Barcode: ${el.missingBarcode.value}\n` +
-    (el.missingName.value  ? `Product name: ${el.missingName.value}\n` : "") +
-    (el.missingBrand.value ? `Brand: ${el.missingBrand.value}\n` : "") +
-    `\nIngredient text:\n${ingr}\n\n` +
-    (el.missingEmail.value ? `Reply to: ${el.missingEmail.value}` : "")
-  );
-  window.open(`mailto:hello@swapncore.com?subject=${subject}&body=${body}`, "_blank");
-  showFormMsg(el.missingModal, "Thanks. Your submission helps improve Jaini.", "success");
   el.missingSubmitBtn.disabled = true;
+  showFormMsg(el.missingModal, "Submitting…", "info");
+
+  try {
+    const resp = await fetchWithTimeout(
+      `${getApiBase()}/v1/submit_missing`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client-Id": getClientId(),
+        },
+        body: JSON.stringify({
+          barcode:          el.missingBarcode.value,
+          product_name:     el.missingName.value.trim(),
+          brand:            el.missingBrand.value.trim(),
+          ingredients_text: ingr,
+          profile:          getActiveProfile(),
+          email:            el.missingEmail.value.trim(),
+        }),
+      },
+      REQUEST_TIMEOUT_MS,
+    );
+
+    const data = await resp.json().catch(() => ({}));
+
+    if (resp.ok && data.saved) {
+      closeModal(el.missingModal);
+      renderResult(data);
+      if (el.reportBarcode) el.reportBarcode.value = el.missingBarcode.value;
+    } else {
+      const msg = data.message || "Submission failed. Please try again.";
+      showFormMsg(el.missingModal, msg, "error");
+      el.missingSubmitBtn.disabled = false;
+    }
+  } catch (err) {
+    const msg = err?.name === "AbortError"
+      ? "Request timed out. Please try again."
+      : "Network error. Please check your connection and try again.";
+    showFormMsg(el.missingModal, msg, "error");
+    el.missingSubmitBtn.disabled = false;
+  }
 }
 
 // ─── Event binding ────────────────────────────────────────────────────────────

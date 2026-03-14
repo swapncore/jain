@@ -1172,6 +1172,12 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   border: 1px solid var(--error-border);
 }
 
+.form-msg.info {
+  background: var(--surface-2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
