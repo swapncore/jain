@@ -913,10 +913,12 @@ function renderResult(data) {
   el.statusLabel.textContent = meta.label;
   el.explainText.textContent = data.explain || "No explanation available.";
 
-  // Confidence
-  const conf = (data.confidence || "").toLowerCase();
-  el.confidenceText.textContent = conf ? `Confidence: ${capitalize(conf)}` : "";
-  el.confidenceText.className = `confidence-chip${conf === "high" ? " conf-high" : conf === "medium" ? " conf-medium" : conf === "low" ? " conf-low" : ""}`;
+  // Confidence — API returns HIGH/MED/LOW; map MED→Medium for display + CSS
+  const confRaw = (data.confidence || "").toUpperCase();
+  const confDisplay = confRaw === "MED" ? "Medium" : capitalize(confRaw.toLowerCase());
+  const confClass   = confRaw === "HIGH" ? " conf-high" : confRaw === "MED" ? " conf-medium" : confRaw === "LOW" ? " conf-low" : "";
+  el.confidenceText.textContent = confDisplay ? `Confidence: ${confDisplay}` : "";
+  el.confidenceText.className = `confidence-chip${confClass}`;
 
   // Mode chip — shows which strictness was used
   if (el.modeChip) {
@@ -1014,9 +1016,9 @@ function renderRateLimit(data) {
   clearMessage();
   setLoading(false);
   hideResult();
-  const limit = data?.limit ?? "?";
-  const count = data?.count ?? "?";
-  const reset = data?.reset ?? "unknown";
+  const limit = escHtml(String(data?.limit ?? "?"));
+  const count = escHtml(String(data?.count ?? "?"));
+  const reset = escHtml(String(data?.reset ?? "unknown"));
   showMessage({
     variant: "warn",
     message: `You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact <a href="mailto:hello@swapncore.com">hello@swapncore.com</a> to request an increase.`,
