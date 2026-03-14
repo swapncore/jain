@@ -132,6 +132,14 @@ const el = {
   ingredientRows:    document.getElementById("ingredientRows"),
   modeChip:          document.getElementById("modeChip"),
 
+  // Community verification
+  communitySection:     document.getElementById("communitySection"),
+  communityBadge:       document.getElementById("communityBadge"),
+  feedbackPrompt:       document.getElementById("feedbackPrompt"),
+  feedbackCorrectBtn:   document.getElementById("feedbackCorrectBtn"),
+  feedbackIncorrectBtn: document.getElementById("feedbackIncorrectBtn"),
+  feedbackThanks:       document.getElementById("feedbackThanks"),
+
   // Mode bar (pills rendered dynamically)
   modeBar:           document.getElementById("modeBar"),
 
@@ -374,6 +382,104 @@ function timeAgo(isoString) {
   return `${diffD}d ago`;
 }
 
+// ─── Community verification ───────────────────────────────────────────────────
+
+const FEEDBACK_KEY = "JAIN_FEEDBACK";   // {barcode: signal} voted barcodes
+
+function feedbackLoadVoted() {
+  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) || "{}"); }
+  catch { return {}; }
+}
+
+function feedbackMarkVoted(barcode, signal) {
+  const voted = feedbackLoadVoted();
+  voted[barcode] = signal;
+  // Prune to last 200 entries
+  const keys = Object.keys(voted);
+  if (keys.length > 200) {
+    const pruned = {};
+    keys.slice(-200).forEach(k => { pruned[k] = voted[k]; });
+    try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(pruned)); } catch {}
+  } else {
+    try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(voted)); } catch {}
+  }
+}
+
+function renderCommunityBadge(community) {
+  if (!el.communityBadge) return;
+  if (!community || community.total < 5) {
+    hide(el.communityBadge);
+    return;
+  }
+  const { total, correct, correct_pct } = community;
+  const icon = correct_pct >= 70
+    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
+    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  const label = correct_pct >= 70
+    ? `${correct} of ${total} users confirmed`
+    : `${total - correct} of ${total} users flagged`;
+  el.communityBadge.innerHTML = `${icon} <span>${label}</span>`;
+  el.communityBadge.className = `community-badge community-badge--${correct_pct >= 70 ? "confirmed" : "flagged"}`;
+  show(el.communityBadge);
+}
+
+function showCommunitySection(barcode, community) {
+  if (!el.communitySection) return;
+
+  // Show badge if community data exists
+  renderCommunityBadge(community);
+
+  // Show feedback prompt if not yet voted
+  const voted = feedbackLoadVoted();
+  if (barcode && !voted[barcode]) {
+    show(el.feedbackPrompt);
+    hide(el.feedbackThanks);
+  } else {
+    hide(el.feedbackPrompt);
+    if (voted[barcode]) {
+      el.feedbackThanks.textContent = voted[barcode] === "correct"
+        ? "Thanks for confirming."
+        : "Thanks for flagging — we'll review.";
+      show(el.feedbackThanks);
+    }
+  }
+
+  show(el.communitySection);
+}
+
+function hideCommunitySection() {
+  hide(el.communitySection);
+  hide(el.communityBadge);
+  hide(el.feedbackPrompt);
+  hide(el.feedbackThanks);
+}
+
+async function submitFeedback(barcode, signal) {
+  const profile = getActiveProfile();
+  hide(el.feedbackPrompt);
+  feedbackMarkVoted(barcode, signal);
+  el.feedbackThanks.textContent = signal === "correct"
+    ? "Thanks for confirming."
+    : "Thanks for flagging — we'll review.";
+  show(el.feedbackThanks);
+
+  try {
+    const resp = await fetchWithTimeout(
+      `${getApiBase()}/v1/feedback`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
+        body: JSON.stringify({ barcode, profile, signal }),
+      },
+      REQUEST_TIMEOUT_MS,
+    );
+    if (resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      if (data.community) renderCommunityBadge(data.community);
+    }
+  } catch { /* fire-and-forget — UI already updated optimistically */ }
+}
+
 async function fetchWithTimeout(url, options, ms) {
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), ms);
@@ -421,6 +527,7 @@ function hideResult() {
   hide(el.productDetails);
   hide(el.reportIssueBtn);
   hide(el.shareBtn);
+  hideCommunitySection();
   el.reasonChips.innerHTML = "";
   el.savedNote.textContent = "";
 }
@@ -581,6 +688,9 @@ function renderResult(data) {
     chip.textContent = r;
     el.reasonChips.appendChild(chip);
   });
+
+  // Community verification section
+  showCommunitySection(state.currentBarcode, data.community || null);
 
   // Persist to scan history
   historyPush({
@@ -1055,6 +1165,14 @@ function bindEvents() {
 
   // Torch
   el.torchBtn?.addEventListener("click", () => applyTorch(!state.torchOn));
+
+  // Community feedback buttons
+  el.feedbackCorrectBtn?.addEventListener("click", () => {
+    if (state.currentBarcode) submitFeedback(state.currentBarcode, "correct");
+  });
+  el.feedbackIncorrectBtn?.addEventListener("click", () => {
+    if (state.currentBarcode) submitFeedback(state.currentBarcode, "incorrect");
+  });
 
   // Clear history
   el.clearHistoryBtn?.addEventListener("click", () => {
