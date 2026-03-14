@@ -70,6 +70,32 @@ const STATUS_META = {
   },
 };
 
+const REASON_LABELS = {
+  MEAT:                 "Meat / Fish",
+  GELATIN:              "Gelatin",
+  RENNET:               "Animal Rennet",
+  CARMINE_E120:         "Carmine (E120)",
+  SHELLAC_E904:         "Shellac (E904)",
+  INSECT_DERIVED:       "Insect-derived",
+  HONEY:                "Honey",
+  EGG:                  "Egg-derived",
+  DAIRY:                "Dairy",
+  ONION_GARLIC:         "Onion / Garlic",
+  ROOT_VEG:             "Root Vegetables",
+  LEAFY_GREEN:          "Leafy Greens",
+  GREEN_VEG:            "Green Vegetables",
+  SPROUT:               "Sprouts",
+  FUNGI:                "Fungi / Yeast",
+  FERMENTATION:         "Fermented Ingredient",
+  ALCOHOL:              "Alcohol",
+  AMBIGUOUS_ADDITIVE:   "Ambiguous Additive",
+  AMBIGUOUS_ENZYME:     "Ambiguous Enzyme",
+  AMBIGUOUS_EMULSIFIER: "Ambiguous Emulsifier",
+  AMBIGUOUS_FLAVOR:     "Ambiguous Flavour",
+  AMBIGUOUS_ROOT:       "Ambiguous Root",
+  AMBIGUOUS_CULTURE:    "Ambiguous Culture",
+};
+
 const INGREDIENT_GROUP_META = {
   RED:    { label: "Meat Detected",           reason: "Contains non-Jain animal ingredients" },
   ORANGE: { label: "Eggs and Ambiguous",      reason: "May be animal-derived or ambiguous" },
@@ -678,7 +704,7 @@ async function fetchAndRenderAlternatives(barcode, status) {
 
     el.alternativesList.innerHTML = alts.map(a => {
       const safeStatus = ["green","yellow"].includes((a.status||"").toLowerCase()) ? a.status.toLowerCase() : "unknown";
-      const label = safeStatus === "green" ? "Green" : safeStatus === "yellow" ? "Yellow" : a.status;
+      const label = STATUS_META[(a.status||"").toUpperCase()]?.label || a.status;
       return `
         <li class="alternatives-item">
           <button type="button" class="alt-scan-btn" data-barcode="${escHtml(a.barcode)}" aria-label="Scan ${escHtml(a.product_name)}">
@@ -913,7 +939,9 @@ function renderResult(data) {
     const chip = document.createElement("span");
     chip.className = "chip";
     chip.setAttribute("role", "listitem");
-    chip.textContent = r;
+    chip.textContent = REASON_LABELS[r] || r.replace(/_/g, " ").toLowerCase()
+      .replace(/\b\w/g, c => c.toUpperCase());
+    chip.setAttribute("title", r);  // show raw code on hover for debugging
     el.reasonChips.appendChild(chip);
   });
 
@@ -1316,6 +1344,7 @@ async function startMissingCamera() {
       video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
     });
     el.missingVideo.srcObject = _missingStream;
+    el.missingVideo.play().catch(() => {});
     show(el.missingVideo);
   } catch (err) {
     // Camera not available — show upload-only mode
