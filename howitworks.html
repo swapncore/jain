@@ -26,44 +26,89 @@
   <p>You point your phone camera at a product barcode (UPC-A 12-digit or EAN-13 13-digit), or type it manually. The barcode number is extracted on your device. No image is ever uploaded to our servers.</p>
 
   <h2>Step 2: Barcode lookup</h2>
-  <p>The barcode number is sent to Jaini's API. The API searches a database of over 1.5 million products sourced from Open Food Facts, USDA FoodData Central, and other public food databases. If a match is found, the product name, brand, and ingredient text are retrieved.</p>
+  <p>The barcode number is sent to Jaini's API. The API searches a database of over 1.5 million products sourced from Open Food Facts, USDA FoodData Central, and other public food databases. If a match is found, the product name, brand, and ingredient text are retrieved. If not found, Jaini queries multiple public food databases in real time to try to find the product.</p>
 
-  <h2>Step 3: Ingredient analysis</h2>
-  <p>The ingredient text is analysed by a rules-based engine that checks for:</p>
+  <h2>Step 3: Choose your mode</h2>
+  <p>Jaini's verdict depends on which mode you have selected. Different Jain communities and occasions follow different standards — tap the mode name at the top of the screen to switch.</p>
+
+  <table class="hiw-table">
+    <thead>
+      <tr><th>Mode</th><th>Who it's for</th><th>Key differences</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Everyday Jain</strong></td>
+        <td>Daily use for most Jains</td>
+        <td>Avoids all meat, fish, eggs, root vegetables (onion, garlic, potato, carrot, etc.). Honey flagged as RED. Yeast treated as acceptable (GREEN).</td>
+      </tr>
+      <tr>
+        <td><strong>Temple Mode</strong></td>
+        <td>Temple visits, religious occasions</td>
+        <td>Stricter than Everyday. Honey is flagged YELLOW (use discretion). Yeast and fermented ingredients flagged YELLOW. Above-ground green vegetables allowed.</td>
+      </tr>
+      <tr>
+        <td><strong>Paryushan Mode</strong></td>
+        <td>Paryushan &amp; Das Lakshana periods</td>
+        <td>Most restrictive. All green leafy vegetables, sprouts, and multi-seed fruits flagged YELLOW. Follows the strictest Paryushan dietary norms.</td>
+      </tr>
+      <tr>
+        <td><strong>Greens+</strong></td>
+        <td>Jains who also avoid green vegetables</td>
+        <td>Like Everyday Jain, plus above-ground green vegetables (spinach, cabbage, broccoli, etc.) are flagged YELLOW year-round.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Step 4: Ingredient analysis</h2>
+  <p>The ingredient text is analysed by Jaini's ontology-driven verdict engine — a knowledge base of over 230 ingredient entries and 600+ ingredient name aliases. Each ingredient in the product's label is matched against this knowledge base and classified:</p>
   <ul>
-    <li><strong>Red (Not Jain-friendly):</strong> Meat, poultry, fish, seafood, gelatin from animal sources, rennet, lard, and similar clearly non-Jain ingredients.</li>
-    <li><strong>Yellow (Jain-restricted vegetables):</strong> Onion, garlic, leek, shallot, chive, scallion, potato, carrot, radish, turnip, beetroot, and other root or underground vegetables that many Jains avoid.</li>
-    <li><strong>Orange (Needs verification):</strong> Egg, egg white, egg yolk, albumin, and ingredients with unclear animal origins such as "natural flavors," "mono and diglycerides," "L-cysteine," and similar.</li>
-    <li><strong>Green (Likely Jain-friendly):</strong> No ingredients in the above categories were found in the available data.</li>
+    <li><strong>Red (Not Jain-friendly):</strong> Clearly non-Jain ingredients — meat, poultry, fish, seafood, lard, gelatin from animal sources, carmine (E120), shellac (E904), and similar.</li>
+    <li><strong>Yellow (Restricted in your mode):</strong> Ingredients that your selected mode flags for caution — root and underground vegetables (onion, garlic, potato, carrot, radish…), or in stricter modes, fermented ingredients, honey, green vegetables, and sprouts.</li>
+    <li><strong>Orange (Needs verification):</strong> Ingredients with ambiguous animal origins that require label or manufacturer verification — for example, "natural flavors," "enzymes," "mono and diglycerides," "L-cysteine," or "cultures."</li>
+    <li><strong>Green (Likely Jain-friendly):</strong> No flagged ingredients were found in the available data for your selected mode.</li>
   </ul>
+  <p>When multiple flagged ingredients are found, the result reflects the most serious concern (Red takes priority over Yellow, which takes priority over Orange).</p>
 
-  <h2>Step 4: Result and confidence</h2>
+  <h2>Step 5: Result and confidence</h2>
   <p>The result is returned with:</p>
   <ul>
-    <li>A status label (Likely Jain-friendly / Contains Jain-restricted vegetables / Needs verification / Not Jain-friendly / Not enough data)</li>
-    <li>A one-sentence explanation of what triggered the status</li>
-    <li>A confidence level based on how complete and clear the available ingredient data is</li>
-    <li>A breakdown of which ingredients fell into which category</li>
+    <li>A status label matched to your selected mode</li>
+    <li>Reason chips showing exactly which ingredients triggered the status</li>
+    <li>A one-sentence explanation</li>
+    <li>A confidence level — <strong>High</strong> (ingredient list was clear and complete), <strong>Medium</strong> (some uncertainty), or <strong>Low</strong> (ingredient data was sparse or ambiguous)</li>
+    <li>An exactness indicator — <strong>Exact</strong> when no ambiguous ingredients were active, <strong>Ambiguous</strong> when one or more orange-level ingredients are present</li>
+    <li>A per-ingredient breakdown showing how each ingredient was classified</li>
   </ul>
+
+  <h2>Community verification</h2>
+  <p>After viewing a verdict you can tap "Looks right" or "Flag" to add a community signal. When 5 or more users have voted on a product, Jaini shows a community consensus badge alongside the result. These signals help surface products that may be misclassified and improve accuracy over time.</p>
 
   <h2>What Jaini cannot do</h2>
   <ul>
     <li>Verify the accuracy of ingredient data provided by manufacturers or third-party databases</li>
     <li>Detect cross-contamination or shared manufacturing equipment</li>
-    <li>Account for regional product formulation differences</li>
+    <li>Account for regional product formulation differences (e.g. a product sold in India may have different ingredients than the same brand sold in the US)</li>
     <li>Guarantee that a product hasn't changed its recipe since the database was last updated</li>
-    <li>Provide religious rulings. Only informational guidance based on commonly listed Jain dietary restrictions</li>
+    <li>Provide religious rulings — Jaini gives informational guidance based on commonly observed Jain dietary restrictions, not a fatwa or authoritative religious opinion</li>
+    <li>Cover every product — coverage is strongest for products sold in the US, UK, and Europe; Indian and other regional products are less consistently covered</li>
   </ul>
 
   <h2>Data sources</h2>
   <ul>
-    <li><strong>Open Food Facts</strong>: A free, open, collaborative food database (openfoodfacts.org)</li>
+    <li><strong>Open Food Facts</strong>: A free, open, collaborative food database (openfoodfacts.org) — the largest source, covering products worldwide</li>
     <li><strong>USDA FoodData Central</strong>: The US Department of Agriculture's food composition database</li>
-    <li>Additional sources added over time</li>
+    <li>Additional public sources added over time</li>
   </ul>
+  <p>Ingredient data is provided by Open Food Facts contributors and food manufacturers — Jaini does not independently verify it. Always check the physical product label for the most accurate and current information.</p>
 
   <h2>How to help improve Jaini</h2>
-  <p>If you find a product that is missing or incorrectly classified, use the "Report incorrect classification" or "Submit missing product" buttons on the result screen. You can also email <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>. Every report helps.</p>
+  <p>Coverage improves when the community contributes. You can help by:</p>
+  <ul>
+    <li>Using the "Looks right / Flag" buttons after each scan to verify verdicts</li>
+    <li>Adding missing Indian products directly on <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">openfoodfacts.org</a> — products added there are automatically picked up by Jaini</li>
+    <li>Reporting incorrect classifications using the "Report incorrect classification" button</li>
+    <li>Emailing <a href="mailto:hello@swapncore.com">hello@swapncore.com</a> with corrections or suggestions</li>
+  </ul>
 
   <h2>Questions?</h2>
   <p>Contact us at <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>.</p>
