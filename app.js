@@ -39,6 +39,9 @@ const PROFILES = [
 const PROFILE_KEY     = "JAIN_PROFILE";
 const PROFILE_DEFAULT = "everyday_jain";
 
+const HISTORY_KEY     = "JAIN_HISTORY";
+const HISTORY_MAX     = 20;
+
 const STATUS_META = {
   GREEN:   {
     label: "Likely Jain-friendly",
@@ -131,6 +134,11 @@ const el = {
 
   // Mode bar (pills rendered dynamically)
   modeBar:           document.getElementById("modeBar"),
+
+  // History
+  historySection:    document.getElementById("historySection"),
+  historyList:       document.getElementById("historyList"),
+  clearHistoryBtn:   document.getElementById("clearHistoryBtn"),
 
   // Modals
   reportModal:       document.getElementById("reportModal"),
@@ -282,6 +290,88 @@ function showShareToast(msg, ms = 3000) {
       el.shareToast.textContent = "";
     }
   }, ms);
+}
+
+// ─── Scan history ────────────────────────────────────────────────────────────
+
+function historyLoad() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
+  catch { return []; }
+}
+
+function historySave(entries) {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(entries)); } catch {}
+}
+
+function historyPush(entry) {
+  // entry: {barcode, status, product_name, brand, profile, ts}
+  const entries = historyLoad().filter(e => e.barcode !== entry.barcode);
+  entries.unshift(entry);
+  historySave(entries.slice(0, HISTORY_MAX));
+  renderHistory();
+}
+
+function renderHistory() {
+  const entries = historyLoad();
+  if (!el.historySection || !el.historyList) return;
+
+  if (entries.length === 0) {
+    hide(el.historySection);
+    return;
+  }
+
+  show(el.historySection);
+  el.historyList.innerHTML = "";
+
+  entries.forEach(entry => {
+    const li = document.createElement("li");
+    li.className = "history-item";
+    li.setAttribute("role", "listitem");
+
+    // Status dot
+    const dot = document.createElement("span");
+    dot.className = `history-dot history-dot--${(entry.status || "UNKNOWN").toLowerCase()}`;
+    dot.setAttribute("aria-hidden", "true");
+
+    // Name / barcode
+    const name = document.createElement("span");
+    name.className = "history-name";
+    name.textContent = entry.product_name || entry.barcode;
+
+    // Time ago
+    const time = document.createElement("span");
+    time.className = "history-time";
+    time.textContent = timeAgo(entry.ts);
+
+    // Re-scan button
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "history-rescan";
+    btn.dataset.barcode = entry.barcode;
+    btn.setAttribute("aria-label", `Re-scan ${entry.product_name || entry.barcode}`);
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>`;
+    btn.addEventListener("click", () => {
+      fetchVerdict(entry.barcode).catch(() => renderError(MESSAGES.genericError));
+    });
+
+    li.appendChild(dot);
+    li.appendChild(name);
+    li.appendChild(time);
+    li.appendChild(btn);
+    el.historyList.appendChild(li);
+  });
+}
+
+function timeAgo(isoString) {
+  if (!isoString) return "";
+  const diffMs  = Date.now() - new Date(isoString).getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1)  return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH   = Math.floor(diffMin / 60);
+  if (diffH < 24)   return `${diffH}h ago`;
+  const diffD   = Math.floor(diffH / 24);
+  return `${diffD}d ago`;
 }
 
 async function fetchWithTimeout(url, options, ms) {
@@ -490,6 +580,16 @@ function renderResult(data) {
     chip.setAttribute("role", "listitem");
     chip.textContent = r;
     el.reasonChips.appendChild(chip);
+  });
+
+  // Persist to scan history
+  historyPush({
+    barcode:      state.currentBarcode,
+    status:       status,
+    product_name: data.product_name || "",
+    brand:        data.brand || "",
+    profile:      getActiveProfile(),
+    ts:           new Date().toISOString(),
   });
 
   // Saved banner
@@ -956,6 +1056,12 @@ function bindEvents() {
   // Torch
   el.torchBtn?.addEventListener("click", () => applyTorch(!state.torchOn));
 
+  // Clear history
+  el.clearHistoryBtn?.addEventListener("click", () => {
+    historySave([]);
+    renderHistory();
+  });
+
   // Share button
   el.shareBtn?.addEventListener("click", () => {
     const { barcode, status, name } = el.shareBtn.dataset;
@@ -1040,6 +1146,7 @@ function init() {
 
   initProfileSelector();
   bindEvents();
+  renderHistory();
   hideResult();
   clearMessage();
   updateManualState();

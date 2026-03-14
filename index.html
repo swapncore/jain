@@ -136,6 +136,17 @@
       </section>
 
       <!-- ═══════════════════════════════════════════
+           RECENT SCANS (history — rendered by app.js)
+      ═══════════════════════════════════════════ -->
+      <section id="historySection" class="card history-card hidden" aria-labelledby="history-heading">
+        <div class="history-header">
+          <h2 class="card-heading" id="history-heading">Recent scans</h2>
+          <button type="button" id="clearHistoryBtn" class="btn-link btn-link--muted" aria-label="Clear scan history">Clear</button>
+        </div>
+        <ul id="historyList" class="history-list" role="list" aria-label="Recent scan results"></ul>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
            RESULT CARD
       ═══════════════════════════════════════════ -->
       <section id="resultSection" class="card result-card hidden" aria-live="polite" aria-labelledby="result-heading">
