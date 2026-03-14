@@ -6,6 +6,19 @@
     <title>Jaini</title>
     <link rel="icon" type="image/png" href="./logo.png" />
     <meta name="description" content="Scan a product barcode for informational Jain dietary guidance. Uses available ingredient data to flag possible Jain concerns." />
+
+    <!-- Open Graph / WhatsApp / iMessage preview -->
+    <meta property="og:type"        content="website" />
+    <meta property="og:site_name"   content="Jaini" />
+    <meta property="og:title"       content="Jaini — Jain dietary barcode scanner" />
+    <meta property="og:description" content="Scan or enter a product barcode to check Jain dietary compliance. Flags meat, fish, eggs, alliums, root vegetables, and ambiguous additives." />
+    <meta property="og:url"         content="https://jain.swapncore.com/" />
+    <meta property="og:image"       content="https://jain.swapncore.com/logo.png" />
+    <meta name="twitter:card"       content="summary" />
+    <meta name="twitter:title"      content="Jaini — Jain dietary barcode scanner" />
+    <meta name="twitter:description"content="Check if a product is Jain-friendly by scanning or entering its barcode." />
+    <meta name="twitter:image"      content="https://jain.swapncore.com/logo.png" />
+
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -189,8 +202,13 @@
 
         <!-- Result actions -->
         <div class="result-actions">
+          <button type="button" id="shareBtn" class="btn btn-ghost btn-sm hidden" aria-label="Share this verdict">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            Share
+          </button>
           <button type="button" id="reportIssueBtn" class="btn-link hidden">Report incorrect classification</button>
           <span id="savedNote" class="saved-note" aria-live="polite"></span>
+          <span id="shareToast" class="share-toast" aria-live="polite"></span>
         </div>
       </section>
 

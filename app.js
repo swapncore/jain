@@ -120,6 +120,8 @@ const el = {
   barcodeInfo:       document.getElementById("barcodeInfo"),
   reasonChips:       document.getElementById("reasonChips"),
   savedNote:         document.getElementById("savedNote"),
+  shareBtn:          document.getElementById("shareBtn"),
+  shareToast:        document.getElementById("shareToast"),
   reportIssueBtn:    document.getElementById("reportIssueBtn"),
   notFoundState:     document.getElementById("notFoundState"),
   ingredientSection: document.getElementById("ingredientSection"),
@@ -233,6 +235,55 @@ function initProfileSelector() {
   });
 }
 
+// ─── Share ────────────────────────────────────────────────────────────────────
+
+function getShareUrl(barcode, profileId) {
+  const base = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams({ b: barcode });
+  if (profileId && profileId !== PROFILE_DEFAULT) params.set("p", profileId);
+  return `${base}?${params}`;
+}
+
+async function handleShare(barcode, status, productName) {
+  const profile  = getActiveProfile();
+  const url      = getShareUrl(barcode, profile);
+  const verdict  = STATUS_META[status]?.label ?? "Unknown";
+  const name     = productName ? `${productName} — ` : "";
+  const title    = `Jaini: ${name}${verdict}`;
+  const text     = `${name}${verdict} (Jaini Jain dietary check)`;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({ title, text, url });
+      return;
+    } catch (err) {
+      if (err?.name === "AbortError") return;   // user dismissed
+      // fall through to clipboard
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(url);
+    showShareToast("Link copied to clipboard");
+  } catch {
+    showShareToast("Share: " + url, 8000);
+  }
+}
+
+let _shareToastTimer = null;
+function showShareToast(msg, ms = 3000) {
+  if (!el.shareToast) return;
+  el.shareToast.textContent = msg;
+  el.shareToast.classList.add("share-toast--visible");
+  clearTimeout(_shareToastTimer);
+  _shareToastTimer = setTimeout(() => {
+    if (el.shareToast) {
+      el.shareToast.classList.remove("share-toast--visible");
+      el.shareToast.textContent = "";
+    }
+  }, ms);
+}
+
 async function fetchWithTimeout(url, options, ms) {
   const ctrl = new AbortController();
   const tid = setTimeout(() => ctrl.abort(), ms);
@@ -279,6 +330,7 @@ function hideResult() {
   hide(el.ingredientSection);
   hide(el.productDetails);
   hide(el.reportIssueBtn);
+  hide(el.shareBtn);
   el.reasonChips.innerHTML = "";
   el.savedNote.textContent = "";
 }
@@ -442,6 +494,14 @@ function renderResult(data) {
 
   // Saved banner
   el.savedNote.textContent = data.saved ? "✓ Saved for future scans" : "";
+
+  // Share button — store barcode + status on element for click handler
+  if (el.shareBtn && state.currentBarcode) {
+    el.shareBtn.dataset.barcode = state.currentBarcode;
+    el.shareBtn.dataset.status  = status;
+    el.shareBtn.dataset.name    = data.product_name || "";
+    show(el.shareBtn);
+  }
 
   // Report link
   show(el.reportIssueBtn);
@@ -865,6 +925,12 @@ function bindEvents() {
   // Torch
   el.torchBtn?.addEventListener("click", () => applyTorch(!state.torchOn));
 
+  // Share button
+  el.shareBtn?.addEventListener("click", () => {
+    const { barcode, status, name } = el.shareBtn.dataset;
+    if (barcode) handleShare(barcode, status, name);
+  });
+
   // Report issue button (in result card)
   el.reportIssueBtn?.addEventListener("click", () => {
     if (el.reportBarcode) el.reportBarcode.value = state.currentBarcode;
@@ -932,6 +998,15 @@ function bindEvents() {
 
 function init() {
   getClientId();
+
+  // If URL contains ?b= (shared link), honour ?p= profile override first
+  const _urlParams  = new URLSearchParams(window.location.search);
+  const _urlBarcode = _urlParams.get("b");
+  const _urlProfile = _urlParams.get("p");
+  if (_urlProfile && PROFILES.some(p => p.id === _urlProfile)) {
+    setActiveProfile(_urlProfile);
+  }
+
   initProfileSelector();
   bindEvents();
   hideResult();
@@ -941,6 +1016,13 @@ function init() {
   hide(el.cameraBlockedMsg);
   hide(el.newScanBtn);
   show(el.scanTriggerArea);
+
+  // Auto-fetch if a barcode was embedded in the share URL
+  if (_urlBarcode && /^\d{12,13}$/.test(_urlBarcode)) {
+    // Clean URL so bookmarking / back-navigation doesn't re-trigger
+    history.replaceState(null, "", window.location.pathname);
+    fetchVerdict(_urlBarcode).catch(() => renderError(MESSAGES.genericError));
+  }
 }
 
 init();

@@ -957,6 +957,15 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   font-weight: 600;
 }
 
+.share-toast {
+  display: none;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.share-toast--visible {
+  display: inline;
+}
+
 /* ============================================================
    LEGEND CARD
    ============================================================ */
