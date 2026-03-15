@@ -992,7 +992,8 @@ function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ""; }
 
 async function fetchVerdict(rawBarcode) {
   const normalized = normalizeBarcode(rawBarcode);
-  const barcode = normalized.cleaned;
+  // Use expanded UPC-A for API lookup (UPC-E → 12-digit), otherwise cleaned digits
+  const barcode = normalized.upc12 || normalized.ean13 || normalized.cleaned;
   if (barcode.length !== 12 && barcode.length !== 13) {
     updateManualState();
     showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
