@@ -1021,7 +1021,8 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   font-size: 0.78rem;
   font-weight: 500;
   font-family: inherit;
-  padding: 0.2rem 0.65rem;
+  padding: 0.45rem 0.75rem;
+  min-height: 44px;
   border-radius: var(--r-pill);
   cursor: pointer;
   border: 1.5px solid;
@@ -1121,11 +1122,14 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   border: none;
   cursor: pointer;
   color: var(--muted);
-  padding: 0.2rem;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--r-sm);
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
   transition: color var(--transition);
 }
 .history-rescan:hover { color: var(--brand); }

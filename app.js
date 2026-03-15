@@ -7,6 +7,7 @@ import { BarcodeDetector as BarcodeDetectorPolyfill } from "https://cdn.jsdelivr
 import {
   API_BASE_PROD, API_BASE_DEV,
   REQUEST_TIMEOUT_MS, VERDICT_FAILSAFE_MS,
+  ENDPOINTS,
   PROFILES, PROFILE_DEFAULT, PROFILE_KEY,
   HISTORY_KEY, HISTORY_MAX,
   STATUS_META as _STATUS_META,
@@ -445,8 +446,8 @@ function renderHistory() {
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>`;
     btn.addEventListener("click", () => {
       if (state.inFlight || state.scanLocked) return;
-      if (entry.verdictData) {
-        // Show cached verdict instantly without API call
+      if (entry.verdictData && entry.profile === getActiveProfile()) {
+        // Show cached verdict instantly (only if profile matches)
         clearMessage();
         hideResult();
         stopScanning();
@@ -559,7 +560,7 @@ async function submitFeedback(barcode, signal) {
 
   try {
     const resp = await fetchWithTimeout(
-      `${getApiBase()}/v1/feedback`,
+      `${getApiBase()}${ENDPOINTS.feedback}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
@@ -581,7 +582,7 @@ async function submitFeedback(barcode, signal) {
 async function reportClientEvent(eventType, opts = {}) {
   // opts: { barcode, profile, error_code, error_msg, response_ms }
   try {
-    await fetchWithTimeout(`${getApiBase()}/v1/client_event`, {
+    await fetchWithTimeout(`${getApiBase()}${ENDPOINTS.client_event}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
       body: JSON.stringify({
@@ -621,7 +622,7 @@ async function fetchAndRenderAlternatives(barcode, status) {
   const reqId = state.requestId;   // capture NOW before any await
 
   const profile = getActiveProfile();
-  const url = new URL(`${getApiBase()}/v1/alternatives`);
+  const url = new URL(`${getApiBase()}${ENDPOINTS.alternatives}`);
   url.searchParams.set("barcode", barcode);
   url.searchParams.set("profile", profile);
 
@@ -692,7 +693,7 @@ function clearMessage() {
   el.messageBox.innerHTML = "";
 }
 
-function showMessage({ message, variant = "info" }) {
+function showMessage({ message, variant = "info", safeHtml = false }) {
   el.messageBox.className = `notice notice-${variant}`;
 
   const iconMap = {
@@ -701,7 +702,15 @@ function showMessage({ message, variant = "info" }) {
     info:  `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
   };
 
-  el.messageBox.innerHTML = `${iconMap[variant] || iconMap.info}<div><p>${message}</p></div>`;
+  const icon = iconMap[variant] || iconMap.info;
+  if (safeHtml) {
+    el.messageBox.innerHTML = `${icon}<div><p>${message}</p></div>`;
+  } else {
+    el.messageBox.innerHTML = `${icon}<div></div>`;
+    const p = document.createElement("p");
+    p.textContent = message;
+    el.messageBox.querySelector("div").appendChild(p);
+  }
   show(el.messageBox);
 }
 
@@ -965,6 +974,7 @@ function renderRateLimit(data) {
   showMessage({
     variant: "warn",
     message: `You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact <a href="mailto:hello@swapncore.com">hello@swapncore.com</a> to request an increase.`,
+    safeHtml: true,
   });
   presentOutcome();
 }
@@ -1014,7 +1024,7 @@ async function fetchVerdict(rawBarcode) {
   const tStart = Date.now();
 
   try {
-    const url = new URL(`${getApiBase()}/v1/verdict`);
+    const url = new URL(`${getApiBase()}${ENDPOINTS.verdict}`);
     url.searchParams.set("barcode", barcode);
     url.searchParams.set("profile", getActiveProfile());
 
@@ -1176,6 +1186,7 @@ async function startNativeScanning(stream) {
   let running = true;
   state._nativeScanStop = () => { running = false; };
 
+  const SCAN_INTERVAL_MS = 150; // ~7fps — saves CPU/battery vs 60fps rAF
   const tick = async () => {
     if (!running) return;
     try {
@@ -1184,9 +1195,9 @@ async function startNativeScanning(stream) {
         onDecodedText(bc.rawValue);
       }
     } catch { /* frame not ready */ }
-    if (running) requestAnimationFrame(tick);
+    if (running) setTimeout(tick, SCAN_INTERVAL_MS);
   };
-  requestAnimationFrame(tick);
+  setTimeout(tick, SCAN_INTERVAL_MS);
   return true;
 }
 
@@ -1242,9 +1253,7 @@ async function startScanning() {
 
     const onResult = r => {
       if (r) {
-        const txt = r.getText();
-        const fmt = r.getBarcodeFormat ? r.getBarcodeFormat() : 'unknown';
-        onDecodedText(txt);
+        onDecodedText(r.getText());
       }
     };
 
@@ -1411,7 +1420,7 @@ async function handleMissingSubmit(e) {
 
   try {
     const resp = await fetchWithTimeout(
-      `${getApiBase()}/v1/submit_missing_photo`,
+      `${getApiBase()}${ENDPOINTS.submit_missing_photo}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
@@ -1551,6 +1560,12 @@ function bindEvents() {
   el.missingFileInput?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+    if (file.size > MAX_FILE_SIZE) {
+      showMessage("Image too large — please choose a file under 5 MB.", "warn");
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (ev) => setMissingPhoto(ev.target.result);
     reader.readAsDataURL(file);
