@@ -11,6 +11,7 @@ import {
   STATUS_META as _STATUS_META,
   INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES,
 } from "./config/shared-config.js";
+import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcode.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -443,7 +444,15 @@ function renderHistory() {
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>`;
     btn.addEventListener("click", () => {
       if (state.inFlight || state.scanLocked) return;
-      fetchVerdict(entry.barcode).catch(() => renderError(MESSAGES.genericError));
+      if (entry.verdictData) {
+        // Show cached verdict instantly without API call
+        clearMessage();
+        hideResult();
+        stopScanning();
+        renderResult(entry.verdictData);
+      } else {
+        fetchVerdict(entry.barcode).catch(() => renderError(MESSAGES.genericError));
+      }
     });
 
     li.appendChild(dot);
@@ -712,38 +721,39 @@ function hideResult() {
 // ─── Manual input validation ─────────────────────────────────────────────────
 
 function isManualValid() {
-  const d = onlyDigits(el.manualInput.value);
-  return d.length === 12 || d.length === 13;
+  return isValidBarcodeUtil(el.manualInput.value);
 }
 
 function updateManualState() {
   const raw = el.manualInput.value;
-  const digits = onlyDigits(raw);
-  const hadNonNumeric = raw !== digits;
+  const result = normalizeBarcode(raw);
+  const hadNonNumeric = raw !== result.cleaned && raw.length > 0;
 
-  el.manualInput.value = digits;
+  el.manualInput.value = result.cleaned;
 
-  let help = "Enter a 12-digit UPC or 13-digit EAN barcode.";
+  let help = "";
   let isError = false;
 
   if (hadNonNumeric) {
     help = "Only numbers are allowed. Spaces and hyphens are removed automatically.";
     isError = true;
-  } else if (digits.length > 13) {
-    help = `Too many digits (${digits.length}). Barcodes are 12 or 13 digits.`;
+  } else if (result.cleaned.length > 13) {
+    help = `Too many digits (${result.cleaned.length}). Barcodes are 12 or 13 digits.`;
     isError = true;
-  } else if (digits.length > 0 && digits.length < 12) {
-    const need = 12 - digits.length;
+  } else if (result.cleaned.length > 0 && result.cleaned.length < 12) {
+    const need = 12 - result.cleaned.length;
     help = `Enter ${need} more digit${need === 1 ? "" : "s"} (need 12 or 13 total).`;
     isError = false; // not an error, just incomplete
-  } else if (digits.length === 12) {
-    help = "UPC-A detected. 12 digits ✓";
-  } else if (digits.length === 13) {
-    help = "EAN-13 detected. 13 digits ✓";
+  } else if (result.symbology === "UPC-A") {
+    const tag = result.checksumValid === false ? " (invalid check digit)" : "";
+    help = `UPC-A detected. 12 digits ✓${tag}`;
+  } else if (result.symbology === "EAN-13") {
+    const tag = result.checksumValid === false ? " (invalid check digit)" : "";
+    help = `EAN-13 detected. 13 digits ✓${tag}`;
   }
 
   el.manualHelp.textContent = help;
-  el.manualHelp.classList.toggle("field-help-error", isError && digits.length > 0);
+  el.manualHelp.classList.toggle("field-help-error", isError && result.cleaned.length > 0);
   el.manualInput.setAttribute("aria-invalid", isError ? "true" : "false");
   if (el.checkBtn) el.checkBtn.disabled = !isManualValid() || state.inFlight;
 
@@ -877,7 +887,7 @@ function renderResult(data) {
   // Jain-friendly alternatives (for RED/ORANGE)
   fetchAndRenderAlternatives(state.currentBarcode, data.status);
 
-  // Persist to scan history
+  // Persist to scan history (cache full verdict for instant replay)
   historyPush({
     barcode:      state.currentBarcode,
     status:       status,
@@ -885,6 +895,7 @@ function renderResult(data) {
     brand:        data.brand || "",
     profile:      getActiveProfile(),
     ts:           new Date().toISOString(),
+    verdictData:  data,
   });
 
   // Saved banner
@@ -973,7 +984,8 @@ function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ""; }
 // ─── Network ──────────────────────────────────────────────────────────────────
 
 async function fetchVerdict(rawBarcode) {
-  const barcode = onlyDigits(rawBarcode);
+  const normalized = normalizeBarcode(rawBarcode);
+  const barcode = normalized.cleaned;
   if (barcode.length !== 12 && barcode.length !== 13) {
     updateManualState();
     showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
@@ -1064,7 +1076,7 @@ async function fetchVerdict(rawBarcode) {
 
 function onDecodedText(text) {
   if (state.scanLocked || state.inFlight) return;
-  const digits = onlyDigits(text);
+  const digits = normalizeBarcode(text).cleaned;
   if (digits.length !== 12 && digits.length !== 13) return;
 
   const now = Date.now();

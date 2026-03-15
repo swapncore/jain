@@ -12,7 +12,7 @@
     <meta property="og:type"        content="website" />
     <meta property="og:site_name"   content="Jaini" />
     <meta property="og:title"       content="Jaini — Jain dietary barcode scanner" />
-    <meta property="og:description" content="Scan or enter a product barcode to check Jain dietary compliance. Flags meat, fish, eggs, alliums, root vegetables, and ambiguous additives." />
+    <meta property="og:description" content="Scan or enter a product barcode to check Jain dietary compliance. Flags meat, fish, eggs, onion, garlic, root vegetables, and ambiguous additives." />
     <meta property="og:url"         content="https://jain.swapncore.com/" />
     <meta property="og:image"       content="https://jain.swapncore.com/logo.png" />
     <meta name="twitter:card"       content="summary" />
@@ -120,7 +120,7 @@
                 inputmode="numeric"
                 pattern="[0-9]{12,13}"
                 minlength="12"
-                maxlength="13"
+                maxlength="20"
                 placeholder="e.g. 012345678901"
                 aria-describedby="manualHelp"
                 aria-invalid="false"
@@ -130,7 +130,7 @@
             </div>
             <button id="checkBtn" type="submit" class="btn btn-primary" disabled>Check</button>
           </div>
-          <p id="manualHelp" class="field-help" aria-live="polite">Enter a 12-digit UPC or 13-digit EAN barcode.</p>
+          <p id="manualHelp" class="field-help" aria-live="polite"></p>
         </form>
 
         <!-- New scan button (shown after result) -->
@@ -276,7 +276,7 @@
             </span>
             <div class="legend-body">
               <strong class="legend-label">Jain-Restricted</strong>
-              <p class="legend-desc">Contains ingredients restricted in your current mode — root vegetables, alliums (onion/garlic), or in stricter modes: honey, fermented ingredients, and leafy greens.</p>
+              <p class="legend-desc">Contains ingredients restricted in your current mode — root vegetables, onion/garlic, or in stricter modes: honey, fermented ingredients, and leafy greens.</p>
             </div>
           </li>
           <li class="legend-item legend-ORANGE" role="listitem">
