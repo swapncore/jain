@@ -738,12 +738,19 @@ function updateManualState() {
     help = "Only numbers are allowed. Spaces and hyphens are removed automatically.";
     isError = true;
   } else if (result.cleaned.length > 13) {
-    help = `Too many digits (${result.cleaned.length}). Barcodes are 12 or 13 digits.`;
+    help = `Too many digits (${result.cleaned.length}). Barcodes are 8, 12, or 13 digits.`;
     isError = true;
-  } else if (result.cleaned.length > 0 && result.cleaned.length < 12) {
+  } else if (result.symbology === "UPC-E") {
+    const tag = result.checksumValid === false ? " (invalid check digit)" : "";
+    help = `UPC-E detected. 8 digits ✓${tag}`;
+  } else if (result.cleaned.length > 0 && result.cleaned.length < 8) {
+    const need = 8 - result.cleaned.length;
+    help = `Enter ${need} more digit${need === 1 ? "" : "s"} (need 8, 12, or 13 total).`;
+    isError = false;
+  } else if (result.cleaned.length > 8 && result.cleaned.length < 12) {
     const need = 12 - result.cleaned.length;
     help = `Enter ${need} more digit${need === 1 ? "" : "s"} (need 12 or 13 total).`;
-    isError = false; // not an error, just incomplete
+    isError = false;
   } else if (result.symbology === "UPC-A") {
     const tag = result.checksumValid === false ? " (invalid check digit)" : "";
     help = `UPC-A detected. 12 digits ✓${tag}`;
