@@ -307,7 +307,17 @@ function buildVerdictImage(barcode, status, productName, brand, reasons) {
       ctx.lineWidth = 1;
       const rx = x, ry = chipY - 16, rw = tw, rh = 22;
       ctx.beginPath();
-      ctx.roundRect(rx, ry, rw, rh, 11);
+      if (ctx.roundRect) {
+        ctx.roundRect(rx, ry, rw, rh, 11);
+      } else {
+        // Fallback for browsers without roundRect (pre-2022)
+        ctx.moveTo(rx + 11, ry);
+        ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, 11);
+        ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, 11);
+        ctx.arcTo(rx, ry + rh, rx, ry, 11);
+        ctx.arcTo(rx, ry, rx + rw, ry, 11);
+        ctx.closePath();
+      }
       ctx.fill(); ctx.stroke();
       ctx.fillStyle = col.text;
       ctx.fillText(label, rx + 10, chipY);
