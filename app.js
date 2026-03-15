@@ -616,7 +616,7 @@ function hideAlternatives() {
 }
 
 async function fetchAndRenderAlternatives(barcode, status) {
-  if (status !== "RED" && status !== "ORANGE") { hideAlternatives(); return; }
+  if (status !== "RED" && status !== "ORANGE" && status !== "YELLOW") { hideAlternatives(); return; }
   if (!el.alternativesSection) return;
   const reqId = state.requestId;   // capture NOW before any await
 
