@@ -38,7 +38,7 @@
   <p>When a barcode is detected or you enter one manually, Jaini sends the following to our API server:</p>
   <ul>
     <li>The barcode number (digits only)</li>
-    <li>Your profile setting (always "jain")</li>
+    <li>Your selected profile mode (e.g. "everyday_jain", "temple_mode", "paryushan_mode", or "greens_sensitive_mode")</li>
     <li>A randomly generated anonymous client ID stored in your browser's localStorage, used only to apply per-device rate limits. It is not linked to your identity.</li>
   </ul>
   <p>No names, no account, no email, and no location are sent with barcode lookups.</p>
@@ -97,8 +97,8 @@
     var link = document.getElementById('getAppLink');
     if (link) {
       link.href = isIOS
-        ? 'https://apps.apple.com/app/whatsapp-messenger/id310633997'
-        : 'https://play.google.com/store/apps/details?id=com.whatsapp';
+        ? 'https://apps.apple.com/app/id6760580801'
+        : 'https://play.google.com/store/apps/details?id=com.swapncore.jaini';
     }
   })();
 </script>
