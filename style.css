@@ -1103,7 +1103,7 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
 .history-name {
   flex: 1;
   font-size: 0.85rem;
-  color: var(--text-1);
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
