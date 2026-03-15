@@ -1083,9 +1083,11 @@ async function fetchVerdict(rawBarcode) {
 // ─── Camera ───────────────────────────────────────────────────────────────────
 
 function onDecodedText(text) {
+  console.log(`[onDecodedText] text="${text}" locked=${state.scanLocked} inFlight=${state.inFlight}`);
   if (state.scanLocked || state.inFlight) return;
   const normalized = normalizeBarcode(text);
   const digits = normalized.upc12 || normalized.ean13 || normalized.cleaned;
+  console.log(`[onDecodedText] symbology=${normalized.symbology} digits="${digits}" len=${digits.length}`);
   if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
 
   const now = Date.now();
@@ -1095,10 +1097,12 @@ function onDecodedText(text) {
   if (digits !== state.pendingBarcode) {
     state.pendingBarcode = digits;
     state.pendingCount   = 1;
+    console.log(`[onDecodedText] pending first read: ${digits}`);
     el.scanStatus && (el.scanStatus.textContent = `Detected ${digits}... confirming`);
     return;
   }
   state.pendingCount++;
+  console.log(`[onDecodedText] pending count: ${state.pendingCount}`);
   if (state.pendingCount < 2) return;
 
   state.pendingBarcode = "";
@@ -1152,8 +1156,47 @@ function resetTorch() {
   el.torchBtn?.classList.remove("torch-on");
 }
 
+// ─── Native BarcodeDetector scanning (supports UPC-E) ────────────────────────
+
+const NATIVE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
+
+function useNativeDetector() {
+  return typeof BarcodeDetector !== "undefined";
+}
+
+async function startNativeScanning(stream) {
+  const supported = await BarcodeDetector.getSupportedFormats();
+  const formats = NATIVE_FORMATS.filter(f => supported.includes(f));
+  if (!formats.length) return false;              // fallback to ZXing
+
+  const detector = new BarcodeDetector({ formats });
+  state._nativeDetector = detector;
+
+  el.video.srcObject = stream;
+  await el.video.play();
+
+  let running = true;
+  state._nativeScanStop = () => { running = false; };
+
+  const tick = async () => {
+    if (!running) return;
+    try {
+      const barcodes = await detector.detect(el.video);
+      for (const bc of barcodes) {
+        console.log(`[native-scan] raw="${bc.rawValue}" format=${bc.format}`);
+        onDecodedText(bc.rawValue);
+      }
+    } catch { /* frame not ready */ }
+    if (running) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return true;
+}
+
+// ─── Start scanning (native BarcodeDetector → ZXing fallback) ────────────────
+
 async function startScanning() {
-  if (state.controls) return;
+  if (state.controls || state._nativeScanStop) return;
 
   if (!navigator.mediaDevices?.getUserMedia) {
     hide(el.cameraArea);
@@ -1169,22 +1212,49 @@ async function startScanning() {
   hide(el.scanTriggerArea);
   state.scanLocked = false;
 
-  const hints = new Map();
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
-  hints.set(DecodeHintType.TRY_HARDER, true);
-
-  state.reader = new BrowserMultiFormatReader(hints, {
-    delayBetweenScanAttempts: 50,
-    delayBetweenScanSuccess: 600,
-  });
-
-  const onResult = r => { if (r) onDecodedText(r.getText()); };
-
   try {
     const deviceId = await pickBackCamera();
     const videoConstraints = deviceId
       ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
+
+    // Try native BarcodeDetector first (has UPC-E support)
+    if (useNativeDetector()) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
+        const ok = await startNativeScanning(stream);
+        if (ok) {
+          console.log("[scan] Using native BarcodeDetector (UPC-E supported)");
+          await setupTorch();
+          el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+          return;
+        }
+        // Native didn't support any formats — stop stream, fall through to ZXing
+        stream.getTracks().forEach(t => t.stop());
+      } catch (nativeErr) {
+        console.warn("[scan] Native BarcodeDetector failed, falling back to ZXing:", nativeErr);
+      }
+    }
+
+    // Fallback: ZXing (no UPC-E support but handles EAN-13 / UPC-A)
+    console.log("[scan] Using ZXing fallback");
+    const hints = new Map();
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
+    hints.set(DecodeHintType.TRY_HARDER, true);
+
+    state.reader = new BrowserMultiFormatReader(hints, {
+      delayBetweenScanAttempts: 50,
+      delayBetweenScanSuccess: 600,
+    });
+
+    const onResult = r => {
+      if (r) {
+        const txt = r.getText();
+        const fmt = r.getBarcodeFormat ? r.getBarcodeFormat() : 'unknown';
+        console.log(`[zxing-scan] raw="${txt}" format=${fmt} len=${txt.length}`);
+        onDecodedText(txt);
+      }
+    };
 
     try {
       state.controls = await state.reader.decodeFromConstraints(
@@ -1210,6 +1280,13 @@ function stopScanning() {
   state.pendingBarcode = "";
   state.pendingCount   = 0;
   resetTorch();
+  // Stop native BarcodeDetector scanning
+  if (state._nativeScanStop) { state._nativeScanStop(); state._nativeScanStop = null; }
+  if (el.video?.srcObject) {
+    el.video.srcObject.getTracks().forEach(t => t.stop());
+    el.video.srcObject = null;
+  }
+  // Stop ZXing scanning
   try { if (state.controls) { state.controls.stop(); state.controls = null; } } catch { state.controls = null; }
   try { if (state.reader)   { state.reader.reset();   state.reader   = null; } } catch { state.reader   = null; }
 }
