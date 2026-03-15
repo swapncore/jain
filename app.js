@@ -3,6 +3,7 @@ import {
   DecodeHintType,
   BarcodeFormat,
 } from "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm";
+import { BarcodeDetector as BarcodeDetectorPolyfill } from "https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm";
 import {
   API_BASE_PROD, API_BASE_DEV,
   REQUEST_TIMEOUT_MS, VERDICT_FAILSAFE_MS,
@@ -1160,16 +1161,17 @@ function resetTorch() {
 
 const NATIVE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
-function useNativeDetector() {
-  return typeof BarcodeDetector !== "undefined";
-}
+// Use native BarcodeDetector if available, otherwise the WASM polyfill
+const DetectorImpl = (typeof globalThis.BarcodeDetector !== "undefined")
+  ? globalThis.BarcodeDetector
+  : BarcodeDetectorPolyfill;
 
 async function startNativeScanning(stream) {
-  const supported = await BarcodeDetector.getSupportedFormats();
+  const supported = await DetectorImpl.getSupportedFormats();
   const formats = NATIVE_FORMATS.filter(f => supported.includes(f));
   if (!formats.length) return false;              // fallback to ZXing
 
-  const detector = new BarcodeDetector({ formats });
+  const detector = new DetectorImpl({ formats });
   state._nativeDetector = detector;
 
   el.video.srcObject = stream;
@@ -1218,22 +1220,21 @@ async function startScanning() {
       ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
       : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
 
-    // Try native BarcodeDetector first (has UPC-E support)
-    if (useNativeDetector()) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
-        const ok = await startNativeScanning(stream);
-        if (ok) {
-          console.log("[scan] Using native BarcodeDetector (UPC-E supported)");
-          await setupTorch();
-          el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
-          return;
-        }
-        // Native didn't support any formats — stop stream, fall through to ZXing
-        stream.getTracks().forEach(t => t.stop());
-      } catch (nativeErr) {
-        console.warn("[scan] Native BarcodeDetector failed, falling back to ZXing:", nativeErr);
+    // Try BarcodeDetector first (native or WASM polyfill — has UPC-E support)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
+      const ok = await startNativeScanning(stream);
+      if (ok) {
+        const isNative = (typeof globalThis.BarcodeDetector !== "undefined");
+        console.log(`[scan] Using ${isNative ? "native" : "polyfill"} BarcodeDetector (UPC-E supported)`);
+        await setupTorch();
+        el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+        return;
       }
+      // Detector didn't support any formats — stop stream, fall through to ZXing
+      stream.getTracks().forEach(t => t.stop());
+    } catch (detErr) {
+      console.warn("[scan] BarcodeDetector failed, falling back to ZXing:", detErr);
     }
 
     // Fallback: ZXing (no UPC-E support but handles EAN-13 / UPC-A)
