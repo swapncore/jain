@@ -1220,7 +1220,6 @@ async function startScanning() {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const ok = await startNativeScanning(stream);
       if (ok) {
-        const isNative = (typeof globalThis.BarcodeDetector !== "undefined");
         await setupTorch();
         el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
         return;
@@ -1600,6 +1599,11 @@ function bindEvents() {
   window.addEventListener("beforeunload", () => { stopScanning(); stopMissingCamera(); });
 
   // Offline / online detection
+  if (!navigator.onLine) {
+    show(el.offlineBanner);
+    if (el.startCameraBtn) el.startCameraBtn.disabled = true;
+    if (el.checkBtn) el.checkBtn.disabled = true;
+  }
   window.addEventListener("offline", () => {
     show(el.offlineBanner);
     if (el.startCameraBtn) el.startCameraBtn.disabled = true;
