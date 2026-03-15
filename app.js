@@ -409,7 +409,11 @@ function historySave(entries) {
 
 function historyPush(entry) {
   // entry: {barcode, status, product_name, brand, profile, ts}
-  const entries = historyLoad().filter(e => e.barcode !== entry.barcode);
+  // Deduplicate by barcode+profile so the same product scanned under
+  // different dietary modes keeps separate history entries.
+  const entries = historyLoad().filter(
+    e => !(e.barcode === entry.barcode && e.profile === entry.profile)
+  );
   entries.unshift(entry);
   historySave(entries.slice(0, HISTORY_MAX));
   renderHistory();
@@ -489,7 +493,7 @@ function timeAgo(isoString) {
 
 // ─── Community verification ───────────────────────────────────────────────────
 
-const FEEDBACK_KEY = "JAIN_FEEDBACK";   // {barcode: signal} voted barcodes
+const FEEDBACK_KEY = "JAIN_FEEDBACK";   // {"barcode:profile": signal} voted barcodes
 
 function feedbackLoadVoted() {
   try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) || "{}"); }
@@ -498,7 +502,8 @@ function feedbackLoadVoted() {
 
 function feedbackMarkVoted(barcode, signal) {
   const voted = feedbackLoadVoted();
-  voted[barcode] = signal;
+  const key = `${barcode}:${getActiveProfile()}`;
+  voted[key] = signal;
   // Prune to last 200 entries
   const keys = Object.keys(voted);
   if (keys.length > 200) {
@@ -534,15 +539,16 @@ function showCommunitySection(barcode, community) {
   // Show badge if community data exists
   renderCommunityBadge(community);
 
-  // Show feedback prompt if not yet voted
+  // Show feedback prompt if not yet voted (keyed by barcode:profile)
   const voted = feedbackLoadVoted();
-  if (barcode && !voted[barcode]) {
+  const voteKey = `${barcode}:${getActiveProfile()}`;
+  if (barcode && !voted[voteKey]) {
     show(el.feedbackPrompt);
     hide(el.feedbackThanks);
   } else {
     hide(el.feedbackPrompt);
-    if (voted[barcode]) {
-      el.feedbackThanks.textContent = voted[barcode] === "correct"
+    if (voted[voteKey]) {
+      el.feedbackThanks.textContent = voted[voteKey] === "correct"
         ? "Thanks for confirming."
         : "Thanks for flagging — we'll review.";
       show(el.feedbackThanks);
