@@ -15,7 +15,7 @@ import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcod
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A];
+const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E];
 
 // ─── Web-only: SVG icons merged into STATUS_META ──────────────────────────────
 // Labels, descriptions, and ariaPrefix come from shared/verdicts.json via shared-config.js.
@@ -1084,8 +1084,9 @@ async function fetchVerdict(rawBarcode) {
 
 function onDecodedText(text) {
   if (state.scanLocked || state.inFlight) return;
-  const digits = normalizeBarcode(text).cleaned;
-  if (digits.length !== 12 && digits.length !== 13) return;
+  const normalized = normalizeBarcode(text);
+  const digits = normalized.upc12 || normalized.ean13 || normalized.cleaned;
+  if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
 
   const now = Date.now();
   if (digits === state.lastBarcode && now - state.lastScanAt < 2200) return;
