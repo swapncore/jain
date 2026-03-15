@@ -362,7 +362,7 @@ ul, ol { list-style: none; }
 .btn-sm {
   font-size: 0.82rem;
   padding: 0.42rem 0.85rem;
-  min-height: 36px;
+  min-height: 44px;
   border-radius: var(--r-sm);
 }
 
@@ -470,8 +470,8 @@ ul, ol { list-style: none; }
   position: absolute;
   top: 0.6rem;
   right: 0.6rem;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: rgba(0,0,0,0.5);
   border: 1px solid rgba(255,255,255,0.2);
@@ -1287,8 +1287,8 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;

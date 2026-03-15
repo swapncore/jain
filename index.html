@@ -440,8 +440,10 @@
           </div>
 
           <div class="missing-meta">
-            <input type="text" id="missingBarcode" class="form-input" placeholder="Barcode (auto-filled)" readonly />
-            <input type="text" id="missingName" class="form-input" placeholder="Product name (optional)" maxlength="300" autocomplete="off" />
+            <label for="missingBarcode" class="sr-only">Barcode</label>
+            <input type="text" id="missingBarcode" class="form-input" placeholder="Barcode (auto-filled)" readonly aria-label="Barcode" />
+            <label for="missingName" class="sr-only">Product name</label>
+            <input type="text" id="missingName" class="form-input" placeholder="Product name (optional)" maxlength="300" autocomplete="off" aria-label="Product name" />
           </div>
 
           <div id="missingFormMsg" class="form-msg hidden" aria-live="polite"></div>
