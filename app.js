@@ -1227,7 +1227,7 @@ async function startScanning() {
       // Detector didn't support any formats — stop stream, fall through to ZXing
       stream.getTracks().forEach(t => t.stop());
     } catch (detErr) {
-      console.warn("[scan] BarcodeDetector failed, falling back to ZXing:", detErr);
+      // BarcodeDetector unavailable — fall through to ZXing
     }
 
     // Fallback: ZXing (no UPC-E support but handles EAN-13 / UPC-A)
