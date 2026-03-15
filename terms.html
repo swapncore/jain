@@ -9,7 +9,8 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-<header class="site-header">
+<a href="#main-content" class="skip-link">Skip to content</a>
+<header class="site-header" role="banner">
   <div class="header-inner">
     <div class="header-brand">
       <a href="./index.html" style="display:flex;align-items:center;gap:0.55rem;text-decoration:none;">
@@ -24,7 +25,7 @@
     </nav>
   </div>
 </header>
-<main class="legal-page">
+<main id="main-content" class="legal-page">
   <h1>Terms of Use</h1>
   <p class="last-updated">Last updated: March 2026</p>
 
@@ -76,9 +77,9 @@
     Get the App
   </a>
 </div>
-<footer class="site-footer">
+<footer class="site-footer" role="contentinfo">
   <div class="footer-inner">
-    <nav class="footer-nav">
+    <nav class="footer-nav" aria-label="Footer navigation">
       <a href="./index.html" class="footer-link">Home</a>
       <a href="./privacy.html" class="footer-link">Privacy Policy</a>
       <a href="./disclaimer.html" class="footer-link">Disclaimer</a>
