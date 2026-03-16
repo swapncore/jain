@@ -1409,11 +1409,18 @@ function captureFromMissingCamera() {
   c.width = v.videoWidth || 640;
   c.height = v.videoHeight || 480;
   c.getContext("2d").drawImage(v, 0, 0);
-  const dataUrl = c.toDataURL("image/jpeg", 0.85);
+  const dataUrl = c.toDataURL("image/jpeg", 0.7);
   setMissingPhoto(dataUrl);
 }
 
 function setMissingPhoto(dataUrl) {
+  // Validate size before accepting — backend rejects > 1.5 MB decoded
+  const b64Part = dataUrl.includes(",") ? dataUrl.split(",")[1] : dataUrl;
+  const decodedSize = Math.ceil(b64Part.length * 3 / 4);
+  if (decodedSize > 1_600_000) {
+    showFormMsg(el.missingModal, "Photo is too large (max 1.5 MB). Try a lower resolution or crop the image.", "error");
+    return;
+  }
   state.missingPhotoData = dataUrl;
   if (el.missingPreviewImg) el.missingPreviewImg.src = dataUrl;
   show(el.missingPreview);
@@ -1450,7 +1457,7 @@ async function handleMissingSubmit(e) {
     );
     const data = await resp.json().catch(() => ({}));
     if (resp.ok) {
-      showFormMsg(el.missingModal, "Thanks! We received your photo and will review it shortly.", "success");
+      showFormMsg(el.missingModal, "Thank you for uploading! Our team reviews submissions daily and will add this product to the database.", "success");
       setTimeout(() => closeModal(el.missingModal), 2500);
     } else {
       const msg = data.message || "Submission failed. Please try again.";
@@ -1576,9 +1583,9 @@ function bindEvents() {
   el.missingFileInput?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+    const MAX_FILE_SIZE = 1.5 * 1024 * 1024; // 1.5 MB (must match backend limit)
     if (file.size > MAX_FILE_SIZE) {
-      showMessage("Image too large — please choose a file under 5 MB.", "warn");
+      showMessage("Image too large — please choose a file under 1.5 MB.", "warn");
       e.target.value = "";
       return;
     }
