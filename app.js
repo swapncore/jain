@@ -1326,6 +1326,7 @@ function trapFocus(modal, e) {
 
 function openModal(modal) {
   show(modal);
+  document.body.classList.add("modal-open");
   // Focus first focusable element
   const first = modal.querySelector("button, input, textarea, select, a[href]");
   first?.focus();
@@ -1339,6 +1340,7 @@ function closeModal(modal) {
     modal._trapFocusHandler = null;
   }
   hide(modal);
+  document.body.classList.remove("modal-open");
   clearFormMsg(modal);
 }
 
@@ -1585,7 +1587,7 @@ function bindEvents() {
     if (!file) return;
     const MAX_FILE_SIZE = 1.5 * 1024 * 1024; // 1.5 MB (must match backend limit)
     if (file.size > MAX_FILE_SIZE) {
-      showMessage("Image too large — please choose a file under 1.5 MB.", "warn");
+      showMessage({ message: "Image too large — please choose a file under 1.5 MB.", variant: "warn" });
       e.target.value = "";
       return;
     }
@@ -1679,7 +1681,7 @@ function init() {
   show(el.scanTriggerArea);
 
   // Auto-fetch if a barcode was embedded in the share URL
-  if (_urlBarcode && /^\d{12,13}$/.test(_urlBarcode)) {
+  if (_urlBarcode && /^\d{8}$|^\d{12,13}$/.test(_urlBarcode)) {
     // Clean URL so bookmarking / back-navigation doesn't re-trigger
     history.replaceState(null, "", window.location.pathname);
     fetchVerdict(_urlBarcode).catch(() => renderError(MESSAGES.genericError));
