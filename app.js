@@ -14,6 +14,10 @@ import {
   INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES,
 } from "./config/shared-config.js";
 import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcode.js";
+import * as Auth from "./auth.js";
+import * as Search from "./search.js";
+import * as Favorites from "./favorites.js";
+import * as Monetization from "./monetization.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -128,6 +132,28 @@ const el = {
   missingSubmitBtn:  document.getElementById("missingSubmitBtn"),
   missingSubmitLabel:document.getElementById("missingSubmitLabel"),
   missingCloseBtn:   document.getElementById("missingCloseBtn"),
+
+  // Auth nav
+  signInBtn:         document.getElementById("signInBtn"),
+  userMenuBtn:       document.getElementById("userMenuBtn"),
+  userAvatar:        document.getElementById("userAvatar"),
+  userName:          document.getElementById("userName"),
+
+  // Auth modal
+  authModal:         document.getElementById("authModal"),
+  authModalClose:    document.getElementById("authModalClose"),
+  googleSignInBtn:   document.getElementById("googleSignInBtn"),
+  appleSignInBtn:    document.getElementById("appleSignInBtn"),
+  authModalError:    document.getElementById("authModalError"),
+  emailOptIn:        document.getElementById("emailOptIn"),
+  emailOptInCheckbox:document.getElementById("emailOptInCheckbox"),
+  userMenuPanel:     document.getElementById("userMenuPanel"),
+  userMenuEmail:     document.getElementById("userMenuEmail"),
+  signOutBtn:        document.getElementById("signOutBtn"),
+
+  // Favorite button (in result card)
+  favoriteBtn:       document.getElementById("favoriteBtn"),
+  favoriteBtnText:   document.getElementById("favoriteBtnText"),
 };
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -739,6 +765,8 @@ function hideResult() {
   hide(el.shareBtn);
   hideCommunitySection();
   hideAlternatives();
+  Favorites.hideButton();
+  Monetization.hide();
   el.reasonChips.innerHTML = "";
   el.savedNote.textContent = "";
   state.currentBarcode = "";
@@ -919,6 +947,12 @@ function renderResult(data) {
 
   // Jain-friendly alternatives (for RED/ORANGE)
   fetchAndRenderAlternatives(state.currentBarcode, data.status);
+
+  // Favorites: update save button for this product
+  Favorites.onResultDisplayed(state.currentBarcode);
+
+  // Monetization: show sponsored cards if available
+  Monetization.showForVerdict(state.currentBarcode, data.status);
 
   // Persist to scan history (cache full verdict for instant replay)
   historyPush({
@@ -1658,7 +1692,105 @@ function bindEvents() {
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-function init() {
+// ─── Auth UI ──────────────────────────────────────────────────────────────────
+
+function openAuthModal() {
+  openModal(el.authModal);
+  // Show sign-in buttons or user menu depending on state
+  if (Auth.isSignedIn()) {
+    showUserMenuInModal();
+  } else {
+    hide(el.userMenuPanel);
+    hide(el.emailOptIn);
+    hide(el.authModalError);
+  }
+}
+
+function showUserMenuInModal() {
+  const user = Auth.getUser();
+  if (!user) return;
+  hide(el.authModalError);
+  // Hide sign-in buttons, show user info
+  const btns = el.authModal?.querySelector(".auth-buttons");
+  if (btns) btns.classList.add("hidden");
+  if (el.userMenuEmail) el.userMenuEmail.textContent = user.email || "";
+  show(el.userMenuPanel);
+  show(el.emailOptIn);
+}
+
+function updateAuthNav(user) {
+  if (user) {
+    hide(el.signInBtn);
+    if (el.userAvatar) el.userAvatar.src = user.avatar_url || "";
+    if (el.userName) el.userName.textContent = user.display_name || user.email?.split("@")[0] || "Account";
+    show(el.userMenuBtn);
+  } else {
+    show(el.signInBtn);
+    hide(el.userMenuBtn);
+  }
+}
+
+function bindAuthEvents() {
+  el.signInBtn?.addEventListener("click", openAuthModal);
+  el.userMenuBtn?.addEventListener("click", openAuthModal);
+
+  el.authModalClose?.addEventListener("click", () => closeModal(el.authModal));
+  el.authModal?.addEventListener("click", (e) => {
+    if (e.target === el.authModal) closeModal(el.authModal);
+  });
+
+  el.googleSignInBtn?.addEventListener("click", async () => {
+    try {
+      hide(el.authModalError);
+      await Auth.signInWithGoogle();
+    } catch (err) {
+      if (el.authModalError) {
+        el.authModalError.textContent = err?.message || "Sign-in failed. Please try again.";
+        show(el.authModalError);
+      }
+    }
+  });
+
+  el.appleSignInBtn?.addEventListener("click", async () => {
+    try {
+      hide(el.authModalError);
+      await Auth.signInWithApple();
+    } catch (err) {
+      if (el.authModalError) {
+        el.authModalError.textContent = err?.message || "Sign-in failed. Please try again.";
+        show(el.authModalError);
+      }
+    }
+  });
+
+  el.signOutBtn?.addEventListener("click", async () => {
+    await Auth.signOut();
+    closeModal(el.authModal);
+  });
+
+  // Email opt-in checkbox
+  el.emailOptInCheckbox?.addEventListener("change", async () => {
+    const checked = el.emailOptInCheckbox.checked;
+    try {
+      await Auth.authFetch(`${getApiBase()}/v1/email/preferences`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
+        body: JSON.stringify({ weekly_digest: checked }),
+      });
+    } catch { /* best-effort */ }
+  });
+
+  // Close auth modal on Escape (extend existing handler)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && el.authModal && !el.authModal.classList.contains("hidden")) {
+      closeModal(el.authModal);
+    }
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+async function init() {
   getClientId();
 
   // If URL contains ?b= (shared link), honour ?p= profile override first
@@ -1671,6 +1803,7 @@ function init() {
 
   initProfileSelector();
   bindEvents();
+  bindAuthEvents();
   renderHistory();
   hideResult();
   clearMessage();
@@ -1679,6 +1812,55 @@ function init() {
   hide(el.cameraBlockedMsg);
   hide(el.newScanBtn);
   show(el.scanTriggerArea);
+
+  // ── Initialize new modules ──
+  const apiBase = getApiBase();
+
+  // Auth
+  Auth.onAuthStateChange((user) => {
+    updateAuthNav(user);
+    Favorites.onAuthChange();
+    // Load email preferences if signed in
+    if (user && el.emailOptInCheckbox) {
+      Auth.authFetch(`${apiBase}/v1/email/preferences`, {
+        headers: { "X-Client-Id": getClientId() },
+      }).then(r => r.ok ? r.json() : null).then(data => {
+        if (data) el.emailOptInCheckbox.checked = !!data.weekly_digest;
+      }).catch(() => {});
+    }
+  });
+  await Auth.init();
+
+  // Search
+  Search.init({
+    apiBase,
+    getClientId,
+    getProfile: getActiveProfile,
+    onProductSelect: (barcode) => {
+      fetchVerdict(barcode).catch(() => renderError(MESSAGES.genericError));
+    },
+  });
+
+  // Favorites
+  Favorites.init({
+    apiBase,
+    getClientId,
+    getProfile: getActiveProfile,
+    onProductSelect: (barcode) => {
+      fetchVerdict(barcode).catch(() => renderError(MESSAGES.genericError));
+    },
+    onSignInRequest: openAuthModal,
+  });
+  Favorites.onAuthChange();
+
+  // Monetization
+  Monetization.init({
+    apiBase,
+    getClientId,
+  });
+
+  // Update auth nav for current state
+  updateAuthNav(Auth.getUser());
 
   // Auto-fetch if a barcode was embedded in the share URL
   if (_urlBarcode && /^\d{8}$|^\d{12,13}$/.test(_urlBarcode)) {
