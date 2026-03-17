@@ -1,23 +1,27 @@
 /**
- * auth.js — Supabase Auth integration for Jaini web app.
+ * auth.js — Firebase Auth integration for Jaini web app.
  *
  * Handles Google + Apple sign-in, session management, and user state.
  * Exports functions for app.js to call.
  */
 
-// ── Supabase config ──────────────────────────────────────────────────────────
-// These are safe to expose (anon key is designed to be public).
-// Set to empty strings if Supabase is not yet configured — auth UI will hide.
-const SUPABASE_URL = "";   // e.g. "https://xyz.supabase.co"
-const SUPABASE_KEY = "";   // anon key
+// ── Firebase config ──────────────────────────────────────────────────────────
+// These are safe to expose (public browser API key).
+// Set to empty strings if Firebase is not yet configured — auth UI will hide.
+const FIREBASE_CONFIG = {
+  apiKey: "REDACTED_FIREBASE_API_KEY",
+  authDomain: "jaini-6089e.firebaseapp.com",
+  projectId: "jaini-6089e",
+  appId: "1:569684534820:web:bdef2e5f9265577ec0dab1",
+};
 
-let _supabase = null;
-let _user = null;          // { id, supabase_uid, email, display_name, avatar_url, role }
+let _auth = null;
+let _user = null;          // { id, email, display_name, avatar_url, role }
 let _accessToken = null;
 let _onAuthChange = null;  // callback from app.js
 
 export function isConfigured() {
-  return !!(SUPABASE_URL && SUPABASE_KEY && window.supabase);
+  return !!(FIREBASE_CONFIG.apiKey && window.firebase);
 }
 
 export function getUser() { return _user; }
@@ -30,12 +34,17 @@ export function onAuthStateChange(callback) {
 
 export async function init() {
   if (!isConfigured()) return;
-  _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const { initializeApp } = window.firebase;
+  const { getAuth, onAuthStateChanged } = window.firebase.auth;
+
+  const app = initializeApp(FIREBASE_CONFIG);
+  _auth = getAuth(app);
 
   // Listen for auth state changes (handles redirect callbacks)
-  _supabase.auth.onAuthStateChange(async (event, session) => {
-    if (session) {
-      _accessToken = session.access_token;
+  onAuthStateChanged(_auth, async (firebaseUser) => {
+    if (firebaseUser) {
+      _accessToken = await firebaseUser.getIdToken();
       await _syncUser();
     } else {
       _user = null;
@@ -43,14 +52,6 @@ export async function init() {
     }
     if (_onAuthChange) _onAuthChange(_user);
   });
-
-  // Check existing session
-  const { data: { session } } = await _supabase.auth.getSession();
-  if (session) {
-    _accessToken = session.access_token;
-    await _syncUser();
-    if (_onAuthChange) _onAuthChange(_user);
-  }
 }
 
 async function _syncUser() {
@@ -69,25 +70,34 @@ async function _syncUser() {
 }
 
 export async function signInWithGoogle() {
-  if (!_supabase) return;
-  const { error } = await _supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: window.location.origin + window.location.pathname },
-  });
-  if (error) throw error;
+  if (!_auth) return;
+  const { GoogleAuthProvider, signInWithPopup } = window.firebase.auth;
+  const provider = new GoogleAuthProvider();
+  try {
+    await signInWithPopup(_auth, provider);
+  } catch (error) {
+    if (error.code !== "auth/popup-closed-by-user") {
+      throw error;
+    }
+  }
 }
 
 export async function signInWithApple() {
-  if (!_supabase) return;
-  const { error } = await _supabase.auth.signInWithOAuth({
-    provider: "apple",
-    options: { redirectTo: window.location.origin + window.location.pathname },
-  });
-  if (error) throw error;
+  if (!_auth) return;
+  const { OAuthProvider, signInWithPopup } = window.firebase.auth;
+  const provider = new OAuthProvider("apple.com");
+  provider.addScopes("email", "name");
+  try {
+    await signInWithPopup(_auth, provider);
+  } catch (error) {
+    if (error.code !== "auth/popup-closed-by-user") {
+      throw error;
+    }
+  }
 }
 
 export async function signOut() {
-  if (_supabase) await _supabase.auth.signOut();
+  if (_auth) await _auth.signOut();
   _user = null;
   _accessToken = null;
   if (_onAuthChange) _onAuthChange(null);
