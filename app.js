@@ -845,8 +845,18 @@ function renderIngredientRows(categories) {
   const order = ["RED", "ORANGE", "YELLOW", "GREEN"];
 
   order.forEach(level => {
-    const items = Array.isArray(categories?.[level]) ? categories[level] : [];
-    const meta  = INGREDIENT_GROUP_META[level];
+    const rawItems = Array.isArray(categories?.[level]) ? categories[level] : [];
+    const meta     = INGREDIENT_GROUP_META[level];
+
+    // Strip stray leading/trailing parens, commas, semicolons from ingredient names
+    // (backend sub-ingredient parsing can produce e.g. "NATURAL FLAVOR)" or "DARK CHOCOLATE (SUGAR")
+    // and deduplicate after cleaning.
+    const seenClean = new Set();
+    const items = rawItems.map(n => n.replace(/^[\s,();]+|[\s,();]+$/g, "").trim()).filter(n => {
+      if (!n || seenClean.has(n)) return false;
+      seenClean.add(n);
+      return true;
+    });
 
     const group = document.createElement("div");
     group.className = "ingredient-group";
@@ -1175,10 +1185,13 @@ function onDecodedText(text) {
 async function pickBackCamera() {
   if (!navigator.mediaDevices?.enumerateDevices) return null;
   try {
-    const devs  = await navigator.mediaDevices.enumerateDevices();
-    const vids  = devs.filter(d => d.kind === "videoinput");
-    const back  = vids.find(d => /back|rear|environment/i.test(d.label || ""));
-    return (back || vids[0])?.deviceId || null;
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const vids = devs.filter(d => d.kind === "videoinput");
+    // Only return an explicit back/rear/environment camera — never fall back to
+    // vids[0] because that is often the front camera on phones.
+    // When null is returned, startScanning uses facingMode:"environment" instead.
+    const back = vids.find(d => /back|rear|environment/i.test(d.label || ""));
+    return back?.deviceId || null;
   } catch { return null; }
 }
 
