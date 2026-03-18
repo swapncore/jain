@@ -6,10 +6,11 @@
  */
 
 // ── Firebase config ──────────────────────────────────────────────────────────
-// These are safe to expose (public browser API key).
-// Set to empty strings if Firebase is not yet configured — auth UI will hide.
+// Set apiKey after regenerating + restricting the key in Firebase Console.
+// Restrict to HTTP referrer jain.swapncore.com/* and Firebase Auth API only.
+// Auth UI will be hidden (isConfigured() returns false) when apiKey is empty.
 const FIREBASE_CONFIG = {
-  apiKey: "REDACTED_FIREBASE_API_KEY",
+  apiKey: "",
   authDomain: "jaini-6089e.firebaseapp.com",
   projectId: "jaini-6089e",
   appId: "1:569684534820:web:bdef2e5f9265577ec0dab1",
