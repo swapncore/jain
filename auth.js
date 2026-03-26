@@ -22,9 +22,9 @@ import {
 // Auth UI will be hidden (isConfigured() returns false) when apiKey is empty.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCMSIr3B2T-L8s03HpgW-C7ZktBfmjuP5A",
-  authDomain: "jaini-6089e.firebaseapp.com",
-  projectId: "jaini-6089e",
-  appId: "1:569684534820:web:bdef2e5f9265577ec0dab1",
+  authDomain: "jainapp-77aec.firebaseapp.com",
+  projectId: "jainapp-77aec",
+  appId: "1:580684555651:web:9c26a7e2d1b15f9698c2b6",
 };
 
 let _auth = null;
