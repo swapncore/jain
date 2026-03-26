@@ -9,8 +9,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import {
   getAuth,
   onAuthStateChanged,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
   OAuthProvider,
@@ -50,13 +49,6 @@ export async function init() {
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
 
-  // Handle redirect result (fires after returning from Google/Apple sign-in)
-  console.log("auth: page URL on load →", location.href);
-  getRedirectResult(_auth).then((result) => {
-    console.log("auth: getRedirectResult →", result ? `user ${result.user?.uid} (${result.user?.email})` : "null (no pending redirect)");
-  }).catch((err) => {
-    console.error("auth: redirect result error", err?.code, err?.message);
-  });
 
   // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
@@ -89,16 +81,26 @@ async function _syncUser() {
 
 export async function signInWithGoogle() {
   if (!_auth) return;
-  const provider = new GoogleAuthProvider();
-  await signInWithRedirect(_auth, provider);
+  try {
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(_auth, provider);
+    console.log("auth: popup sign-in success", result.user?.uid);
+  } catch (err) {
+    console.error("auth: popup sign-in error", err?.code, err?.message);
+  }
 }
 
 export async function signInWithApple() {
   if (!_auth) return;
-  const provider = new OAuthProvider("apple.com");
-  provider.addScope("email");
-  provider.addScope("name");
-  await signInWithRedirect(_auth, provider);
+  try {
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    const result = await signInWithPopup(_auth, provider);
+    console.log("auth: apple popup sign-in success", result.user?.uid);
+  } catch (err) {
+    console.error("auth: apple popup sign-in error", err?.code, err?.message);
+  }
 }
 
 export async function signOut() {
