@@ -10,7 +10,7 @@
 // Restrict to HTTP referrer jain.swapncore.com/* and Firebase Auth API only.
 // Auth UI will be hidden (isConfigured() returns false) when apiKey is empty.
 const FIREBASE_CONFIG = {
-  apiKey: "",
+  apiKey: "AIzaSyCMSIr3B2T-L8s03HpgW-C7ZktBfmjuP5A",
   authDomain: "jaini-6089e.firebaseapp.com",
   projectId: "jaini-6089e",
   appId: "1:569684534820:web:bdef2e5f9265577ec0dab1",
@@ -36,14 +36,11 @@ export function onAuthStateChange(callback) {
 export async function init() {
   if (!isConfigured()) return;
 
-  const { initializeApp } = window.firebase;
-  const { getAuth, onAuthStateChanged } = window.firebase.auth;
-
-  const app = initializeApp(FIREBASE_CONFIG);
-  _auth = getAuth(app);
+  window.firebase.initializeApp(FIREBASE_CONFIG);
+  _auth = window.firebase.auth();
 
   // Listen for auth state changes (handles redirect callbacks)
-  onAuthStateChanged(_auth, async (firebaseUser) => {
+  _auth.onAuthStateChanged(async (firebaseUser) => {
     if (firebaseUser) {
       _accessToken = await firebaseUser.getIdToken();
       await _syncUser();
@@ -72,10 +69,9 @@ async function _syncUser() {
 
 export async function signInWithGoogle() {
   if (!_auth) return;
-  const { GoogleAuthProvider, signInWithPopup } = window.firebase.auth;
-  const provider = new GoogleAuthProvider();
+  const provider = new window.firebase.auth.GoogleAuthProvider();
   try {
-    await signInWithPopup(_auth, provider);
+    await _auth.signInWithPopup(provider);
   } catch (error) {
     if (error.code !== "auth/popup-closed-by-user") {
       throw error;
@@ -85,11 +81,11 @@ export async function signInWithGoogle() {
 
 export async function signInWithApple() {
   if (!_auth) return;
-  const { OAuthProvider, signInWithPopup } = window.firebase.auth;
-  const provider = new OAuthProvider("apple.com");
-  provider.addScopes("email", "name");
+  const provider = new window.firebase.auth.OAuthProvider("apple.com");
+  provider.addScope("email");
+  provider.addScope("name");
   try {
-    await signInWithPopup(_auth, provider);
+    await _auth.signInWithPopup(provider);
   } catch (error) {
     if (error.code !== "auth/popup-closed-by-user") {
       throw error;

@@ -548,13 +548,27 @@ function renderCommunityBadge(community) {
     return;
   }
   const { total, correct, correct_pct } = community;
-  const icon = correct_pct >= 70
-    ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`
-    : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("width", "12");
+  svg.setAttribute("height", "12");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.5");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  // SVG inner content is hardcoded (safe)
+  svg.innerHTML = correct_pct >= 70
+    ? '<polyline points="20 6 9 17 4 12"/>'
+    : '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>';
   const label = correct_pct >= 70
     ? `${correct} of ${total} users confirmed`
     : `${total - correct} of ${total} users flagged`;
-  el.communityBadge.innerHTML = `${icon} <span>${label}</span>`;
+  const labelSpan = document.createElement("span");
+  labelSpan.textContent = label;
+  el.communityBadge.replaceChildren(svg, document.createTextNode(" "), labelSpan);
   el.communityBadge.className = `community-badge community-badge--${correct_pct >= 70 ? "confirmed" : "flagged"}`;
   show(el.communityBadge);
 }
@@ -613,8 +627,32 @@ async function submitFeedback(barcode, signal) {
     if (resp.ok) {
       const data = await resp.json().catch(() => ({}));
       if (data.community) renderCommunityBadge(data.community);
+    } else {
+      // Server rejected — revert optimistic UI
+      el.feedbackThanks.textContent = "Could not save your vote. Please try again.";
+      el.feedbackThanks.classList.add("feedback-thanks--error");
+      // Re-show prompt after a delay so user can retry
+      setTimeout(() => {
+        const voted = feedbackLoadVoted();
+        delete voted[`${barcode}:${profile}`];
+        try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(voted)); } catch {}
+        hide(el.feedbackThanks);
+        el.feedbackThanks.classList.remove("feedback-thanks--error");
+        show(el.feedbackPrompt);
+      }, 3000);
     }
-  } catch { /* fire-and-forget — UI already updated optimistically */
+  } catch {
+    // Network error — revert optimistic UI
+    el.feedbackThanks.textContent = "Network error — vote not saved.";
+    el.feedbackThanks.classList.add("feedback-thanks--error");
+    setTimeout(() => {
+      const voted = feedbackLoadVoted();
+      delete voted[`${barcode}:${profile}`];
+      try { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(voted)); } catch {}
+      hide(el.feedbackThanks);
+      el.feedbackThanks.classList.remove("feedback-thanks--error");
+      show(el.feedbackPrompt);
+    }, 3000);
     reportClientEvent("feedback_failed", { barcode, error_msg: "network_error" });
   }
 }
@@ -654,7 +692,7 @@ function triggerManualBarcode(barcode) {
 
 function hideAlternatives() {
   hide(el.alternativesSection);
-  if (el.alternativesList) el.alternativesList.innerHTML = "";
+  if (el.alternativesList) el.alternativesList.replaceChildren();
   if (el.alternativesBrand) el.alternativesBrand.textContent = "";
 }
 
@@ -679,19 +717,41 @@ async function fetchAndRenderAlternatives(barcode, status) {
 
     if (reqId !== state.requestId) return;  // a newer scan has started
 
-    el.alternativesList.innerHTML = alts.map(a => {
+    el.alternativesList.replaceChildren();
+    alts.forEach(a => {
       const safeStatus = ["green","yellow"].includes((a.status||"").toLowerCase()) ? a.status.toLowerCase() : "unknown";
       const label = STATUS_META[(a.status||"").toUpperCase()]?.label || a.status;
-      return `
-        <li class="alternatives-item">
-          <button type="button" class="alt-scan-btn" data-barcode="${escHtml(a.barcode)}" aria-label="Scan ${escHtml(a.product_name)}">
-            <span class="alt-badge alt-badge--${safeStatus}">${label}</span>
-            <span class="alt-name">${escHtml(a.product_name)}</span>
-            ${a.brand ? `<span class="alt-brand">${escHtml(a.brand)}</span>` : ""}
-          </button>
-        </li>
-      `;
-    }).join("");
+
+      const li = document.createElement("li");
+      li.className = "alternatives-item";
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "alt-scan-btn";
+      btn.dataset.barcode = a.barcode || "";
+      btn.setAttribute("aria-label", `Scan ${a.product_name || ""}`);
+
+      const badge = document.createElement("span");
+      badge.className = `alt-badge alt-badge--${safeStatus}`;
+      badge.textContent = label;
+
+      const name = document.createElement("span");
+      name.className = "alt-name";
+      name.textContent = a.product_name || "";
+
+      btn.appendChild(badge);
+      btn.appendChild(name);
+
+      if (a.brand) {
+        const brandSpan = document.createElement("span");
+        brandSpan.className = "alt-brand";
+        brandSpan.textContent = a.brand;
+        btn.appendChild(brandSpan);
+      }
+
+      li.appendChild(btn);
+      el.alternativesList.appendChild(li);
+    });
 
     // Bind click handlers
     el.alternativesList.querySelectorAll(".alt-scan-btn").forEach(btn => {
@@ -732,28 +792,128 @@ function setLoading(active, text = "Looking up product…") {
 
 function clearMessage() {
   el.messageBox.className = "notice hidden";
-  el.messageBox.innerHTML = "";
+  el.messageBox.replaceChildren();
 }
 
-function showMessage({ message, variant = "info", safeHtml = false }) {
+function showMessage({ message, variant = "info", safeHtml = false, domContent = null }) {
   el.messageBox.className = `notice notice-${variant}`;
 
-  const iconMap = {
-    error: `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-    warn:  `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
-    info:  `<svg class="notice-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  const iconSvgs = {
+    error: '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+    warn:  '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    info:  '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
   };
 
-  const icon = iconMap[variant] || iconMap.info;
-  if (safeHtml) {
-    el.messageBox.innerHTML = `${icon}<div><p>${message}</p></div>`;
+  // Build icon via DOM (no innerHTML for untrusted content)
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "notice-icon");
+  svg.setAttribute("width", "18");
+  svg.setAttribute("height", "18");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  // SVG inner content is hardcoded (safe)
+  svg.innerHTML = iconSvgs[variant] || iconSvgs.info;
+
+  const wrapper = document.createElement("div");
+
+  if (domContent) {
+    // Pre-built DOM node (e.g. from renderRateLimit) — no innerHTML needed
+    wrapper.appendChild(domContent);
+  } else if (safeHtml) {
+    // Only used for trusted internal HTML (rate limit messages with mailto links)
+    const p = document.createElement("p");
+    p.innerHTML = message;
+    wrapper.appendChild(p);
   } else {
-    el.messageBox.innerHTML = `${icon}<div></div>`;
     const p = document.createElement("p");
     p.textContent = message;
-    el.messageBox.querySelector("div").appendChild(p);
+    wrapper.appendChild(p);
   }
+
+  el.messageBox.replaceChildren(svg, wrapper);
   show(el.messageBox);
+}
+
+function showVerdictSkeleton() {
+  // Show the result section with a skeleton placeholder
+  show(el.resultSection);
+  el.verdictCard.className = "verdict verdict-skeleton-wrap";
+  el.verdictCard.innerHTML = `
+    <div class="verdict-skeleton">
+      <div class="skeleton skeleton-verdict-badge"></div>
+      <div class="skeleton skeleton-verdict-explain"></div>
+      <div class="skeleton-verdict-meta">
+        <span class="skeleton skeleton-verdict-chip"></span>
+        <span class="skeleton skeleton-verdict-chip"></span>
+      </div>
+      <div class="skeleton skeleton-product-name"></div>
+      <div class="skeleton skeleton-product-brand"></div>
+    </div>
+  `;
+  hide(el.productDetails);
+  hide(el.ingredientSection);
+  hide(el.notFoundState);
+  el.reasonChips.innerHTML = "";
+  hideCommunitySection();
+  hideAlternatives();
+  Favorites.hideButton();
+  hide(el.shareBtn);
+  hide(el.reportIssueBtn);
+  Monetization.hide();
+}
+
+function restoreVerdictCard() {
+  // Restore the verdict card's normal DOM structure after skeleton
+  el.verdictCard.className = "verdict verdict-UNKNOWN";
+  el.verdictCard.innerHTML = "";
+  el.verdictCard.setAttribute("role", "status");
+
+  // Rebuild normal DOM elements
+  const badge = document.createElement("div");
+  badge.className = "verdict-badge";
+  badge.id = "verdictBadge";
+  const icon = document.createElement("span");
+  icon.id = "verdictIcon";
+  icon.className = "verdict-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.id = "statusLabel";
+  label.className = "verdict-label";
+  badge.appendChild(icon);
+  badge.appendChild(label);
+
+  const explain = document.createElement("p");
+  explain.id = "explainText";
+  explain.className = "verdict-explain";
+
+  const metaRow = document.createElement("div");
+  metaRow.className = "verdict-meta-row";
+  const conf = document.createElement("span");
+  conf.id = "confidenceText";
+  conf.className = "confidence-chip";
+  const modeChip = document.createElement("span");
+  modeChip.id = "modeChip";
+  modeChip.className = "mode-result-chip";
+  modeChip.title = "Strictness mode used for this scan";
+  metaRow.appendChild(conf);
+  metaRow.appendChild(modeChip);
+
+  el.verdictCard.appendChild(badge);
+  el.verdictCard.appendChild(explain);
+  el.verdictCard.appendChild(metaRow);
+
+  // Re-bind element references
+  el.verdictBadge = badge;
+  el.verdictIcon = icon;
+  el.statusLabel = label;
+  el.explainText = explain;
+  el.confidenceText = conf;
+  el.modeChip = modeChip;
 }
 
 function hideResult() {
@@ -767,7 +927,7 @@ function hideResult() {
   hideAlternatives();
   Favorites.hideButton();
   Monetization.hide();
-  el.reasonChips.innerHTML = "";
+  el.reasonChips.replaceChildren();
   el.savedNote.textContent = "";
   state.currentBarcode = "";
 }
@@ -904,6 +1064,12 @@ function renderIngredientRows(categories) {
 function renderResult(data) {
   clearMessage();
   setLoading(false);
+
+  // Restore normal verdict card DOM if skeleton was shown
+  if (el.verdictCard.classList.contains("verdict-skeleton-wrap")) {
+    restoreVerdictCard();
+  }
+
   hideResult();
 
   const status = STATUS_META[data.status] ? data.status : "UNKNOWN";
@@ -941,7 +1107,7 @@ function renderResult(data) {
 
   // Reason chips
   const reasons = Array.isArray(data.reasons) ? data.reasons : [];
-  el.reasonChips.innerHTML = "";
+  el.reasonChips.replaceChildren();
   reasons.forEach(r => {
     const chip = document.createElement("span");
     chip.className = "chip";
@@ -1002,6 +1168,9 @@ function renderResult(data) {
 function renderNotFound(barcode) {
   clearMessage();
   setLoading(false);
+  if (el.verdictCard.classList.contains("verdict-skeleton-wrap")) {
+    restoreVerdictCard();
+  }
   hideResult();
 
   state.currentBarcode = barcode;
@@ -1028,20 +1197,29 @@ function renderRateLimit(data) {
   clearMessage();
   setLoading(false);
   hideResult();
-  const limit = escHtml(String(data?.limit ?? "?"));
-  const count = escHtml(String(data?.count ?? "?"));
-  const reset = escHtml(String(data?.reset ?? "unknown"));
-  showMessage({
-    variant: "warn",
-    message: `You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact <a href="mailto:hello@swapncore.com">hello@swapncore.com</a> to request an increase.`,
-    safeHtml: true,
-  });
+  const count = String(data?.count ?? "?");
+  const limit = String(data?.limit ?? "?");
+  const reset = String(data?.reset ?? "unknown");
+
+  // Build the message using safe DOM APIs instead of innerHTML
+  const p = document.createElement("p");
+  p.appendChild(document.createTextNode(`You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact `));
+  const a = document.createElement("a");
+  a.href = "mailto:hello@swapncore.com";
+  a.textContent = "hello@swapncore.com";
+  p.appendChild(a);
+  p.appendChild(document.createTextNode(" to request an increase."));
+
+  showMessage({ variant: "warn", domContent: p });
   presentOutcome();
 }
 
 function renderError(message) {
   clearMessage();
   setLoading(false);
+  if (el.verdictCard.classList.contains("verdict-skeleton-wrap")) {
+    restoreVerdictCard();
+  }
   hideResult();
   showMessage({ variant: "error", message: message || MESSAGES.genericError });
   presentOutcome();
@@ -1078,6 +1256,7 @@ async function fetchVerdict(rawBarcode) {
   clearMessage();
   hideResult();
   setLoading(true, `Looking up barcode ${barcode}…`);
+  showVerdictSkeleton();
   el.scanStatus && (el.scanStatus.textContent = `Looking up ${barcode}…`);
   startFailsafe(reqId);
 

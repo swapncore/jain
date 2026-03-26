@@ -39,8 +39,8 @@
           <a href="./disclaimer.html" class="nav-link">Disclaimer</a>
           <a href="./privacy.html" class="nav-link">Privacy</a>
           <span id="authNav" class="auth-nav">
-            <button type="button" id="signInBtn" class="btn btn-ghost btn-sm auth-btn" style="display:none;">Sign in</button>
-            <button type="button" id="userMenuBtn" class="btn btn-ghost btn-sm auth-btn" style="display:none;">
+            <button type="button" id="signInBtn" class="btn btn-ghost btn-sm auth-btn hidden">Sign in</button>
+            <button type="button" id="userMenuBtn" class="btn btn-ghost btn-sm auth-btn hidden">
               <img id="userAvatar" src="" alt="" class="user-avatar" />
               <span id="userName"></span>
             </button>
@@ -71,6 +71,7 @@
             <button type="submit" class="btn btn-primary" id="searchBtn">Search</button>
           </div>
         </form>
+        <div id="searchFilters" class="search-filters" role="group" aria-label="Filter by verdict"></div>
         <div id="searchResults" class="search-results hidden" role="region" aria-label="Search results" aria-live="polite"></div>
         <div id="searchEmpty" class="search-empty hidden">
           <p>No products found for this search.</p>
@@ -550,8 +551,8 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script type="module" src="./app.js"></script>
     <script>
       (function() {
