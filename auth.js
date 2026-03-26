@@ -51,7 +51,9 @@ export async function init() {
   _auth = getAuth(app);
 
   // Handle redirect result (fires after returning from Google/Apple sign-in)
-  getRedirectResult(_auth).catch(() => {});
+  getRedirectResult(_auth).catch((err) => {
+    console.error("auth: redirect result error", err?.code, err?.message);
+  });
 
   // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
