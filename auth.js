@@ -51,7 +51,10 @@ export async function init() {
   _auth = getAuth(app);
 
   // Handle redirect result (fires after returning from Google/Apple sign-in)
-  getRedirectResult(_auth).catch((err) => {
+  console.log("auth: page URL on load →", location.href);
+  getRedirectResult(_auth).then((result) => {
+    console.log("auth: getRedirectResult →", result ? `user ${result.user?.uid} (${result.user?.email})` : "null (no pending redirect)");
+  }).catch((err) => {
     console.error("auth: redirect result error", err?.code, err?.message);
   });
 
