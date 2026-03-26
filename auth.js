@@ -92,7 +92,7 @@ export function signInWithGoogle() {
       return;
     }
     const client = gis.initTokenClient({
-      client_id: "580684555651-t1998c7a5mm5imj8b0b4063pfhcmca5h.apps.googleusercontent.com",
+      client_id: "491524950159-14k2f2ondq1i126hdps7qtpp089arhin.apps.googleusercontent.com",
       scope: "openid email profile",
       callback: async (tokenResponse) => {
         if (tokenResponse.error) {
