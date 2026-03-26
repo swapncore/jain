@@ -2012,6 +2012,10 @@ async function init() {
   Auth.onAuthStateChange((user) => {
     updateAuthNav(user);
     Favorites.onAuthChange();
+    // Close auth modal on successful sign-in
+    if (user && el.authModal && !el.authModal.classList.contains("hidden")) {
+      closeModal(el.authModal);
+    }
     // Load email preferences if signed in
     if (user && el.emailOptInCheckbox) {
       Auth.authFetch(`${apiBase}/v1/email/preferences`, {
