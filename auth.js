@@ -57,6 +57,7 @@ export async function init() {
 
   // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
+    console.log("auth: state changed →", firebaseUser ? `signed in (${firebaseUser.uid})` : "signed out");
     if (firebaseUser) {
       _accessToken = await firebaseUser.getIdToken();
       await _syncUser();
