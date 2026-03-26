@@ -9,6 +9,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import {
   getAuth,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithPopup,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
@@ -79,15 +80,39 @@ async function _syncUser() {
   }
 }
 
-export async function signInWithGoogle() {
-  if (!_auth) return;
-  try {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(_auth, provider);
-    console.log("auth: popup sign-in success", result.user?.uid);
-  } catch (err) {
-    console.error("auth: popup sign-in error", err?.code, err?.message);
-  }
+export function signInWithGoogle() {
+  if (!_auth) return Promise.reject(new Error("Auth not initialised"));
+
+  // Use Google Identity Services directly — opens OAuth popup synchronously
+  // from the user click, bypassing Firebase's async popup manager entirely.
+  return new Promise((resolve, reject) => {
+    const gis = window.google?.accounts?.oauth2;
+    if (!gis) {
+      reject(new Error("Google Identity Services not loaded yet. Please try again."));
+      return;
+    }
+    const client = gis.initTokenClient({
+      client_id: "580684555651-t1998c7a5mm5imj8b0b4063pfhcmca5h.apps.googleusercontent.com",
+      scope: "openid email profile",
+      callback: async (tokenResponse) => {
+        if (tokenResponse.error) {
+          console.error("auth: GIS error", tokenResponse.error);
+          reject(new Error(tokenResponse.error));
+          return;
+        }
+        try {
+          const credential = GoogleAuthProvider.credential(null, tokenResponse.access_token);
+          const result = await signInWithCredential(_auth, credential);
+          console.log("auth: Google sign-in success", result.user?.uid);
+          resolve(result);
+        } catch (err) {
+          console.error("auth: signInWithCredential error", err?.code, err?.message);
+          reject(err);
+        }
+      },
+    });
+    client.requestAccessToken({ prompt: "select_account" });
+  });
 }
 
 export async function signInWithApple() {
