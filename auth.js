@@ -5,6 +5,16 @@
  * Exports functions for app.js to call.
  */
 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getAuth,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut as _firebaseSignOut,
+  GoogleAuthProvider,
+  OAuthProvider,
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
 // ── Firebase config ──────────────────────────────────────────────────────────
 // Set apiKey after regenerating + restricting the key in Firebase Console.
 // Restrict to HTTP referrer jain.swapncore.com/* and Firebase Auth API only.
@@ -22,7 +32,7 @@ let _accessToken = null;
 let _onAuthChange = null;  // callback from app.js
 
 export function isConfigured() {
-  return !!(FIREBASE_CONFIG.apiKey && window.firebase);
+  return !!FIREBASE_CONFIG.apiKey;
 }
 
 export function getUser() { return _user; }
@@ -36,11 +46,11 @@ export function onAuthStateChange(callback) {
 export async function init() {
   if (!isConfigured()) return;
 
-  window.firebase.initializeApp(FIREBASE_CONFIG);
-  _auth = window.firebase.auth();
+  const app = initializeApp(FIREBASE_CONFIG);
+  _auth = getAuth(app);
 
   // Listen for auth state changes (handles redirect callbacks)
-  _auth.onAuthStateChanged(async (firebaseUser) => {
+  onAuthStateChanged(_auth, async (firebaseUser) => {
     if (firebaseUser) {
       _accessToken = await firebaseUser.getIdToken();
       await _syncUser();
@@ -69,9 +79,9 @@ async function _syncUser() {
 
 export async function signInWithGoogle() {
   if (!_auth) return;
-  const provider = new window.firebase.auth.GoogleAuthProvider();
+  const provider = new GoogleAuthProvider();
   try {
-    await _auth.signInWithPopup(provider);
+    await signInWithPopup(_auth, provider);
   } catch (error) {
     if (error.code !== "auth/popup-closed-by-user") {
       throw error;
@@ -81,11 +91,11 @@ export async function signInWithGoogle() {
 
 export async function signInWithApple() {
   if (!_auth) return;
-  const provider = new window.firebase.auth.OAuthProvider("apple.com");
+  const provider = new OAuthProvider("apple.com");
   provider.addScope("email");
   provider.addScope("name");
   try {
-    await _auth.signInWithPopup(provider);
+    await signInWithPopup(_auth, provider);
   } catch (error) {
     if (error.code !== "auth/popup-closed-by-user") {
       throw error;
@@ -94,7 +104,7 @@ export async function signInWithApple() {
 }
 
 export async function signOut() {
-  if (_auth) await _auth.signOut();
+  if (_auth) await _firebaseSignOut(_auth);
   _user = null;
   _accessToken = null;
   if (_onAuthChange) _onAuthChange(null);
