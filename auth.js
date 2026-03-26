@@ -9,7 +9,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import {
   getAuth,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
   OAuthProvider,
@@ -49,7 +50,10 @@ export async function init() {
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
 
-  // Listen for auth state changes (handles redirect callbacks)
+  // Handle redirect result (fires after returning from Google/Apple sign-in)
+  getRedirectResult(_auth).catch(() => {});
+
+  // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
     if (firebaseUser) {
       _accessToken = await firebaseUser.getIdToken();
@@ -80,13 +84,7 @@ async function _syncUser() {
 export async function signInWithGoogle() {
   if (!_auth) return;
   const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(_auth, provider);
-  } catch (error) {
-    if (error.code !== "auth/popup-closed-by-user") {
-      throw error;
-    }
-  }
+  await signInWithRedirect(_auth, provider);
 }
 
 export async function signInWithApple() {
@@ -94,13 +92,7 @@ export async function signInWithApple() {
   const provider = new OAuthProvider("apple.com");
   provider.addScope("email");
   provider.addScope("name");
-  try {
-    await signInWithPopup(_auth, provider);
-  } catch (error) {
-    if (error.code !== "auth/popup-closed-by-user") {
-      throw error;
-    }
-  }
+  await signInWithRedirect(_auth, provider);
 }
 
 export async function signOut() {
