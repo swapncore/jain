@@ -13,12 +13,6 @@ let _getClientId = () => "";
 let _getProfile = () => "everyday_jain";
 let _onProductSelect = null; // callback: (barcode) => void
 
-const _STATUS_FILTERS = [
-  { id: "GREEN",  label: "Jain-Friendly" },
-  { id: "YELLOW", label: "Restricted" },
-  { id: "ORANGE", label: "Uncertain" },
-  { id: "RED",    label: "Not Jain" },
-];
 
 export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
   _apiBase = apiBase;
@@ -31,44 +25,11 @@ export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
   const resultsEl = document.getElementById("searchResults");
   const emptyEl = document.getElementById("searchEmpty");
   const switchBtn = document.getElementById("switchToBarcode");
-  const filtersEl = document.getElementById("searchFilters");
 
   if (!form || !input) return;
 
   let _debounce = null;
   let _lastQuery = "";
-  let _lastStatus = "";
-  let _activeFilters = new Set(); // active status filters
-
-  // ── Build filter pills ────────────────────────────────────────────────────
-  if (filtersEl) {
-    _STATUS_FILTERS.forEach(sf => {
-      const pill = document.createElement("button");
-      pill.type = "button";
-      pill.className = `search-filter-pill search-filter-pill--${sf.id.toLowerCase()}`;
-      pill.textContent = sf.label;
-      pill.dataset.status = sf.id;
-      pill.setAttribute("aria-pressed", "false");
-      pill.addEventListener("click", () => {
-        if (_activeFilters.has(sf.id)) {
-          _activeFilters.delete(sf.id);
-          pill.classList.remove("search-filter-pill--active");
-          pill.setAttribute("aria-pressed", "false");
-        } else {
-          _activeFilters.add(sf.id);
-          pill.classList.add("search-filter-pill--active");
-          pill.setAttribute("aria-pressed", "true");
-        }
-        // Re-run search with new filters
-        const q = input.value.trim();
-        if (q.length >= 2) {
-          _lastQuery = ""; // force re-fetch
-          runSearch(q);
-        }
-      });
-      filtersEl.appendChild(pill);
-    });
-  }
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -95,10 +56,8 @@ export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
   });
 
   async function runSearch(query) {
-    const statusKey = [..._activeFilters].sort().join(",");
-    if (query === _lastQuery && statusKey === _lastStatus) return;
+    if (query === _lastQuery) return;
     _lastQuery = query;
-    _lastStatus = statusKey;
 
     // Show loading skeleton
     if (resultsEl) {
@@ -112,9 +71,6 @@ export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
     url.searchParams.set("q", query);
     url.searchParams.set("profile", profile);
     url.searchParams.set("limit", "12");
-    if (_activeFilters.size > 0) {
-      url.searchParams.set("status", [..._activeFilters].join(","));
-    }
 
     try {
       const resp = await authFetch(url.toString(), {
@@ -187,7 +143,6 @@ export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
 
   function hideResults() {
     _lastQuery = "";
-    _lastStatus = "";
     if (resultsEl) { resultsEl.classList.add("hidden"); resultsEl.innerHTML = ""; }
     if (emptyEl) emptyEl.classList.add("hidden");
   }
