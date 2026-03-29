@@ -149,6 +149,11 @@ const el = {
   userDropdownEmail: document.getElementById("userDropdownEmail"),
   dropdownSignOutBtn:document.getElementById("dropdownSignOutBtn"),
 
+  // Email preferences in dropdown
+  emailPrefBanner:   document.getElementById("emailPrefBanner"),
+  emailPrefCheckbox: document.getElementById("emailPrefCheckbox"),
+  emailPrefManageLink:document.getElementById("emailPrefManageLink"),
+
   // Favorite button (in result card)
   favoriteBtn:       document.getElementById("favoriteBtn"),
   favoriteBtnText:   document.getElementById("favoriteBtnText"),
@@ -1225,8 +1230,8 @@ function renderRateLimit(data) {
   const p = document.createElement("p");
   p.appendChild(document.createTextNode(`You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact `));
   const a = document.createElement("a");
-  a.href = "mailto:hello@jain.swapncore.com";
-  a.textContent = "hello@jain.swapncore.com";
+  a.href = "mailto:hello@swapncore.com";
+  a.textContent = "hello@swapncore.com";
   p.appendChild(a);
   p.appendChild(document.createTextNode(" to request an increase."));
 
@@ -1950,6 +1955,32 @@ function toggleUserDropdown() {
     const user = Auth.getUser();
     if (el.userDropdownEmail) el.userDropdownEmail.textContent = user?.email || "";
     el.userDropdown.classList.remove("hidden");
+    // Load current email preference when dropdown opens
+    _loadEmailPref();
+  }
+}
+
+async function _loadEmailPref() {
+  if (!el.emailPrefCheckbox) return;
+  try {
+    const resp = await Auth.authFetch(`${getApiBase()}/v1/email/preferences`);
+    if (resp.ok) {
+      const prefs = await resp.json();
+      el.emailPrefCheckbox.checked = prefs.weekly_digest !== false;
+    }
+  } catch { /* keep default checked state */ }
+}
+
+async function _toggleEmailPref(value) {
+  try {
+    await Auth.authFetch(`${getApiBase()}/v1/email/preferences`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weekly_digest: value }),
+    });
+  } catch {
+    // Revert on failure
+    if (el.emailPrefCheckbox) el.emailPrefCheckbox.checked = !value;
   }
 }
 
@@ -1991,6 +2022,22 @@ function bindAuthEvents() {
 
   // Google sign-in button is rendered by Google Identity Services in auth.js
   // No click handler needed — Google's SDK manages the button directly
+
+  // Email preference toggle in dropdown
+  el.emailPrefCheckbox?.addEventListener("change", (e) => {
+    _toggleEmailPref(e.target.checked);
+  });
+
+  // "Preferences" link — toggles checkbox off (opt-out action)
+  el.emailPrefManageLink?.addEventListener("click", () => {
+    if (el.emailPrefCheckbox && el.emailPrefCheckbox.checked) {
+      el.emailPrefCheckbox.checked = false;
+      _toggleEmailPref(false);
+    } else if (el.emailPrefCheckbox) {
+      el.emailPrefCheckbox.checked = true;
+      _toggleEmailPref(true);
+    }
+  });
 
   el.dropdownSignOutBtn?.addEventListener("click", async () => {
     await Auth.signOut();

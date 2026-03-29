@@ -47,6 +47,15 @@
               </button>
               <div id="userDropdown" class="user-dropdown hidden">
                 <p id="userDropdownEmail" class="user-dropdown-email"></p>
+                <!-- Email updates opt-in (prominent) -->
+                <div id="emailPrefBanner" class="email-pref-banner">
+                  <label class="email-pref-toggle">
+                    <input type="checkbox" id="emailPrefCheckbox" checked />
+                    <span class="email-pref-label">Get weekly product picks &amp; updates</span>
+                  </label>
+                </div>
+                <!-- Preferences link (subtle, for opt-out) -->
+                <a href="javascript:void(0)" id="emailPrefManageLink" class="email-pref-manage-link">Preferences</a>
                 <button type="button" id="dropdownSignOutBtn" class="btn btn-ghost btn-sm user-dropdown-signout">Sign out</button>
               </div>
             </span>
