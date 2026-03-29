@@ -1924,17 +1924,8 @@ function bindAuthEvents() {
     if (e.target === el.authModal) closeModal(el.authModal);
   });
 
-  el.googleSignInBtn?.addEventListener("click", async () => {
-    try {
-      hide(el.authModalError);
-      await Auth.signInWithGoogle();
-    } catch (err) {
-      if (el.authModalError) {
-        el.authModalError.textContent = err?.message || "Sign-in failed. Please try again.";
-        show(el.authModalError);
-      }
-    }
-  });
+  // Google sign-in button is rendered by Google Identity Services in auth.js
+  // No click handler needed — Google's SDK manages the button directly
 
   el.appleSignInBtn?.addEventListener("click", async () => {
     try {

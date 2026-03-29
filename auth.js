@@ -1,9 +1,9 @@
 /**
  * auth.js — Firebase Auth integration for Jaini web app.
  *
- * Uses Google Identity Services for sign-in (no popups/redirects needed),
- * then authenticates with Firebase using the Google credential.
- * Exports functions for app.js to call.
+ * Uses Google Identity Services rendered button for sign-in.
+ * The button handles the entire Google auth flow natively
+ * (no Firebase popup/redirect needed).
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -27,14 +27,12 @@ const FIREBASE_CONFIG = {
   appId: "1:1080759339715:web:c7f60d0e4ce7b30173f076",
 };
 
-// Google OAuth Client ID (from Firebase's auto-created OAuth client)
 const GOOGLE_CLIENT_ID = "1080759339715-k0525vrm5n7oflphuapo01vvqlbclivb.apps.googleusercontent.com";
 
 let _auth = null;
-let _user = null;          // { id, email, display_name, avatar_url, role }
+let _user = null;
 let _accessToken = null;
-let _onAuthChange = null;  // callback from app.js
-let _googleResolve = null; // resolve callback for Google sign-in promise
+let _onAuthChange = null;
 
 export function isConfigured() {
   return !!FIREBASE_CONFIG.apiKey;
@@ -68,15 +66,31 @@ export async function init() {
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
 
-  // Load Google Identity Services
+  // Load Google Identity Services and render sign-in button
   try {
     await _loadGoogleScript();
     window.google.accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: _handleGoogleCredential,
-      auto_select: true,     // Auto sign-in if previously signed in
-      cancel_on_tap_outside: false,
     });
+    // Render Google's native button inside the auth modal
+    const googleBtnContainer = document.getElementById("googleSignInBtn");
+    if (googleBtnContainer) {
+      // Clear existing button content and render Google's native button
+      googleBtnContainer.innerHTML = "";
+      googleBtnContainer.style.display = "flex";
+      googleBtnContainer.style.justifyContent = "center";
+      window.google.accounts.id.renderButton(googleBtnContainer, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        width: 320,
+        text: "continue_with",
+        shape: "rectangular",
+        logo_alignment: "left",
+      });
+      console.log("auth: Google sign-in button rendered");
+    }
   } catch (e) {
     console.warn("auth: failed to load Google Identity Services", e);
   }
@@ -94,7 +108,6 @@ export async function init() {
         role: "user",
       };
       if (_onAuthChange) _onAuthChange(_user);
-      // Sync with backend (updates role, etc.)
       await _syncUser();
       if (_onAuthChange) _onAuthChange(_user);
     } else {
@@ -112,10 +125,8 @@ async function _handleGoogleCredential(response) {
     const credential = GoogleAuthProvider.credential(response.credential);
     const result = await signInWithCredential(_auth, credential);
     console.log("auth: Firebase sign-in success", result.user?.uid);
-    if (_googleResolve) { _googleResolve(); _googleResolve = null; }
   } catch (err) {
     console.error("auth: Firebase credential sign-in error", err?.code, err?.message);
-    if (_googleResolve) { _googleResolve(); _googleResolve = null; }
   }
 }
 
@@ -135,37 +146,11 @@ async function _syncUser() {
   }
 }
 
+// signInWithGoogle is now handled by the rendered Google button
+// This function is kept for compatibility but the button handles it directly
 export async function signInWithGoogle() {
-  if (!window.google?.accounts) {
-    console.error("auth: Google Identity Services not loaded");
-    return;
-  }
-  // Show the Google account chooser prompt
-  return new Promise((resolve) => {
-    _googleResolve = resolve;
-    window.google.accounts.id.prompt((notification) => {
-      console.log("auth: Google prompt notification", notification.getMomentType());
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        // One Tap not available, fall back to popup
-        console.log("auth: One Tap not available, reason:", notification.getNotDisplayedReason?.() || notification.getSkippedReason?.());
-        _googleResolve = null;
-        resolve();
-        // Show the standard Google sign-in button as fallback
-        _showGooglePopupFallback();
-      }
-    });
-  });
-}
-
-async function _showGooglePopupFallback() {
-  // Last resort: try the Firebase popup
-  try {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(_auth, provider);
-  } catch (err) {
-    console.error("auth: all sign-in methods failed", err?.code, err?.message);
-    throw err;
-  }
+  // The Google Identity Services button handles sign-in directly
+  // This is a no-op — the button click is intercepted by Google's SDK
 }
 
 export async function signInWithApple() {
@@ -179,7 +164,6 @@ export async function signInWithApple() {
 
 export async function signOut() {
   if (_auth) await _firebaseSignOut(_auth);
-  // Also revoke Google One Tap auto-select
   if (window.google?.accounts) {
     window.google.accounts.id.disableAutoSelect();
   }
@@ -193,9 +177,6 @@ function _getApiBase() {
   return isDev ? "http://localhost:8000" : "https://web-production-31034.up.railway.app";
 }
 
-/**
- * Make an authenticated fetch to the backend API.
- */
 export async function authFetch(url, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (_accessToken) {
