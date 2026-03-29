@@ -132,23 +132,24 @@ async function _syncUser() {
   if (!_accessToken || !_user) return;
   try {
     const API_BASE = _getApiBase();
+    // GET /v1/auth/me — backend extracts email/name/avatar from Firebase JWT
+    // and upserts the user record automatically
     const resp = await fetch(`${API_BASE}/v1/auth/me`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${_accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: _user.email,
-        display_name: _user.display_name,
-        avatar_url: _user.avatar_url,
-        weekly_digest: true,
-      }),
+      headers: { Authorization: `Bearer ${_accessToken}` },
     });
     if (resp.ok) {
       const backendUser = await resp.json();
       _user = { ..._user, ...backendUser };
     }
+    // Opt into weekly digest by default on first sign-in
+    await fetch(`${API_BASE}/v1/email/preferences`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${_accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ weekly_digest: true }),
+    }).catch(() => {});
   } catch (e) {
     console.warn("auth: failed to sync user with backend", e);
   }
