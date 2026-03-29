@@ -1077,6 +1077,7 @@ function renderResult(data) {
 
   // Verdict block
   show(el.resultSection);
+  el.resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
   el.verdictCard.className = `verdict verdict-${status}`;
   el.verdictCard.setAttribute("aria-label", `${meta.ariaPrefix} ${data.explain || ""}`);
   el.verdictIcon.innerHTML  = meta.icon;
@@ -1167,11 +1168,11 @@ function renderNotFound(barcode) {
 
   state.currentBarcode = barcode;
   show(el.resultSection);
+  el.resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
   el.verdictCard.className = "verdict verdict-UNKNOWN";
   el.verdictIcon.innerHTML  = STATUS_META.UNKNOWN.icon;
   el.statusLabel.textContent = STATUS_META.UNKNOWN.label;
   el.explainText.textContent = "";
-  el.confidenceText.textContent = "";
 
   el.barcodeInfo.textContent = "";
   show(el.productDetails);

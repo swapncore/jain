@@ -57,28 +57,6 @@
     <main class="main-content" id="main">
 
       <!-- ═══════════════════════════════════════════
-           SEARCH CARD
-      ═══════════════════════════════════════════ -->
-      <section class="card search-card" aria-labelledby="search-heading">
-        <h2 class="card-heading" id="search-heading">Search products</h2>
-        <p class="card-sub">Search by product name, brand, or barcode.</p>
-        <form id="searchForm" class="search-form" novalidate>
-          <div class="search-row">
-            <div class="input-wrap search-input-wrap">
-              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input id="searchInput" type="search" placeholder="e.g. Oreo cookies, Amul butter..." maxlength="200" autocomplete="off" aria-label="Search products by name or brand" />
-            </div>
-            <button type="submit" class="btn btn-primary" id="searchBtn">Search</button>
-          </div>
-        </form>
-        <div id="searchResults" class="search-results hidden" role="region" aria-label="Search results" aria-live="polite"></div>
-        <div id="searchEmpty" class="search-empty hidden">
-          <p>No products found for this search.</p>
-          <p class="search-empty-hint">Try a different name, or <button type="button" class="btn-link" id="switchToBarcode">scan the barcode instead</button>.</p>
-        </div>
-      </section>
-
-      <!-- ═══════════════════════════════════════════
            SCAN CARD
       ═══════════════════════════════════════════ -->
       <section class="card scan-card" aria-labelledby="scan-heading">
@@ -168,32 +146,6 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>
           Scan another barcode
         </button>
-      </section>
-
-      <!-- ═══════════════════════════════════════════
-           RECENT SCANS (history — rendered by app.js)
-      ═══════════════════════════════════════════ -->
-      <section id="historySection" class="card history-card hidden" aria-labelledby="history-heading">
-        <div class="history-header">
-          <h2 class="card-heading" id="history-heading">Recent scans</h2>
-          <button type="button" id="clearHistoryBtn" class="btn-link btn-link--muted" aria-label="Clear scan history">Clear</button>
-        </div>
-        <ul id="historyList" class="history-list" role="list" aria-label="Recent scan results"></ul>
-      </section>
-
-      <!-- ═══════════════════════════════════════════
-           FAVORITES SECTION
-      ═══════════════════════════════════════════ -->
-      <section id="favoritesSection" class="card favorites-card hidden" aria-labelledby="favorites-heading">
-        <div class="favorites-header">
-          <h2 class="card-heading" id="favorites-heading">Saved products</h2>
-        </div>
-        <div id="favoritesSignInPrompt" class="favorites-signin hidden">
-          <p>Sign in to save your favorite products and access them from any device.</p>
-          <button type="button" class="btn btn-primary btn-sm" id="favoritesSignInBtn">Sign in</button>
-        </div>
-        <ul id="favoritesList" class="favorites-list" role="list" aria-label="Saved products"></ul>
-        <p id="favoritesEmpty" class="favorites-empty hidden">No saved products yet. Tap the bookmark icon on any product to save it.</p>
       </section>
 
       <!-- ═══════════════════════════════════════════
@@ -309,6 +261,53 @@
           <span id="savedNote" class="saved-note" aria-live="polite"></span>
           <span id="shareToast" class="share-toast" aria-live="polite"></span>
         </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
+           SEARCH CARD
+      ═══════════════════════════════════════════ -->
+      <section class="card search-card" aria-labelledby="search-heading">
+        <h2 class="card-heading" id="search-heading">Search by product name</h2>
+        <form id="searchForm" class="search-form" novalidate>
+          <div class="search-row">
+            <div class="input-wrap search-input-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="searchInput" type="search" placeholder="e.g. Oreo cookies, Amul butter..." maxlength="200" autocomplete="off" aria-label="Search products by name or brand" />
+            </div>
+            <button type="submit" class="btn btn-primary" id="searchBtn">Search</button>
+          </div>
+        </form>
+        <div id="searchResults" class="search-results hidden" role="region" aria-label="Search results" aria-live="polite"></div>
+        <div id="searchEmpty" class="search-empty hidden">
+          <p>No products found for this search.</p>
+          <p class="search-empty-hint">Try a different name, or <button type="button" class="btn-link" id="switchToBarcode">scan the barcode instead</button>.</p>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
+           RECENT SCANS (history — rendered by app.js)
+      ═══════════════════════════════════════════ -->
+      <section id="historySection" class="card history-card hidden" aria-labelledby="history-heading">
+        <div class="history-header">
+          <h2 class="card-heading" id="history-heading">Recent scans</h2>
+          <button type="button" id="clearHistoryBtn" class="btn-link btn-link--muted" aria-label="Clear scan history">Clear</button>
+        </div>
+        <ul id="historyList" class="history-list" role="list" aria-label="Recent scan results"></ul>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
+           FAVORITES SECTION
+      ═══════════════════════════════════════════ -->
+      <section id="favoritesSection" class="card favorites-card hidden" aria-labelledby="favorites-heading">
+        <div class="favorites-header">
+          <h2 class="card-heading" id="favorites-heading">Saved products</h2>
+        </div>
+        <div id="favoritesSignInPrompt" class="favorites-signin hidden">
+          <p>Sign in to save your favorite products and access them from any device.</p>
+          <button type="button" class="btn btn-primary btn-sm" id="favoritesSignInBtn">Sign in</button>
+        </div>
+        <ul id="favoritesList" class="favorites-list" role="list" aria-label="Saved products"></ul>
+        <p id="favoritesEmpty" class="favorites-empty hidden">No saved products yet. Tap the bookmark icon on any product to save it.</p>
       </section>
 
       <!-- ═══════════════════════════════════════════
