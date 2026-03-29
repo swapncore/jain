@@ -1,7 +1,8 @@
 /**
  * auth.js — Firebase Auth integration for Jaini web app.
  *
- * Handles Google + Apple sign-in, session management, and user state.
+ * Uses Google Identity Services for sign-in (no popups/redirects needed),
+ * then authenticates with Firebase using the Google credential.
  * Exports functions for app.js to call.
  */
 
@@ -9,10 +10,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebas
 import {
   getAuth,
   onAuthStateChanged,
-  signInWithPopup,
+  signInWithCredential,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
   OAuthProvider,
+  signInWithPopup,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ── Firebase config ──────────────────────────────────────────────────────────
@@ -25,10 +27,14 @@ const FIREBASE_CONFIG = {
   appId: "1:1080759339715:web:c7f60d0e4ce7b30173f076",
 };
 
+// Google OAuth Client ID (from Firebase's auto-created OAuth client)
+const GOOGLE_CLIENT_ID = "1080759339715-k0525vrm5n7oflphuapo01vvqlbclivb.apps.googleusercontent.com";
+
 let _auth = null;
 let _user = null;          // { id, email, display_name, avatar_url, role }
 let _accessToken = null;
 let _onAuthChange = null;  // callback from app.js
+let _googleResolve = null; // resolve callback for Google sign-in promise
 
 export function isConfigured() {
   return !!FIREBASE_CONFIG.apiKey;
@@ -42,18 +48,44 @@ export function onAuthStateChange(callback) {
   _onAuthChange = callback;
 }
 
+// Load Google Identity Services SDK
+function _loadGoogleScript() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts) { resolve(); return; }
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
 export async function init() {
   if (!isConfigured()) return;
 
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
 
+  // Load Google Identity Services
+  try {
+    await _loadGoogleScript();
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: _handleGoogleCredential,
+      auto_select: true,     // Auto sign-in if previously signed in
+      cancel_on_tap_outside: false,
+    });
+  } catch (e) {
+    console.warn("auth: failed to load Google Identity Services", e);
+  }
+
   // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
     console.log("auth: state changed →", firebaseUser ? `signed in (${firebaseUser.uid})` : "signed out");
     if (firebaseUser) {
       _accessToken = await firebaseUser.getIdToken();
-      // Set basic user from Firebase immediately so UI updates
       _user = {
         id: firebaseUser.uid,
         email: firebaseUser.email,
@@ -62,7 +94,7 @@ export async function init() {
         role: "user",
       };
       if (_onAuthChange) _onAuthChange(_user);
-      // Then sync with backend (updates role, etc.) — non-blocking
+      // Sync with backend (updates role, etc.)
       await _syncUser();
       if (_onAuthChange) _onAuthChange(_user);
     } else {
@@ -71,6 +103,20 @@ export async function init() {
       if (_onAuthChange) _onAuthChange(null);
     }
   });
+}
+
+// Called by Google Identity Services when user signs in
+async function _handleGoogleCredential(response) {
+  console.log("auth: Google credential received");
+  try {
+    const credential = GoogleAuthProvider.credential(response.credential);
+    const result = await signInWithCredential(_auth, credential);
+    console.log("auth: Firebase sign-in success", result.user?.uid);
+    if (_googleResolve) { _googleResolve(); _googleResolve = null; }
+  } catch (err) {
+    console.error("auth: Firebase credential sign-in error", err?.code, err?.message);
+    if (_googleResolve) { _googleResolve(); _googleResolve = null; }
+  }
 }
 
 async function _syncUser() {
@@ -82,7 +128,6 @@ async function _syncUser() {
     });
     if (resp.ok) {
       const backendUser = await resp.json();
-      // Merge backend data (keeps role, etc.)
       _user = { ..._user, ...backendUser };
     }
   } catch (e) {
@@ -91,10 +136,36 @@ async function _syncUser() {
 }
 
 export async function signInWithGoogle() {
-  if (!_auth) return;
-  const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(_auth, provider);
-  console.log("auth: Google sign-in success", result.user?.uid);
+  if (!window.google?.accounts) {
+    console.error("auth: Google Identity Services not loaded");
+    return;
+  }
+  // Show the Google account chooser prompt
+  return new Promise((resolve) => {
+    _googleResolve = resolve;
+    window.google.accounts.id.prompt((notification) => {
+      console.log("auth: Google prompt notification", notification.getMomentType());
+      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+        // One Tap not available, fall back to popup
+        console.log("auth: One Tap not available, reason:", notification.getNotDisplayedReason?.() || notification.getSkippedReason?.());
+        _googleResolve = null;
+        resolve();
+        // Show the standard Google sign-in button as fallback
+        _showGooglePopupFallback();
+      }
+    });
+  });
+}
+
+async function _showGooglePopupFallback() {
+  // Last resort: try the Firebase popup
+  try {
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(_auth, provider);
+  } catch (err) {
+    console.error("auth: all sign-in methods failed", err?.code, err?.message);
+    throw err;
+  }
 }
 
 export async function signInWithApple() {
@@ -108,6 +179,10 @@ export async function signInWithApple() {
 
 export async function signOut() {
   if (_auth) await _firebaseSignOut(_auth);
+  // Also revoke Google One Tap auto-select
+  if (window.google?.accounts) {
+    window.google.accounts.id.disableAutoSelect();
+  }
   _user = null;
   _accessToken = null;
   if (_onAuthChange) _onAuthChange(null);
@@ -120,7 +195,6 @@ function _getApiBase() {
 
 /**
  * Make an authenticated fetch to the backend API.
- * Falls back to X-Client-Id if not signed in.
  */
 export async function authFetch(url, options = {}) {
   const headers = { ...(options.headers || {}) };
