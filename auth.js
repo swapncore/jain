@@ -13,8 +13,6 @@ import {
   signInWithCredential,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
-  OAuthProvider,
-  signInWithPopup,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ── Firebase config ──────────────────────────────────────────────────────────
@@ -131,11 +129,21 @@ async function _handleGoogleCredential(response) {
 }
 
 async function _syncUser() {
-  if (!_accessToken) return;
+  if (!_accessToken || !_user) return;
   try {
     const API_BASE = _getApiBase();
     const resp = await fetch(`${API_BASE}/v1/auth/me`, {
-      headers: { Authorization: `Bearer ${_accessToken}` },
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${_accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: _user.email,
+        display_name: _user.display_name,
+        avatar_url: _user.avatar_url,
+        weekly_digest: true,
+      }),
     });
     if (resp.ok) {
       const backendUser = await resp.json();
@@ -144,22 +152,6 @@ async function _syncUser() {
   } catch (e) {
     console.warn("auth: failed to sync user with backend", e);
   }
-}
-
-// signInWithGoogle is now handled by the rendered Google button
-// This function is kept for compatibility but the button handles it directly
-export async function signInWithGoogle() {
-  // The Google Identity Services button handles sign-in directly
-  // This is a no-op — the button click is intercepted by Google's SDK
-}
-
-export async function signInWithApple() {
-  if (!_auth) return;
-  const provider = new OAuthProvider("apple.com");
-  provider.addScope("email");
-  provider.addScope("name");
-  const result = await signInWithPopup(_auth, provider);
-  console.log("auth: Apple sign-in success", result.user?.uid);
 }
 
 export async function signOut() {

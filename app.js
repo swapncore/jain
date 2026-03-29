@@ -14,7 +14,7 @@ import {
   INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES,
 } from "./config/shared-config.js";
 import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcode.js";
-import * as Auth from "./auth.js?v=2";
+import * as Auth from "./auth.js?v=3";
 import * as Search from "./search.js";
 import * as Favorites from "./favorites.js";
 import * as Monetization from "./monetization.js";
@@ -142,13 +142,12 @@ const el = {
   authModal:         document.getElementById("authModal"),
   authModalClose:    document.getElementById("authModalClose"),
   googleSignInBtn:   document.getElementById("googleSignInBtn"),
-  appleSignInBtn:    document.getElementById("appleSignInBtn"),
   authModalError:    document.getElementById("authModalError"),
-  emailOptIn:        document.getElementById("emailOptIn"),
-  emailOptInCheckbox:document.getElementById("emailOptInCheckbox"),
-  userMenuPanel:     document.getElementById("userMenuPanel"),
-  userMenuEmail:     document.getElementById("userMenuEmail"),
-  signOutBtn:        document.getElementById("signOutBtn"),
+
+  // User dropdown
+  userDropdown:      document.getElementById("userDropdown"),
+  userDropdownEmail: document.getElementById("userDropdownEmail"),
+  dropdownSignOutBtn:document.getElementById("dropdownSignOutBtn"),
 
   // Favorite button (in result card)
   favoriteBtn:       document.getElementById("favoriteBtn"),
@@ -1881,26 +1880,26 @@ function bindEvents() {
 
 function openAuthModal() {
   openModal(el.authModal);
-  // Show sign-in buttons or user menu depending on state
-  if (Auth.isSignedIn()) {
-    showUserMenuInModal();
+  // Always show sign-in buttons when opening auth modal
+  const btns = el.authModal?.querySelector(".auth-buttons");
+  if (btns) btns.classList.remove("hidden");
+  hide(el.authModalError);
+}
+
+function toggleUserDropdown() {
+  if (!el.userDropdown) return;
+  const isOpen = !el.userDropdown.classList.contains("hidden");
+  if (isOpen) {
+    el.userDropdown.classList.add("hidden");
   } else {
-    hide(el.userMenuPanel);
-    hide(el.emailOptIn);
-    hide(el.authModalError);
+    const user = Auth.getUser();
+    if (el.userDropdownEmail) el.userDropdownEmail.textContent = user?.email || "";
+    el.userDropdown.classList.remove("hidden");
   }
 }
 
-function showUserMenuInModal() {
-  const user = Auth.getUser();
-  if (!user) return;
-  hide(el.authModalError);
-  // Hide sign-in buttons, show user info
-  const btns = el.authModal?.querySelector(".auth-buttons");
-  if (btns) btns.classList.add("hidden");
-  if (el.userMenuEmail) el.userMenuEmail.textContent = user.email || "";
-  show(el.userMenuPanel);
-  show(el.emailOptIn);
+function closeUserDropdown() {
+  el.userDropdown?.classList.add("hidden");
 }
 
 function updateAuthNav(user) {
@@ -1912,12 +1911,23 @@ function updateAuthNav(user) {
   } else {
     show(el.signInBtn);
     hide(el.userMenuBtn);
+    closeUserDropdown();
   }
 }
 
 function bindAuthEvents() {
   el.signInBtn?.addEventListener("click", openAuthModal);
-  el.userMenuBtn?.addEventListener("click", openAuthModal);
+  el.userMenuBtn?.addEventListener("click", toggleUserDropdown);
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (el.userDropdown && !el.userDropdown.classList.contains("hidden")) {
+      const wrap = el.userMenuBtn?.closest(".user-menu-wrap");
+      if (wrap && !wrap.contains(e.target)) {
+        closeUserDropdown();
+      }
+    }
+  });
 
   el.authModalClose?.addEventListener("click", () => closeModal(el.authModal));
   el.authModal?.addEventListener("click", (e) => {
@@ -1927,39 +1937,18 @@ function bindAuthEvents() {
   // Google sign-in button is rendered by Google Identity Services in auth.js
   // No click handler needed — Google's SDK manages the button directly
 
-  el.appleSignInBtn?.addEventListener("click", async () => {
-    try {
-      hide(el.authModalError);
-      await Auth.signInWithApple();
-    } catch (err) {
-      if (el.authModalError) {
-        el.authModalError.textContent = err?.message || "Sign-in failed. Please try again.";
-        show(el.authModalError);
-      }
-    }
-  });
-
-  el.signOutBtn?.addEventListener("click", async () => {
+  el.dropdownSignOutBtn?.addEventListener("click", async () => {
     await Auth.signOut();
-    closeModal(el.authModal);
+    closeUserDropdown();
   });
 
-  // Email opt-in checkbox
-  el.emailOptInCheckbox?.addEventListener("change", async () => {
-    const checked = el.emailOptInCheckbox.checked;
-    try {
-      await Auth.authFetch(`${getApiBase()}/v1/email/preferences`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
-        body: JSON.stringify({ weekly_digest: checked }),
-      });
-    } catch { /* best-effort */ }
-  });
-
-  // Close auth modal on Escape (extend existing handler)
+  // Close auth modal on Escape
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && el.authModal && !el.authModal.classList.contains("hidden")) {
-      closeModal(el.authModal);
+    if (e.key === "Escape") {
+      if (el.authModal && !el.authModal.classList.contains("hidden")) {
+        closeModal(el.authModal);
+      }
+      closeUserDropdown();
     }
   });
 }
@@ -1999,14 +1988,6 @@ async function init() {
     // Close auth modal on successful sign-in
     if (user && el.authModal && !el.authModal.classList.contains("hidden")) {
       closeModal(el.authModal);
-    }
-    // Load email preferences if signed in
-    if (user && el.emailOptInCheckbox) {
-      Auth.authFetch(`${apiBase}/v1/email/preferences`, {
-        headers: { "X-Client-Id": getClientId() },
-      }).then(r => r.ok ? r.json() : null).then(data => {
-        if (data) el.emailOptInCheckbox.checked = !!data.weekly_digest;
-      }).catch(() => {});
     }
   });
   await Auth.init();

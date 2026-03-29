@@ -6,7 +6,7 @@
  * Exports init() for app.js to wire up.
  */
 
-import { authFetch, getUser } from "./auth.js?v=2";
+import { authFetch, getUser } from "./auth.js?v=3";
 
 let _apiBase = "";
 let _getClientId = () => "";
