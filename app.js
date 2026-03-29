@@ -1666,7 +1666,11 @@ async function handleMissingSubmit(e) {
       `${getApiBase()}${ENDPOINTS.submit_missing_photo}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Client-Id": getClientId() },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Client-Id": getClientId(),
+          ...(Auth.getAccessToken() ? { "Authorization": `Bearer ${Auth.getAccessToken()}` } : {}),
+        },
         body: JSON.stringify({
           barcode: el.missingBarcode?.value || state.currentBarcode || "",
           product_name: el.missingName?.value?.trim() || "",
