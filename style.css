@@ -710,6 +710,45 @@ ul, ol { list-style: none; }
   align-items: center;
 }
 
+/* Confidence chip */
+.confidence-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: var(--r-pill);
+  padding: 0.15rem 0.55rem;
+  white-space: nowrap;
+}
+.confidence-chip:empty { display: none; }
+
+.conf-high {
+  background: #e6f4ea;
+  color: #1e7e34;
+  border: 1px solid #a3d9a5;
+}
+.conf-medium {
+  background: #fff8e1;
+  color: #b8860b;
+  border: 1px solid #f0d58c;
+}
+.conf-low {
+  background: #fdecea;
+  color: #c62828;
+  border: 1px solid #f5b7b1;
+}
+
+/* Low-confidence warning banner */
+.confidence-warning-banner {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #856404;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: var(--r-sm, 6px);
+}
+
 .data-source-text {
   font-size: 0.78rem;
   color: var(--muted);

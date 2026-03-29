@@ -90,7 +90,8 @@ function renderCards(placements, contextBarcode) {
   placements.forEach((p) => {
     const card = document.createElement("a");
     card.className = "monetization-card";
-    card.href = p.affiliate_url || "#";
+    const safeUrl = (p.affiliate_url && p.affiliate_url.startsWith("https://")) ? p.affiliate_url : "#";
+    card.href = safeUrl;
     card.target = "_blank";
     card.rel = "noopener noreferrer sponsored";
     card.setAttribute("aria-label", `${p.product_name || "Sponsored product"} — ${p.cta_text || "Learn more"}`);

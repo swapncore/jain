@@ -1010,7 +1010,7 @@ function renderIngredientRows(categories) {
     // (backend sub-ingredient parsing can produce e.g. "NATURAL FLAVOR)" or "DARK CHOCOLATE (SUGAR")
     // and deduplicate after cleaning.
     const seenClean = new Set();
-    const items = rawItems.map(n => n.replace(/^[\s,();]+|[\s,();]+$/g, "").trim()).filter(n => {
+    const items = rawItems.filter(n => n != null).map(n => String(n).replace(/^[\s,();]+|[\s,();]+$/g, "").trim()).filter(n => {
       if (!n || seenClean.has(n)) return false;
       seenClean.add(n);
       return true;
@@ -1083,6 +1083,34 @@ function renderResult(data) {
   el.statusLabel.textContent = meta.label;
   el.explainText.textContent = data.explain || "No explanation available.";
 
+  // Confidence chip — shows how confident the verdict is
+  if (el.confidenceText) {
+    const conf = (data.confidence || "").toUpperCase();
+    if (conf === "HIGH" || conf === "MED" || conf === "LOW") {
+      const displayConf = conf === "MED" ? "Medium" : conf.charAt(0) + conf.slice(1).toLowerCase();
+      el.confidenceText.textContent = displayConf + " confidence";
+      const cssClass = conf === "MED" ? "medium" : conf.toLowerCase();
+      el.confidenceText.className = "confidence-chip conf-" + cssClass;
+    } else {
+      el.confidenceText.textContent = "";
+      el.confidenceText.className = "confidence-chip";
+    }
+  }
+
+  // Low-confidence warning banner when no ingredient data is available
+  const existingWarning = el.verdictCard.querySelector(".confidence-warning-banner");
+  if (existingWarning) existingWarning.remove();
+  if (
+    (data.confidence || "").toUpperCase() === "LOW" &&
+    (!data.ingredients_text || data.ingredients_text.trim() === "")
+  ) {
+    const banner = document.createElement("div");
+    banner.className = "confidence-warning-banner";
+    banner.setAttribute("role", "alert");
+    banner.textContent = "\u26A0\uFE0F No ingredient data available \u2014 this verdict cannot be confirmed. Please check the product label.";
+    el.verdictCard.appendChild(banner);
+  }
+
   // Mode chip — shows which strictness was used
   if (el.modeChip) {
     const activeProfile = PROFILES.find(p => p.id === getActiveProfile());
@@ -1100,11 +1128,11 @@ function renderResult(data) {
   // Reason chips
   const reasons = Array.isArray(data.reasons) ? data.reasons : [];
   el.reasonChips.replaceChildren();
-  reasons.forEach(r => {
+  reasons.filter(r => r != null).forEach(r => {
     const chip = document.createElement("span");
     chip.className = "chip";
     chip.setAttribute("role", "listitem");
-    chip.textContent = REASON_LABELS[r] || r.replace(/_/g, " ").toLowerCase()
+    chip.textContent = REASON_LABELS[r] || String(r).replace(/_/g, " ").toLowerCase()
       .replace(/\b\w/g, c => c.toUpperCase());
     chip.setAttribute("title", r);  // show raw code on hover for debugging
     el.reasonChips.appendChild(chip);

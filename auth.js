@@ -141,15 +141,23 @@ async function _syncUser() {
       const backendUser = await resp.json();
       _user = { ..._user, ...backendUser };
     }
-    // Opt into weekly digest by default on first sign-in
-    await fetch(`${API_BASE}/v1/email/preferences`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${_accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ weekly_digest: true }),
-    }).catch(() => {});
+    // Only opt-in on first sign-in (don't overwrite existing preference)
+    try {
+      const prefResp = await fetch(`${API_BASE}/v1/email/preferences`, {
+        headers: { Authorization: `Bearer ${_accessToken}` },
+      });
+      if (prefResp.ok) {
+        const prefs = await prefResp.json();
+        // Only set if no preference exists yet (new user)
+        if (prefs.weekly_digest === null || prefs.weekly_digest === undefined) {
+          await fetch(`${API_BASE}/v1/email/preferences`, {
+            method: "PUT",
+            headers: { Authorization: `Bearer ${_accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ weekly_digest: true }),
+          });
+        }
+      }
+    } catch {}
   } catch (e) {
     console.warn("auth: failed to sync user with backend", e);
   }
@@ -172,7 +180,14 @@ function _getApiBase() {
 
 export async function authFetch(url, options = {}) {
   const headers = { ...(options.headers || {}) };
-  if (_accessToken) {
+  if (_auth && _auth.currentUser) {
+    try {
+      _accessToken = await _auth.currentUser.getIdToken();
+      headers["Authorization"] = `Bearer ${_accessToken}`;
+    } catch {
+      // proceed without auth
+    }
+  } else if (_accessToken) {
     headers["Authorization"] = `Bearer ${_accessToken}`;
   }
   return fetch(url, { ...options, headers });
