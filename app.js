@@ -66,7 +66,6 @@ const el = {
   verdictIcon:       document.getElementById("verdictIcon"),
   statusLabel:       document.getElementById("statusLabel"),
   explainText:       document.getElementById("explainText"),
-  confidenceText:    document.getElementById("confidenceText"),
   productDetails:    document.getElementById("productDetails"),
   productNameText:   document.getElementById("productNameText"),
   brandText:         document.getElementById("brandText"),
@@ -1083,13 +1082,6 @@ function renderResult(data) {
   el.verdictIcon.innerHTML  = meta.icon;
   el.statusLabel.textContent = meta.label;
   el.explainText.textContent = data.explain || "No explanation available.";
-
-  // Confidence — API returns HIGH/MED/LOW; map MED→Medium for display + CSS
-  const confRaw = (data.confidence || "").toUpperCase();
-  const confDisplay = confRaw === "MED" ? "Medium" : capitalize(confRaw.toLowerCase());
-  const confClass   = confRaw === "HIGH" ? " conf-high" : confRaw === "MED" ? " conf-medium" : confRaw === "LOW" ? " conf-low" : "";
-  el.confidenceText.textContent = confDisplay ? `Confidence: ${confDisplay}` : "";
-  el.confidenceText.className = `confidence-chip${confClass}`;
 
   // Mode chip — shows which strictness was used
   if (el.modeChip) {

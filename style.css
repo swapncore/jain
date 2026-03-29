@@ -695,15 +695,6 @@ ul, ol { list-style: none; }
   align-items: center;
 }
 
-.confidence-chip {
-  font-size: 0.78rem;
-  font-weight: 600;
-  padding: 0.22rem 0.65rem;
-  border-radius: var(--r-pill);
-  background: rgba(0,0,0,0.07);
-  color: inherit;
-}
-
 .data-source-text {
   font-size: 0.78rem;
   color: var(--muted);
@@ -1214,39 +1205,6 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   font-weight: 700;
 }
 
-.confidence-guide-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--text-2);
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.confidence-dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0.4rem 0.85rem;
-  align-items: baseline;
-}
-
-.confidence-dl dt, .confidence-dl dd {
-  font-size: 0.85rem;
-  color: var(--text-2);
-}
-
-.conf-pill {
-  display: inline-block;
-  padding: 0.15rem 0.55rem;
-  border-radius: var(--r-pill);
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.conf-high   { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green-border); }
-.conf-medium { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow-border); }
-.conf-low    { background: var(--gray-bg);   color: var(--gray);   border: 1px solid var(--gray-border); }
-
 /* ============================================================
    MODALS
    ============================================================ */
@@ -1551,11 +1509,6 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
     width: 100%;
   }
 
-  .confidence-dl {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
-  }
-  .confidence-dl dt { margin-top: 0.5rem; }
 }
 
 /* ============================================================
