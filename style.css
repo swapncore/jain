@@ -1182,6 +1182,28 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
    ============================================================ */
 .how-card { }
 
+/* ─── Collapsible card headings (details/summary) ──────────────────────── */
+.collapsible-heading {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.collapsible-heading::-webkit-details-marker { display: none; }
+.collapsible-heading::after {
+  content: "+";
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--muted);
+  transition: transform var(--transition);
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+details[open] > .collapsible-heading::after {
+  content: "\2212";
+}
+
 .how-list {
   display: flex;
   flex-direction: column;
