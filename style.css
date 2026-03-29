@@ -403,9 +403,23 @@ ul, ol { list-style: none; }
   margin-bottom: 1rem;
 }
 
-.scan-or {
-  font-size: 0.82rem;
-  color: var(--muted);
+.scan-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+.scan-divider::before,
+.scan-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.scan-divider span {
+  font-size: 0.78rem;
+  color: var(--muted-2);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1909,6 +1923,14 @@ body.modal-open {
 .search-result-brand {
   font-size: 0.78rem;
   color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-result-meta {
+  font-size: 0.72rem;
+  color: var(--muted-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

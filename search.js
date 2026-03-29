@@ -125,6 +125,7 @@ export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
         <span class="search-result-info">
           <span class="search-result-name">${escHtml(p.product_name || p.barcode)}</span>
           ${p.brand ? `<span class="search-result-brand">${escHtml(p.brand)}</span>` : ""}
+          <span class="search-result-meta">${escHtml(p.barcode || "")}</span>
         </span>
         <span class="search-result-status search-result-status--${statusClass}">${escHtml(statusLabel)}</span>
       `;
