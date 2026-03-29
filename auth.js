@@ -20,10 +20,12 @@ import {
 // Restrict to HTTP referrer jain.swapncore.com/* and Firebase Auth API only.
 // Auth UI will be hidden (isConfigured() returns false) when apiKey is empty.
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCMSIr3B2T-L8s03HpgW-C7ZktBfmjuP5A",
-  authDomain: "jainapp-77aec.firebaseapp.com",
-  projectId: "jainapp-77aec",
-  appId: "1:580684555651:web:9c26a7e2d1b15f9698c2b6",
+  apiKey: "AIzaSyCQf5eJNQyTQTiUGCpcQeGKNgpS9uI7cYY",
+  authDomain: "jaini-web.firebaseapp.com",
+  projectId: "jaini-web",
+  storageBucket: "jaini-web.firebasestorage.app",
+  messagingSenderId: "1080759339715",
+  appId: "1:1080759339715:web:c7f60d0e4ce7b30173f076",
 };
 
 let _auth = null;
