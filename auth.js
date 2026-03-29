@@ -10,6 +10,8 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
   OAuthProvider,
@@ -51,18 +53,38 @@ export async function init() {
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
 
+  // Handle redirect result (if returning from signInWithRedirect)
+  try {
+    const result = await getRedirectResult(_auth);
+    if (result?.user) {
+      console.log("auth: redirect sign-in success", result.user.uid);
+    }
+  } catch (err) {
+    console.error("auth: redirect result error", err?.code, err?.message);
+  }
 
   // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
     console.log("auth: state changed →", firebaseUser ? `signed in (${firebaseUser.uid})` : "signed out");
     if (firebaseUser) {
       _accessToken = await firebaseUser.getIdToken();
+      // Set basic user from Firebase immediately so UI updates
+      _user = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        display_name: firebaseUser.displayName || firebaseUser.email,
+        avatar_url: firebaseUser.photoURL || "",
+        role: "user",
+      };
+      if (_onAuthChange) _onAuthChange(_user);
+      // Then sync with backend (updates role, etc.) — non-blocking
       await _syncUser();
+      if (_onAuthChange) _onAuthChange(_user);
     } else {
       _user = null;
       _accessToken = null;
+      if (_onAuthChange) _onAuthChange(null);
     }
-    if (_onAuthChange) _onAuthChange(_user);
   });
 }
 
@@ -74,35 +96,49 @@ async function _syncUser() {
       headers: { Authorization: `Bearer ${_accessToken}` },
     });
     if (resp.ok) {
-      _user = await resp.json();
+      const backendUser = await resp.json();
+      // Merge backend data (keeps role, etc.)
+      _user = { ..._user, ...backendUser };
     }
   } catch (e) {
-    console.warn("auth: failed to sync user", e);
+    console.warn("auth: failed to sync user with backend", e);
   }
 }
 
 export async function signInWithGoogle() {
   if (!_auth) return;
+  const provider = new GoogleAuthProvider();
   try {
-    const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(_auth, provider);
     console.log("auth: Google sign-in success", result.user?.uid);
   } catch (err) {
-    console.error("auth: popup sign-in error", err?.code, err?.message);
-    throw err;
+    // If popup blocked or closed, fall back to redirect
+    if (err?.code === "auth/popup-blocked" || err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+      console.log("auth: popup failed, falling back to redirect");
+      await signInWithRedirect(_auth, provider);
+    } else {
+      console.error("auth: sign-in error", err?.code, err?.message);
+      throw err;
+    }
   }
 }
 
 export async function signInWithApple() {
   if (!_auth) return;
+  const provider = new OAuthProvider("apple.com");
+  provider.addScope("email");
+  provider.addScope("name");
   try {
-    const provider = new OAuthProvider("apple.com");
-    provider.addScope("email");
-    provider.addScope("name");
     const result = await signInWithPopup(_auth, provider);
-    console.log("auth: apple popup sign-in success", result.user?.uid);
+    console.log("auth: Apple sign-in success", result.user?.uid);
   } catch (err) {
-    console.error("auth: apple popup sign-in error", err?.code, err?.message);
+    if (err?.code === "auth/popup-blocked" || err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+      console.log("auth: popup failed, falling back to redirect");
+      await signInWithRedirect(_auth, provider);
+    } else {
+      console.error("auth: sign-in error", err?.code, err?.message);
+      throw err;
+    }
   }
 }
 
