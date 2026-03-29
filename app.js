@@ -1225,8 +1225,8 @@ function renderRateLimit(data) {
   const p = document.createElement("p");
   p.appendChild(document.createTextNode(`You've used ${count} of ${limit} free lookups today. Your limit resets on ${reset}. Contact `));
   const a = document.createElement("a");
-  a.href = "mailto:hello@swapncore.com";
-  a.textContent = "hello@swapncore.com";
+  a.href = "mailto:hello@jain.swapncore.com";
+  a.textContent = "hello@jain.swapncore.com";
   p.appendChild(a);
   p.appendChild(document.createTextNode(" to request an increase."));
 
@@ -1603,7 +1603,7 @@ function showFormMsg(modal, message, type = "success") {
   show(msg);
 }
 
-function handleReportSubmit(e) {
+async function handleReportSubmit(e) {
   e.preventDefault();
   const wrong = el.reportWrong.value.trim();
   if (!wrong) {
@@ -1612,15 +1612,38 @@ function handleReportSubmit(e) {
     return;
   }
 
-  const subject = encodeURIComponent(`Jaini classification report: ${el.reportBarcode.value}`);
-  const body = encodeURIComponent(
-    `Barcode: ${el.reportBarcode.value}\n\nWhat seems wrong:\n${wrong}\n\n` +
-    (el.reportIngredients.value ? `Corrected ingredients:\n${el.reportIngredients.value}\n\n` : "") +
-    (el.reportEmail.value ? `Reply to: ${el.reportEmail.value}` : "")
-  );
-  window.open(`mailto:hello@swapncore.com?subject=${subject}&body=${body}`, "_blank");
-  showFormMsg(el.reportModal, "Thanks. Your report helps improve Jaini. You can close this window.", "success");
   el.reportSubmitBtn.disabled = true;
+  el.reportSubmitBtn.textContent = "Submitting...";
+
+  try {
+    const resp = await fetch(`${API_BASE}/v1/report-classification`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Client-Id": getClientId(),
+      },
+      body: JSON.stringify({
+        barcode: el.reportBarcode.value,
+        profile: getActiveProfile(),
+        what_wrong: wrong,
+        corrected_ingredients: el.reportIngredients.value.trim(),
+        reporter_email: el.reportEmail.value.trim(),
+      }),
+    });
+
+    if (resp.ok) {
+      showFormMsg(el.reportModal, "Thanks! Your report has been submitted. Our team will review it.", "success");
+    } else {
+      const data = await resp.json().catch(() => ({}));
+      showFormMsg(el.reportModal, data.detail || data.message || "Failed to submit report. Please try again.", "error");
+      el.reportSubmitBtn.disabled = false;
+      el.reportSubmitBtn.textContent = "Submit report";
+    }
+  } catch (err) {
+    showFormMsg(el.reportModal, "Connection error. Please try again.", "error");
+    el.reportSubmitBtn.disabled = false;
+    el.reportSubmitBtn.textContent = "Submit report";
+  }
 }
 
 // Missing product photo flow
