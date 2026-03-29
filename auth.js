@@ -10,17 +10,12 @@ import {
   getAuth,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
   OAuthProvider,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 // ── Firebase config ──────────────────────────────────────────────────────────
-// Set apiKey after regenerating + restricting the key in Firebase Console.
-// Restrict to HTTP referrer jain.swapncore.com/* and Firebase Auth API only.
-// Auth UI will be hidden (isConfigured() returns false) when apiKey is empty.
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCQf5eJNQyTQTiUGCpcQeGKNgpS9uI7cYY",
   authDomain: "jaini-web.firebaseapp.com",
@@ -52,16 +47,6 @@ export async function init() {
 
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
-
-  // Handle redirect result (if returning from signInWithRedirect)
-  try {
-    const result = await getRedirectResult(_auth);
-    if (result?.user) {
-      console.log("auth: redirect sign-in success", result.user.uid);
-    }
-  } catch (err) {
-    console.error("auth: redirect result error", err?.code, err?.message);
-  }
 
   // Listen for auth state changes
   onAuthStateChanged(_auth, async (firebaseUser) => {
@@ -108,19 +93,8 @@ async function _syncUser() {
 export async function signInWithGoogle() {
   if (!_auth) return;
   const provider = new GoogleAuthProvider();
-  try {
-    const result = await signInWithPopup(_auth, provider);
-    console.log("auth: Google sign-in success", result.user?.uid);
-  } catch (err) {
-    // If popup blocked or closed, fall back to redirect
-    if (err?.code === "auth/popup-blocked" || err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
-      console.log("auth: popup failed, falling back to redirect");
-      await signInWithRedirect(_auth, provider);
-    } else {
-      console.error("auth: sign-in error", err?.code, err?.message);
-      throw err;
-    }
-  }
+  const result = await signInWithPopup(_auth, provider);
+  console.log("auth: Google sign-in success", result.user?.uid);
 }
 
 export async function signInWithApple() {
@@ -128,18 +102,8 @@ export async function signInWithApple() {
   const provider = new OAuthProvider("apple.com");
   provider.addScope("email");
   provider.addScope("name");
-  try {
-    const result = await signInWithPopup(_auth, provider);
-    console.log("auth: Apple sign-in success", result.user?.uid);
-  } catch (err) {
-    if (err?.code === "auth/popup-blocked" || err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
-      console.log("auth: popup failed, falling back to redirect");
-      await signInWithRedirect(_auth, provider);
-    } else {
-      console.error("auth: sign-in error", err?.code, err?.message);
-      throw err;
-    }
-  }
+  const result = await signInWithPopup(_auth, provider);
+  console.log("auth: Apple sign-in success", result.user?.uid);
 }
 
 export async function signOut() {
