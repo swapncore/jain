@@ -14,7 +14,7 @@ import {
   INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES,
 } from "./config/shared-config.js";
 import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcode.js";
-import * as Auth from "./auth.js";
+import * as Auth from "./auth.js?v=2";
 import * as Search from "./search.js";
 import * as Favorites from "./favorites.js";
 import * as Monetization from "./monetization.js";
