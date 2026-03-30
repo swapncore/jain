@@ -487,7 +487,7 @@ function renderHistory() {
     btn.dataset.barcode = entry.barcode;
     btn.setAttribute("aria-label", `Re-scan ${entry.product_name || entry.barcode}`);
     btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>`;
-    btn.addEventListener("click", () => {
+    const showVerdict = () => {
       if (state.inFlight || state.scanLocked) return;
       if (entry.verdictData && entry.profile === getActiveProfile()) {
         // Show cached verdict instantly (only if profile matches)
@@ -498,7 +498,9 @@ function renderHistory() {
       } else {
         fetchVerdict(entry.barcode).catch(() => renderError(MESSAGES.genericError));
       }
-    });
+    };
+    btn.addEventListener("click", (e) => { e.stopPropagation(); showVerdict(); });
+    li.addEventListener("click", showVerdict);
 
     li.appendChild(dot);
     li.appendChild(name);
