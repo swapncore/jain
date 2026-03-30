@@ -1661,7 +1661,7 @@ async function handleReportSubmit(e) {
   el.reportSubmitBtn.textContent = "Submitting...";
 
   try {
-    const resp = await fetch(`${API_BASE}/v1/report-classification`, {
+    const resp = await fetch(`${getApiBase()}/v1/report-classification`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

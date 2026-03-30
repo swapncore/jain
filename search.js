@@ -133,6 +133,9 @@ export function init({ apiBase, getClientId, getProfile, onProductSelect }) {
       item.addEventListener("click", () => {
         // Log click for analytics
         logSearchClick(query, p.barcode);
+        // Close dropdown and reset search input
+        hideResults();
+        input.value = "";
         if (_onProductSelect) _onProductSelect(p.barcode);
       });
 
