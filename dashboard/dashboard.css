@@ -1054,3 +1054,455 @@ body {
   .photo-review-panel { width: 100%; }
   .photo-review-image { border-right: none; border-bottom: 1px solid var(--border); }
 }
+
+/* ── Dark Mode ─────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #0f766e;
+    --brand-dark: #0d5d57;
+    --brand-light: #0d2d2a;
+    --brand-gradient: linear-gradient(135deg, #0c5e58 0%, #0e3b38 100%);
+    --green: #22c55e;
+    --red: #ef4444;
+    --orange: #f97316;
+    --yellow: #eab308;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --muted: #64748b;
+    --bg: #0f1117;
+    --surface: #1c2030;
+    --border: #2a3040;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.15);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,.3), 0 2px 4px -2px rgba(0,0,0,.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,.4), 0 4px 6px -4px rgba(0,0,0,.2);
+  }
+
+  body {
+    background: #0f1117;
+    color: #e2e8f0;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: linear-gradient(135deg, #0a3d39 0%, #091e1c 100%);
+    box-shadow: 4px 0 12px rgba(0,0,0,.3);
+  }
+
+  /* Content area */
+  .content {
+    background: #141820;
+  }
+
+  /* Topbar */
+  .topbar {
+    background: #141820;
+    border-bottom-color: #2a3040;
+    box-shadow: 0 1px 2px rgba(0,0,0,.15);
+  }
+
+  /* Cards */
+  .metric-card {
+    background: #1c2030;
+    border-color: #2a3040;
+  }
+
+  .metric-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,.3), 0 2px 4px -2px rgba(0,0,0,.2);
+  }
+
+  .metric-card.highlight {
+    border-color: #f97316;
+    background: #271a0e;
+  }
+
+  .section-card {
+    background: #1c2030;
+    border-color: #2a3040;
+  }
+
+  /* Tables */
+  .data-table th {
+    color: #64748b;
+    border-bottom-color: #2a3040;
+    background: #1a1f2e;
+  }
+
+  .data-table td {
+    border-bottom-color: #232938;
+    color: #94a3b8;
+  }
+
+  .data-table tbody tr:hover td {
+    background: #0d2d2a;
+  }
+
+  /* Table header bg for sorted/sticky headers */
+  .photo-review-image {
+    background: #1a1f2e;
+  }
+
+  /* Auth */
+  .auth-card {
+    background: #1c2030;
+    border-color: #2a3040;
+  }
+
+  .auth-card h2 {
+    color: #e2e8f0;
+  }
+
+  .auth-input {
+    background: #1c2030;
+    border-color: #374151;
+    color: #e2e8f0;
+  }
+
+  .auth-input:focus {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15,118,110,.2);
+  }
+
+  /* Inputs */
+  .modal-form input,
+  .modal-form select,
+  .modal-form textarea {
+    background: #1c2030;
+    border-color: #374151;
+    color: #e2e8f0;
+  }
+
+  .modal-form input:focus,
+  .modal-form select:focus,
+  .modal-form textarea:focus {
+    border-color: #0f766e;
+    box-shadow: 0 0 0 3px rgba(15,118,110,.15);
+  }
+
+  .review-input {
+    background: #1c2030;
+    border-color: #374151;
+    color: #e2e8f0;
+  }
+
+  .review-input:focus {
+    box-shadow: 0 0 0 3px rgba(15,118,110,.15);
+  }
+
+  .review-select {
+    background: #1c2030;
+    border-color: #374151;
+    color: #e2e8f0;
+  }
+
+  .review-textarea {
+    background: #1c2030;
+    border-color: #374151;
+    color: #e2e8f0;
+  }
+
+  .review-textarea:focus {
+    box-shadow: 0 0 0 3px rgba(15,118,110,.15);
+  }
+
+  .toolbar select {
+    background: #1c2030;
+    border-color: #374151;
+    color: #e2e8f0;
+  }
+
+  /* Buttons — secondary and ghost */
+  .btn-secondary {
+    background: #1c2030;
+    color: #e2e8f0;
+    border-color: #374151;
+  }
+
+  .btn-secondary:hover {
+    border-color: #0f766e;
+    color: #14b8a6;
+  }
+
+  .btn-ghost {
+    color: #94a3b8;
+  }
+
+  .btn-ghost:hover {
+    background: #1a1f2e;
+    color: #e2e8f0;
+  }
+
+  .btn-danger {
+    background: #2a1215;
+    color: #f87171;
+    border-color: #7f1d1d;
+  }
+
+  .btn-danger:hover {
+    background: #371419;
+  }
+
+  .btn-view {
+    background: #0d2d2a;
+    color: #14b8a6;
+    border-color: #115e59;
+  }
+
+  .btn-view:hover {
+    background: #134e4a;
+  }
+
+  .btn-edit {
+    background: #1e1b4b;
+    color: #818cf8;
+    border-color: #3730a3;
+  }
+
+  .btn-edit:hover {
+    background: #282463;
+  }
+
+  /* Modal */
+  .modal {
+    background: rgba(0,0,0,.65);
+  }
+
+  .modal-content {
+    background: #1c2030;
+    border: 1px solid #2a3040;
+  }
+
+  .modal-close {
+    color: #64748b;
+  }
+
+  .modal-close:hover {
+    color: #e2e8f0;
+  }
+
+  /* Status badges — muted dark backgrounds */
+  .status-badge.pending {
+    background: #362a10;
+    color: #fbbf24;
+  }
+
+  .status-badge.active {
+    background: #0f2e1a;
+    color: #4ade80;
+  }
+
+  .status-badge.prospect {
+    background: #0c2035;
+    color: #38bdf8;
+  }
+
+  .status-badge.paused {
+    background: #1f2937;
+    color: #9ca3af;
+  }
+
+  .status-badge.churned,
+  .status-badge.rejected {
+    background: #2a1215;
+    color: #fb7185;
+  }
+
+  .status-badge.reviewed,
+  .status-badge.added {
+    background: #0f2e1a;
+    color: #4ade80;
+  }
+
+  /* Digest badges */
+  .digest-badge.on {
+    background: #0f2e1a;
+    color: #4ade80;
+  }
+
+  .digest-badge.off {
+    background: #1f2937;
+    color: #6b7280;
+  }
+
+  /* Review buttons */
+  .review-btn-approve {
+    background: #0f2e1a;
+    color: #4ade80;
+    border-color: #166534;
+  }
+
+  .review-btn-approve:hover {
+    background: #14532d;
+  }
+
+  .review-btn-reviewed {
+    background: #172554;
+    color: #60a5fa;
+    border-color: #1e40af;
+  }
+
+  .review-btn-reviewed:hover {
+    background: #1e3a6e;
+  }
+
+  .review-btn-reject {
+    background: #2a1215;
+    color: #f87171;
+    border-color: #7f1d1d;
+  }
+
+  .review-btn-reject:hover {
+    background: #371419;
+  }
+
+  .review-result.success {
+    background: #0f2e1a;
+    color: #4ade80;
+  }
+
+  .review-result.error {
+    background: #2a1215;
+    color: #f87171;
+  }
+
+  /* Info box and ingredient section */
+  .info-box {
+    background: #141820;
+    border-color: #2a3040;
+    color: #94a3b8;
+  }
+
+  .ingredient-entry-section {
+    background: #141820;
+    border-color: #2a3040;
+  }
+
+  .verdict-result-card {
+    background: #1c2030;
+    border-color: #2a3040;
+  }
+
+  .verdict-result-card .verdict-detail strong {
+    color: #e2e8f0;
+  }
+
+  /* Breakdown bars */
+  .breakdown-bar-wrap {
+    background: #1a1f2e;
+  }
+
+  /* Photo card */
+  .photo-card {
+    background: #1c2030;
+    border-color: #2a3040;
+  }
+
+  /* User detail */
+  .user-stat {
+    background: #141820;
+    border-color: #2a3040;
+  }
+
+  .user-detail-avatar-placeholder {
+    background: #141820;
+    border-color: #2a3040;
+    color: #64748b;
+  }
+
+  .user-row-avatar-placeholder {
+    background: #141820;
+    border-color: #2a3040;
+    color: #64748b;
+  }
+
+  .user-row-clickable:hover td {
+    background: #0d2d2a !important;
+  }
+
+  /* Loading spinner */
+  .loading::after {
+    border-color: #2a3040;
+    border-top-color: #0f766e;
+  }
+
+  /* User info in topbar */
+  .user-info img {
+    border-color: #2a3040;
+  }
+
+  .user-detail-avatar {
+    border-color: #2a3040;
+  }
+
+  .user-row-avatar {
+    border-color: #2a3040;
+  }
+
+  /* Scrollbar styling for dark mode */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #141820;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #374151;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #4b5563;
+  }
+}
+
+/* ── Print Stylesheet ──────────────────────────────────────────── */
+@media print {
+  .sidebar {
+    display: none !important;
+  }
+
+  .topbar {
+    display: none !important;
+  }
+
+  .content {
+    margin-left: 0 !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .section-card,
+  .metric-card,
+  .modal-content {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .btn-danger,
+  .btn-view,
+  .btn-edit,
+  .btn-signout {
+    display: none !important;
+  }
+
+  .modal {
+    position: static;
+    background: none;
+    backdrop-filter: none;
+  }
+
+  .modal-content {
+    max-width: 100%;
+    width: 100%;
+  }
+}
