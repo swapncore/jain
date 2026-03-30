@@ -101,7 +101,6 @@ export async function init() {
         avatar_url: firebaseUser.photoURL || "",
         role: "user",
       };
-      if (_onAuthChange) _onAuthChange(_user);
       await _syncUser();
       if (_onAuthChange) _onAuthChange(_user);
     } else {

@@ -2,7 +2,11 @@
 (function () {
   "use strict";
 
-  const API_BASE = "https://web-production-31034.up.railway.app";
+  const API_BASE = window.location.hostname === "localhost"
+    ? "http://localhost:8000"
+    : window.location.origin.includes("railway.app")
+      ? window.location.origin
+      : "https://web-production-31034.up.railway.app";
   let _metricsData = null; // cached metrics for cross-tab use
 
   // ── Auth helpers ───────────────────────────────────────────────────────
@@ -1138,7 +1142,8 @@
   function esc(s) {
     const d = document.createElement("div");
     d.textContent = s || "";
-    return d.innerHTML;
+    // innerHTML escapes <, >, & but NOT quotes — add those for safe attribute contexts
+    return d.innerHTML.replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
   function renderTable(tableId, rows, keys) {

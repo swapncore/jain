@@ -1116,6 +1116,9 @@ function displayVerdictData(data, barcode, fromCache = false) {
   if (fromCache && el.savedNote) {
     el.savedNote.textContent = "\u21BB From your recent scan";
   }
+  // Reset lock/inflight so the scanner is not permanently locked after cached verdict
+  state.scanLocked = false;
+  state.inFlight = false;
 }
 
 function renderResult(data) {
@@ -1391,6 +1394,7 @@ async function fetchVerdict(rawBarcode) {
     clearMessage();
     hideResult();
     displayVerdictData(cached, barcode, true);
+    // displayVerdictData resets scanLocked/inFlight; early return skips finally block
     return;
   }
 
@@ -1448,6 +1452,11 @@ async function fetchVerdict(rawBarcode) {
       // Cache for instant re-scan
       const ck = `${barcode}:${getActiveProfile()}`;
       _verdictCache.set(ck, { ...data, _cachedAt: Date.now() });
+      // LRU eviction: keep cache bounded at 50 entries
+      if (_verdictCache.size > 50) {
+        const oldest = _verdictCache.keys().next().value;
+        _verdictCache.delete(oldest);
+      }
       renderResult(data);
       el.scanStatus && (el.scanStatus.textContent = `Scan complete: ${barcode}`);
       return;
@@ -1616,7 +1625,7 @@ async function startScanning() {
     }
   } catch (e) {
     console.error("Failed to load barcode scanning libraries", e);
-    showMessage(MESSAGES.cameraUnsupported, "error");
+    showMessage({ variant: "error", message: MESSAGES.cameraUnsupported });
     return;
   }
 

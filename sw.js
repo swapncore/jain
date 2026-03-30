@@ -8,6 +8,10 @@
  */
 
 const CACHE_NAME = "jaini-v1";
+// Separate cache for API responses — limited to MAX_API_ENTRIES most recent,
+// so stale verdicts are evicted automatically. Bump version to force full purge.
+const CACHE_API = "jaini-api-v1";
+const MAX_API_ENTRIES = 100;
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -30,11 +34,12 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate: clean old caches
+// Activate: clean old caches (keep current app-shell and API caches)
 self.addEventListener("activate", (event) => {
+  const keep = new Set([CACHE_NAME, CACHE_API]);
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => !keep.has(k)).map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
@@ -44,15 +49,24 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // API calls: network-first, cache verdict responses for offline
+  // API calls: network-first, cache verdict responses for offline.
+  // Cached entries are evicted LRU-style once MAX_API_ENTRIES is exceeded.
   if (url.pathname.startsWith("/v1/")) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache successful verdict responses
+          // Cache successful verdict responses in the dedicated API cache
           if (response.ok && url.pathname.includes("/verdict")) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            caches.open(CACHE_API).then((cache) => {
+              cache.put(event.request, clone);
+              // Evict oldest entries when over limit
+              cache.keys().then((keys) => {
+                if (keys.length > MAX_API_ENTRIES) {
+                  keys.slice(0, keys.length - MAX_API_ENTRIES).forEach((k) => cache.delete(k));
+                }
+              });
+            });
           }
           return response;
         })
@@ -61,10 +75,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // App shell & static assets: cache-first
+  // App shell & static assets: cache-first.
+  // ignoreSearch lets versioned requests (e.g. app.js?v=4) match pre-cached /app.js.
   if (event.request.method === "GET" && url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
+      caches.match(event.request, { ignoreSearch: true }).then((cached) => {
         const fetchPromise = fetch(event.request).then((response) => {
           if (response.ok) {
             const clone = response.clone();
