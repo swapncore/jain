@@ -448,6 +448,41 @@ function historyPush(entry) {
   renderHistory();
 }
 
+async function _syncServerHistory() {
+  // Merge server-side scan history with local history so signed-in
+  // users see their scans from all devices.
+  try {
+    const resp = await Auth.authFetch(`${getApiBase()}/v1/scan-history`);
+    if (!resp.ok) return;
+    const { history } = await resp.json();
+    if (!history || !history.length) return;
+    const local = historyLoad();
+    const seen = new Set(local.map(e => `${e.barcode}:${e.profile}`));
+    let added = 0;
+    for (const s of history) {
+      const key = `${s.barcode}:${s.profile}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      local.push({
+        barcode: s.barcode,
+        status: s.status || "UNKNOWN",
+        product_name: s.product_name || "",
+        brand: s.brand || "",
+        profile: s.profile || "jain",
+        ts: s.ts || "",
+        verdictData: null, // will re-fetch on click
+      });
+      added++;
+    }
+    if (added > 0) {
+      // Sort newest first, trim to max
+      local.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
+      historySave(local.slice(0, HISTORY_MAX));
+      renderHistory();
+    }
+  } catch { /* non-critical */ }
+}
+
 function renderHistory() {
   const entries = historyLoad();
   if (!el.historySection || !el.historyList) return;
@@ -1296,9 +1331,12 @@ async function fetchVerdict(rawBarcode) {
 
     let resp;
     try {
+      const hdrs = { "X-Client-Id": getClientId() };
+      const tok = Auth.getAccessToken();
+      if (tok) hdrs["Authorization"] = `Bearer ${tok}`;
       resp = await fetchWithTimeout(url.toString(), {
         method: "GET",
-        headers: { "X-Client-Id": getClientId() },
+        headers: hdrs,
       }, REQUEST_TIMEOUT_MS);
     } catch (err) {
       if (reqId !== state.requestId) return;
@@ -2093,6 +2131,8 @@ async function init() {
     if (user && el.authModal && !el.authModal.classList.contains("hidden")) {
       closeModal(el.authModal);
     }
+    // Sync scan history from server when signed in
+    if (user) _syncServerHistory();
   });
   await Auth.init();
 
