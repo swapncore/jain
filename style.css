@@ -189,6 +189,7 @@ ul, ol { list-style: none; }
   white-space: nowrap;
 }
 .nav-link:hover { color: var(--brand); }
+.nav-link:focus-visible { color: var(--brand); }
 
 .header-sub {
   max-width: 720px;
@@ -394,7 +395,7 @@ ul, ol { list-style: none; }
 /* ============================================================
    SCAN CARD
    ============================================================ */
-.scan-card { }
+
 
 .scan-trigger-area {
   display: flex;
@@ -585,7 +586,7 @@ ul, ol { list-style: none; }
 /* ============================================================
    MANUAL FORM
    ============================================================ */
-.manual-form { }
+
 
 .field-label {
   display: block;
@@ -783,7 +784,7 @@ ul, ol { list-style: none; }
 }
 
 /* Product details */
-.product-details { }
+
 
 .product-meta {
   display: flex;
@@ -1118,6 +1119,7 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   color: var(--muted);
 }
 .btn-link--muted:hover { color: var(--text-2); }
+.btn-link--muted:focus-visible { color: var(--text-2); }
 
 .history-list {
   list-style: none;
@@ -1183,6 +1185,7 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   transition: color var(--transition);
 }
 .history-rescan:hover { color: var(--brand); }
+.history-rescan:focus-visible { color: var(--brand); }
 
 /* ============================================================
    LEGEND CARD
@@ -1210,7 +1213,7 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   margin-top: 1px;
 }
 
-.legend-body { }
+
 
 .legend-label {
   display: block;
@@ -1235,7 +1238,7 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
 /* ============================================================
    HOW-IT-WORKS CARD
    ============================================================ */
-.how-card { }
+
 
 /* ─── Collapsible card headings (details/summary) ──────────────────────── */
 .collapsible-heading {
@@ -1451,6 +1454,7 @@ details[open] > .collapsible-heading::after {
   text-decoration: none;
 }
 .footer-link:hover { color: var(--brand); text-decoration: underline; }
+.footer-link:focus-visible { color: var(--brand); text-decoration: underline; }
 
 .footer-legal {
   font-size: 0.78rem;
@@ -1861,7 +1865,7 @@ body.modal-open {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   padding: 0.75rem 1rem;
   min-width: 200px;
-  z-index: 100;
+  z-index: 1001;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -2029,7 +2033,7 @@ body.modal-open {
 /* ============================================================
    FAVORITES CARD
    ============================================================ */
-.favorites-card { }
+
 
 .favorites-header {
   display: flex;
