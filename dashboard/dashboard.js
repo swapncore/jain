@@ -987,18 +987,52 @@
   });
 
   // ── Recent Scans Tab ─────────────────────────────────────────────────
-  async function loadRecentScans() {
+  const RECENT_SCANS_PAGE_SIZE = 200;
+  let _recentScansOffset = 0;
+  let _recentScansTotal = 0;
+  let _recentScansLoading = false;
+
+  async function loadRecentScans(append = false) {
     const tbody = document.querySelector("#recentScansTable tbody");
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;"><div class="loading"></div></td></tr>';
+    const loadMoreWrap = document.getElementById("recentScansLoadMore");
+    const loadMoreBtn = document.getElementById("loadMoreScansBtn");
+
+    if (!append) {
+      _recentScansOffset = 0;
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;"><div class="loading"></div></td></tr>';
+    }
+    if (loadMoreBtn) loadMoreBtn.disabled = true;
+    _recentScansLoading = true;
+
     try {
-      const resp = await fetchWithAuth(`${API_BASE}/v1/admin/recent-scans?limit=200`);
+      const resp = await fetchWithAuth(
+        `${API_BASE}/v1/admin/recent-scans?limit=${RECENT_SCANS_PAGE_SIZE}&offset=${_recentScansOffset}`
+      );
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
       const scans = data.scans || [];
-      renderRecentScans(scans);
-      setText("recentScansCount", `${scans.length} of ${fmt(data.total)} scans`);
+      _recentScansTotal = data.total || 0;
+
+      if (append) {
+        appendRecentScanRows(scans);
+      } else {
+        renderRecentScans(scans);
+      }
+
+      _recentScansOffset += scans.length;
+      setText("recentScansCount", `${_recentScansOffset} of ${fmt(_recentScansTotal)} scans`);
+
+      // Show or hide "Load more" button
+      if (loadMoreWrap) {
+        loadMoreWrap.style.display = _recentScansOffset < _recentScansTotal ? "block" : "none";
+      }
     } catch (e) {
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:32px;">Failed to load recent scans.</td></tr>';
+      if (!append) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:32px;">Failed to load recent scans.</td></tr>';
+      }
+    } finally {
+      _recentScansLoading = false;
+      if (loadMoreBtn) loadMoreBtn.disabled = false;
     }
   }
 
@@ -1017,36 +1051,46 @@
     return d.toLocaleDateString();
   }
 
+  function scanRowHtml(s) {
+    const statusClass = s.verdict_status === "GREEN" ? "active"
+      : s.verdict_status === "RED" ? "rejected"
+      : s.verdict_status === "ORANGE" ? "pending"
+      : s.verdict_status === "YELLOW" ? "pending"
+      : "prospect";
+    const location = [s.city, s.country].filter(Boolean).join(", ") || "—";
+    const userName = s.user_name || s.user_email || s.client_id || "—";
+    return `<tr>
+      <td title="${s.ts ? new Date(s.ts).toLocaleString() : ''}">${formatTimeAgo(s.ts)}</td>
+      <td>${esc(userName)}</td>
+      <td><strong>${esc(s.product_name || "Unknown")}</strong></td>
+      <td>${esc(s.brand || "")}</td>
+      <td style="font-family:monospace;font-size:12px;color:var(--muted);">${esc(s.barcode || "")}</td>
+      <td>${s.verdict_status ? `<span class="status-badge ${statusClass}" style="text-transform:none;">${s.verdict_status}</span>` : `<span class="status-badge prospect" style="text-transform:none;">${esc(s.outcome || "—")}</span>`}</td>
+      <td>${s.confidence ? esc(s.confidence) : "—"}</td>
+      <td>${esc(s.profile || "")}</td>
+      <td>${esc(location)}</td>
+      <td>${s.response_ms != null ? s.response_ms + "ms" : "—"}</td>
+    </tr>`;
+  }
+
   function renderRecentScans(scans) {
     const tbody = document.querySelector("#recentScansTable tbody");
     if (!scans.length) {
       tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:32px;">No scan data yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = scans.map(s => {
-      const statusClass = s.verdict_status === "GREEN" ? "active"
-        : s.verdict_status === "RED" ? "rejected"
-        : s.verdict_status === "ORANGE" ? "pending"
-        : s.verdict_status === "YELLOW" ? "pending"
-        : "prospect";
-      const location = [s.city, s.country].filter(Boolean).join(", ") || "—";
-      const userName = s.user_name || s.user_email || s.client_id || "—";
-      return `<tr>
-        <td title="${s.ts ? new Date(s.ts).toLocaleString() : ''}">${formatTimeAgo(s.ts)}</td>
-        <td>${esc(userName)}</td>
-        <td><strong>${esc(s.product_name || "Unknown")}</strong></td>
-        <td>${esc(s.brand || "")}</td>
-        <td style="font-family:monospace;font-size:12px;color:var(--muted);">${esc(s.barcode || "")}</td>
-        <td>${s.verdict_status ? `<span class="status-badge ${statusClass}" style="text-transform:none;">${s.verdict_status}</span>` : `<span class="status-badge prospect" style="text-transform:none;">${esc(s.outcome || "—")}</span>`}</td>
-        <td>${s.confidence ? esc(s.confidence) : "—"}</td>
-        <td>${esc(s.profile || "")}</td>
-        <td>${esc(location)}</td>
-        <td>${s.response_ms != null ? s.response_ms + "ms" : "—"}</td>
-      </tr>`;
-    }).join("");
+    tbody.innerHTML = scans.map(scanRowHtml).join("");
   }
 
-  document.getElementById("refreshRecentScans")?.addEventListener("click", loadRecentScans);
+  function appendRecentScanRows(scans) {
+    const tbody = document.querySelector("#recentScansTable tbody");
+    tbody.insertAdjacentHTML("beforeend", scans.map(scanRowHtml).join(""));
+  }
+
+  document.getElementById("refreshRecentScans")?.addEventListener("click", () => loadRecentScans(false));
+  document.getElementById("loadMoreScansBtn")?.addEventListener("click", () => {
+    if (!_recentScansLoading) loadRecentScans(true);
+  });
 
   // ── Helpers ────────────────────────────────────────────────────────────
   function setText(id, value) {
