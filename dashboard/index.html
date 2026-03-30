@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jaini Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo-icon">J</div>
+      <div>
+        <h1 class="logo">Jaini</h1>
+        <p class="logo-sub">Admin Dashboard</p>
+      </div>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#" class="nav-link active" data-tab="overview"><span class="nav-icon">&#9632;</span> Overview</a></li>
+      <li><a href="#" class="nav-link" data-tab="scans"><span class="nav-icon">&#128274;</span> Scan Insights</a></li>
+      <li><a href="#" class="nav-link" data-tab="searches"><span class="nav-icon">&#128269;</span> Search Insights</a></li>
+      <li><a href="#" class="nav-link" data-tab="monetization"><span class="nav-icon">&#128176;</span> Monetization</a></li>
+      <li><a href="#" class="nav-link" data-tab="users"><span class="nav-icon">&#128101;</span> Users</a></li>
+      <li><a href="#" class="nav-link" data-tab="photos"><span class="nav-icon">&#128247;</span> Photo Submissions</a></li>
+      <li><a href="#" class="nav-link" data-tab="reports"><span class="nav-icon">&#128196;</span> Reports</a></li>
+      <li><a href="#" class="nav-link" data-tab="brands"><span class="nav-icon">&#127980;</span> Brands / Partners</a></li>
+      <li><a href="#" class="nav-link" data-tab="placements"><span class="nav-icon">&#128204;</span> Ad Placements</a></li>
+      <li><a href="#" class="nav-link" data-tab="email"><span class="nav-icon">&#9993;</span> Email</a></li>
+    </ul>
+    <div class="sidebar-footer">
+      <button id="signOutBtn" class="btn-signout">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="content" id="content">
+    <div class="topbar">
+      <h2 class="page-title" id="pageTitle">Overview</h2>
+      <div id="userInfo" class="user-info"></div>
+    </div>
+
+    <!-- Auth gate -->
+    <div id="authGate" class="auth-gate">
+      <div class="auth-card">
+        <div class="auth-logo">J</div>
+        <h2>Welcome to Jaini Dashboard</h2>
+        <p>Enter your admin key to access the dashboard.</p>
+        <div class="auth-form">
+          <input type="password" id="adminKeyInput" placeholder="Admin API Key" class="auth-input">
+          <button id="adminKeySubmit" class="btn-primary btn-full">Sign In</button>
+        </div>
+        <p id="authError" class="error-msg" style="display:none;"></p>
+      </div>
+    </div>
+
+    <!-- Dashboard panels (hidden until auth) -->
+    <div id="dashboardContent" style="display:none;">
+
+      <!-- Overview tab -->
+      <section id="tab-overview" class="tab-panel active">
+        <div class="metric-grid" id="overviewGrid">
+          <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#dbeafe;color:#2563eb;">&#128100;</div><div><div class="metric-label">Total Users</div><div class="metric-value" id="m-totalUsers">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#dcfce7;color:#16a34a;">&#10133;</div><div><div class="metric-label">New Users (7d)</div><div class="metric-value" id="m-newUsers7d">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#fef3c7;color:#d97706;">&#9889;</div><div><div class="metric-label">Active Users (7d)</div><div class="metric-value" id="m-activeUsers7d">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#e0e7ff;color:#4f46e5;">&#128200;</div><div><div class="metric-label">Active Users (30d)</div><div class="metric-value" id="m-activeUsers30d">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="scans"><div class="metric-icon" style="background:#fce7f3;color:#db2777;">&#128274;</div><div><div class="metric-label">Scans (30d)</div><div class="metric-value" id="m-scans30d">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="searches"><div class="metric-icon" style="background:#ccfbf1;color:#0d9488;">&#128269;</div><div><div class="metric-label">Searches (30d)</div><div class="metric-value" id="m-searches30d">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#fef9c3;color:#ca8a04;">&#11088;</div><div><div class="metric-label">Total Favorites</div><div class="metric-value" id="m-favorites">--</div></div></div>
+          <div class="metric-card clickable" data-navigate="photos" data-filter=""><div class="metric-icon" style="background:#f3e8ff;color:#9333ea;">&#128247;</div><div><div class="metric-label">Total Submissions</div><div class="metric-value" id="m-submissions">--</div></div></div>
+          <div class="metric-card highlight clickable" data-navigate="photos" data-filter="pending"><div class="metric-icon" style="background:#fff7ed;color:#ea580c;">&#9888;</div><div><div class="metric-label">Pending Photos</div><div class="metric-value" id="m-pendingPhotos">--</div></div></div>
+        </div>
+      </section>
+
+      <!-- Users tab -->
+      <section id="tab-users" class="tab-panel">
+        <div class="toolbar">
+          <button class="btn-secondary btn-sm" id="refreshUsersBtn">Refresh</button>
+          <div style="flex:1;"></div>
+          <span class="muted-text" id="usersCount"></span>
+        </div>
+        <div class="section-card">
+          <table class="data-table" id="usersTable">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Email</th>
+                <th>Provider</th>
+                <th>Role</th>
+                <th>Scans</th>
+                <th>Searches</th>
+                <th>Favorites</th>
+                <th>Country</th>
+                <th>Digest</th>
+                <th>Joined</th>
+                <th>Last Active</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <!-- User detail modal -->
+        <div id="userModal" class="modal" style="display:none;">
+          <div class="modal-content modal-user-detail">
+            <button class="modal-close" id="closeUserModal">&times;</button>
+            <div class="user-detail-header" id="userDetailHeader"></div>
+            <div class="user-detail-stats" id="userDetailStats"></div>
+            <div class="user-detail-tabs">
+              <button class="user-tab-btn active" data-utab="scans">Recent Scans</button>
+              <button class="user-tab-btn" data-utab="favorites">Favorites</button>
+              <button class="user-tab-btn" data-utab="searches">Searches</button>
+              <button class="user-tab-btn" data-utab="top">Most Scanned</button>
+            </div>
+            <div class="user-detail-content" id="userDetailContent"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Scan Insights tab -->
+      <section id="tab-scans" class="tab-panel">
+        <div class="metric-grid metric-grid-3" id="scanOutcomeCards"></div>
+        <div class="two-col">
+          <div class="section-card">
+            <h3 class="section-title">Verdict Breakdown (30d)</h3>
+            <div id="verdictBreakdown" class="breakdown-list"></div>
+          </div>
+          <div class="section-card">
+            <h3 class="section-title">Top Countries</h3>
+            <div id="scanGeoList" class="breakdown-list"></div>
+          </div>
+        </div>
+        <div class="section-card">
+          <h3 class="section-title">Top Scanned Products (30d)</h3>
+          <table class="data-table" id="topScannedTable"><thead><tr><th>Product</th><th>Brand</th><th>Barcode</th><th>Status</th><th>Scans</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- Search Insights tab -->
+      <section id="tab-searches" class="tab-panel">
+        <div class="section-card">
+          <h3 class="section-title">Top Searches (30d)</h3>
+          <table class="data-table" id="topSearchesTable"><thead><tr><th>Query</th><th>Count</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="section-card">
+          <h3 class="section-title">Top Searches with No Results</h3>
+          <table class="data-table" id="emptySearchesTable"><thead><tr><th>Query</th><th>Count</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- Monetization tab -->
+      <section id="tab-monetization" class="tab-panel">
+        <div class="metric-grid metric-grid-3">
+          <div class="metric-card"><div class="metric-icon" style="background:#dbeafe;color:#2563eb;">&#128065;</div><div><div class="metric-label">Impressions (30d)</div><div class="metric-value" id="m-impressions">--</div></div></div>
+          <div class="metric-card"><div class="metric-icon" style="background:#dcfce7;color:#16a34a;">&#128073;</div><div><div class="metric-label">Clicks (30d)</div><div class="metric-value" id="m-clicks">--</div></div></div>
+          <div class="metric-card"><div class="metric-icon" style="background:#fef3c7;color:#d97706;">&#128200;</div><div><div class="metric-label">CTR</div><div class="metric-value" id="m-ctr">--</div></div></div>
+        </div>
+        <div class="section-card">
+          <h3 class="section-title">Top Performing Placements</h3>
+          <table class="data-table" id="topPlacementsTable"><thead><tr><th>Product</th><th>Brand</th><th>Type</th><th>Impressions</th><th>Clicks</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- Photo Submissions tab -->
+      <section id="tab-photos" class="tab-panel">
+        <div class="toolbar">
+          <select id="photoStatusFilter"><option value="">All</option><option value="pending" selected>Pending</option><option value="reviewed">Reviewed</option><option value="added">Added</option><option value="rejected">Rejected</option></select>
+          <button class="btn-secondary btn-sm" id="refreshPhotos">Refresh</button>
+          <div style="flex:1;"></div>
+          <button class="btn-primary btn-sm" id="bulkDownloadBtn">Download All Photos</button>
+        </div>
+        <div id="photosList"></div>
+        <!-- Photo review modal -->
+        <div id="photoModal" class="modal" style="display:none;">
+          <div class="modal-content modal-photo-review">
+            <button class="modal-close" id="closePhotoModal">&times;</button>
+            <div class="photo-review-layout">
+              <div class="photo-review-image">
+                <img id="photoImage" class="photo-preview" alt="Ingredient label photo">
+                <button class="btn-secondary btn-sm btn-full" id="downloadPhotoBtn" style="margin-top:12px;">Download Photo</button>
+              </div>
+              <div class="photo-review-panel">
+                <h3 id="photoReviewTitle" style="margin-bottom:16px;">Review Submission</h3>
+                <div id="photoMeta" class="photo-meta"></div>
+                <div class="review-form" id="reviewForm">
+                  <!-- Ingredient entry fields (shown when approving) -->
+                  <div id="ingredientEntrySection" class="ingredient-entry-section">
+                    <label class="review-label">Product Name</label>
+                    <input type="text" id="reviewProductName" class="review-input" placeholder="e.g. Parle-G Gold Biscuits" maxlength="500">
+                    <label class="review-label" style="margin-top:8px;">Brand</label>
+                    <input type="text" id="reviewBrand" class="review-input" placeholder="e.g. Parle" maxlength="300">
+                    <label class="review-label" style="margin-top:8px;">Ingredients <span style="color:var(--red);font-weight:700;">*</span></label>
+                    <textarea id="reviewIngredients" class="review-textarea" rows="6" placeholder="Paste the full ingredient list from the photo..."></textarea>
+                    <label class="review-label" style="margin-top:8px;">Profile</label>
+                    <select id="reviewProfile" class="review-select">
+                      <option value="jain" selected>Jain</option>
+                      <option value="everyday_jain">Everyday Jain</option>
+                      <option value="vegan">Vegan</option>
+                      <option value="vegetarian">Vegetarian</option>
+                    </select>
+                  </div>
+
+                  <label class="review-label" style="margin-top:12px;">Review Status</label>
+                  <div class="review-actions-grid">
+                    <button class="review-btn review-btn-approve" data-status="added" id="reviewApproveBtn">Approve &amp; Add</button>
+                    <button class="review-btn review-btn-reviewed" data-status="reviewed" id="reviewReviewedBtn">Mark Reviewed</button>
+                    <button class="review-btn review-btn-reject" data-status="rejected" id="reviewRejectBtn">Reject</button>
+                  </div>
+                  <label class="review-label" style="margin-top:12px;">Reviewer Note</label>
+                  <textarea id="reviewNote" class="review-textarea" rows="3" placeholder="Optional note about this submission..."></textarea>
+                  <div id="reviewResult" class="review-result" style="display:none;"></div>
+                  <div id="verdictResult" class="verdict-result-card" style="display:none;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Classification Reports tab -->
+      <section id="tab-reports" class="tab-panel">
+        <div class="toolbar">
+          <select id="reportStatusFilter">
+            <option value="">All</option>
+            <option value="pending" selected>Pending</option>
+            <option value="reviewed">Reviewed</option>
+            <option value="resolved">Resolved</option>
+            <option value="dismissed">Dismissed</option>
+          </select>
+          <button class="btn-secondary btn-sm" id="refreshReportsBtn">Refresh</button>
+          <div style="flex:1;"></div>
+          <span class="muted-text" id="reportsPendingCount"></span>
+        </div>
+        <div id="reportsList"></div>
+        <!-- Report review modal -->
+        <div id="reportModal" class="modal" style="display:none;">
+          <div class="modal-content modal-form" style="max-width:600px;">
+            <button class="modal-close" id="closeReportModal">&times;</button>
+            <h3 id="reportModalTitle">Review Report</h3>
+            <div id="reportMeta" class="photo-meta" style="margin-bottom:16px;"></div>
+            <label class="review-label">Reviewer Note</label>
+            <textarea id="reportReviewerNote" class="review-textarea" rows="3" placeholder="Optional note..."></textarea>
+            <div class="review-actions-grid" style="margin-top:16px;">
+              <button class="review-btn review-btn-approve" id="reportResolveBtn">Resolve</button>
+              <button class="review-btn review-btn-reject" id="reportDismissBtn">Dismiss</button>
+            </div>
+            <div id="reportResult" class="review-result" style="display:none;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Brands CRM tab -->
+      <section id="tab-brands" class="tab-panel">
+        <div class="toolbar">
+          <button class="btn-primary btn-sm" id="addBrandBtn">+ Add Brand</button>
+          <button class="btn-secondary btn-sm" id="exportBrandsBtn">Export CSV</button>
+        </div>
+        <div class="section-card">
+          <table class="data-table" id="brandsTable"><thead><tr><th>Brand</th><th>Category</th><th>Status</th><th>Contact</th><th>Actions</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div id="brandModal" class="modal" style="display:none;">
+          <div class="modal-content modal-form">
+            <h3 id="brandModalTitle">Add Brand</h3>
+            <form id="brandForm">
+              <input type="hidden" id="brandId">
+              <label>Brand Name *<input type="text" id="brandName" required></label>
+              <label>Category<input type="text" id="brandCategory"></label>
+              <label>Contact Email<input type="email" id="brandEmail"></label>
+              <label>Website<input type="url" id="brandWebsite"></label>
+              <label>Status<select id="brandStatus"><option value="prospect">Prospect</option><option value="active">Active</option><option value="paused">Paused</option><option value="churned">Churned</option></select></label>
+              <label>Affiliate Link<input type="url" id="brandAffiliate"></label>
+              <label>Notes<textarea id="brandNotes" rows="3"></textarea></label>
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" class="btn-ghost" id="cancelBrandBtn">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ad Placements tab -->
+      <section id="tab-placements" class="tab-panel">
+        <div class="toolbar">
+          <button class="btn-primary btn-sm" id="addPlacementBtn">+ Add Placement</button>
+        </div>
+        <div class="section-card">
+          <table class="data-table" id="placementsTable"><thead><tr><th>Name</th><th>Product</th><th>Type</th><th>Target</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div id="placementModal" class="modal" style="display:none;">
+          <div class="modal-content modal-form">
+            <h3 id="placementModalTitle">Add Placement</h3>
+            <form id="placementForm">
+              <input type="hidden" id="placementId">
+              <label>Internal Name *<input type="text" id="placementName" required></label>
+              <label>Product Name *<input type="text" id="placementProductName" required></label>
+              <label>Brand<input type="text" id="placementBrand"></label>
+              <label>Affiliate URL *<input type="url" id="placementUrl" required></label>
+              <label>Image URL<input type="url" id="placementImage"></label>
+              <label>CTA Text<input type="text" id="placementCta" value="View Product"></label>
+              <label>Disclosure<select id="placementDisclosure"><option value="Sponsored">Sponsored</option><option value="Affiliate">Affiliate</option><option value="Recommended">Recommended</option></select></label>
+              <label>Target Status<select id="placementTarget"><option value="">All</option><option value="RED">RED</option><option value="ORANGE">ORANGE</option><option value="YELLOW">YELLOW</option><option value="GREEN">GREEN</option></select></label>
+              <label>Type<select id="placementType"><option value="alternative">Alternative</option><option value="related">Related</option><option value="banner">Banner</option></select></label>
+              <label>Category<input type="text" id="placementCategory"></label>
+              <label>Priority (lower=first)<input type="number" id="placementPriority" value="50" min="1" max="999"></label>
+              <label>Status<select id="placementStatus"><option value="active">Active</option><option value="paused">Paused</option><option value="archived">Archived</option></select></label>
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">Save</button>
+                <button type="button" class="btn-ghost" id="cancelPlacementBtn">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- Email tab -->
+      <section id="tab-email" class="tab-panel">
+        <div class="metric-grid metric-grid-3">
+          <div class="metric-card"><div class="metric-icon" style="background:#dbeafe;color:#2563eb;">&#9993;</div><div><div class="metric-label">Opted-in Users</div><div class="metric-value" id="m-emailOptedIn">--</div></div></div>
+          <div class="metric-card"><div class="metric-icon" style="background:#dcfce7;color:#16a34a;">&#128100;</div><div><div class="metric-label">Total Users with Email</div><div class="metric-value" id="m-totalEmailUsers">--</div></div></div>
+        </div>
+        <div class="section-card">
+          <h3 class="section-title">Last Digest Run</h3>
+          <div id="lastDigestInfo" class="info-box">No digest runs yet.</div>
+        </div>
+        <div class="section-card">
+          <div class="toolbar" style="margin-bottom:0;">
+            <h3 class="section-title" style="margin-bottom:0;">Subscribers</h3>
+            <div style="flex:1;"></div>
+            <button class="btn-secondary btn-sm" id="exportEmailsBtn">Export CSV</button>
+          </div>
+          <table class="data-table" id="emailSubscribersTable" style="margin-top:16px;">
+            <thead><tr><th>User</th><th>Email</th><th>Provider</th><th>Weekly Digest</th><th>Joined</th><th>Last Active</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
