@@ -1584,7 +1584,8 @@ details[open] > .collapsible-heading::after {
   .header-nav {
     gap: 0.5rem;
   }
-  .nav-link {
+  /* Nav links move to footer on mobile — hide from header */
+  .header-nav > .nav-link {
     display: none;
   }
   .auth-btn {
@@ -1640,6 +1641,19 @@ details[open] > .collapsible-heading::after {
   }
   .modal-actions .btn {
     width: 100%;
+  }
+
+  /* Make footer nav links prominent on mobile (header links hidden) */
+  .footer-nav {
+    gap: 0.5rem;
+  }
+  .footer-link {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.85rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-pill);
+    display: inline-block;
   }
 
 }
@@ -2228,8 +2242,6 @@ body.modal-open {
    RESPONSIVE — new components
    ============================================================ */
 @media (max-width: 600px) {
-  .auth-nav .nav-link { display: none; }
-
   .monetization-cards {
     gap: 0.5rem;
   }
