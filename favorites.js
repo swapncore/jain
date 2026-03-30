@@ -213,7 +213,7 @@ function renderFavorites(items) {
 
     li.innerHTML = `
       <button type="button" class="favorites-item-btn" data-barcode="${escHtml(item.barcode)}" aria-label="View ${escHtml(item.product_name || item.barcode)}">
-        <span class="history-dot history-dot--${statusClass}" aria-hidden="true"></span>
+        <span class="history-dot history-dot--${escHtml(statusClass)}" aria-hidden="true"></span>
         <span class="favorites-item-name">${escHtml(item.product_name || item.barcode)}</span>
         ${item.brand ? `<span class="favorites-item-brand">${escHtml(item.brand)}</span>` : ""}
       </button>

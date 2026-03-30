@@ -68,7 +68,7 @@
     document.getElementById("dashboardContent").style.display = "block";
     const info = document.getElementById("userInfo");
     info.textContent = user.display_name || "Admin";
-    if (user.avatar_url) info.innerHTML = `<img src="${user.avatar_url}" alt=""> ${user.display_name || "Admin"}`;
+    if (user.avatar_url) info.innerHTML = `<img src="${esc(user.avatar_url)}" alt=""> ${esc(user.display_name || "Admin")}`;
     loadMetrics();
   }
 
