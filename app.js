@@ -2006,6 +2006,12 @@ function bindAuthEvents() {
   el.dropdownSignOutBtn?.addEventListener("click", async () => {
     await Auth.signOut();
     closeUserDropdown();
+    hideResult();
+    clearMessage();
+    el.newScanBtn?.classList.add("hidden");
+    el.scanTriggerArea?.classList.remove("hidden");
+    if (el.manualInput) el.manualInput.value = "";
+    updateManualState();
   });
 
   // Close auth modal on Escape

@@ -7,6 +7,7 @@
  */
 
 function expandUPCE(upce8) {
+  if (!upce8 || upce8.length < 8) return null;
   const s = upce8[0];
   const x = upce8.slice(1, 7);
   const c = upce8[7];
@@ -60,10 +61,12 @@ export function normalizeBarcode(raw) {
   if (cleaned.length === 8 && /^\d+$/.test(cleaned)) {
     symbology = 'UPC-E';
     const expanded = expandUPCE(cleaned);
-    upc12 = expanded;
-    ean13 = '0' + expanded;
-    checksumValid = validateChecksum(cleaned);
-    candidates.push(expanded, ean13);
+    if (expanded) {
+      upc12 = expanded;
+      ean13 = '0' + expanded;
+      checksumValid = validateChecksum(cleaned);
+      candidates.push(expanded, ean13);
+    }
   } else if (cleaned.length === 12) {
     symbology = 'UPC-A';
     upc12 = cleaned;
