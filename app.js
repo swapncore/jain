@@ -24,7 +24,6 @@ import {
   REQUEST_TIMEOUT_MS, VERDICT_FAILSAFE_MS,
   ENDPOINTS,
   PROFILES, PROFILE_DEFAULT, PROFILE_KEY,
-  HISTORY_KEY, HISTORY_MAX,
   STATUS_META as _STATUS_META,
   INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES,
 } from "./config/shared-config.js";
@@ -32,6 +31,8 @@ import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcod
 import * as Auth from "./auth.js?v=3";
 import * as Favorites from "./favorites.js";
 import * as Monetization from "./monetization.js";
+import { handleShare as _handleShare } from "./lib/share.js";
+import { historySave, historyPush as _historyPush, syncServerHistory, renderHistory as _renderHistory } from "./lib/history.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -254,167 +255,7 @@ function initProfileSelector() {
   });
 }
 
-// ─── Share ────────────────────────────────────────────────────────────────────
-
-function getShareUrl(barcode, profileId) {
-  const base = window.location.origin + window.location.pathname;
-  const params = new URLSearchParams({ b: barcode });
-  if (profileId && profileId !== PROFILE_DEFAULT) params.set("p", profileId);
-  return `${base}?${params}`;
-}
-
-// ─── Verdict card image generation (canvas-based) ─────────────────────────────
-
-const STATUS_COLORS = {
-  GREEN:   { bg: "#f0fdf4", border: "#22c55e", text: "#166534", icon: "✓" },
-  YELLOW:  { bg: "#fefce8", border: "#eab308", text: "#854d0e", icon: "◐" },
-  ORANGE:  { bg: "#fff7ed", border: "#f97316", text: "#9a3412", icon: "?" },
-  RED:     { bg: "#fef2f2", border: "#ef4444", text: "#991b1b", icon: "✕" },
-  UNKNOWN: { bg: "#f9fafb", border: "#9ca3af", text: "#374151", icon: "—" },
-};
-
-function buildVerdictImage(barcode, status, productName, brand, reasons) {
-  const W = 600, H = 340;
-  const c = document.createElement("canvas");
-  c.width = W; c.height = H;
-  const ctx = c.getContext("2d");
-  const col = STATUS_COLORS[status] || STATUS_COLORS.UNKNOWN;
-  const label = STATUS_META[status]?.label ?? status;
-
-  // Background
-  ctx.fillStyle = col.bg;
-  ctx.fillRect(0, 0, W, H);
-
-  // Left accent bar
-  ctx.fillStyle = col.border;
-  ctx.fillRect(0, 0, 8, H);
-
-  // Brand strip top-right
-  ctx.fillStyle = "#1a1a1a";
-  ctx.font = "bold 18px system-ui, sans-serif";
-  ctx.textAlign = "right";
-  ctx.fillText("jaini", W - 28, 38);
-  ctx.fillStyle = "#666";
-  ctx.font = "13px system-ui, sans-serif";
-  ctx.fillText("jain.swapncore.com", W - 28, 56);
-
-  // Big status icon
-  ctx.fillStyle = col.border;
-  ctx.font = "bold 64px system-ui, sans-serif";
-  ctx.textAlign = "left";
-  ctx.fillText(col.icon, 30, 100);
-
-  // Status label
-  ctx.fillStyle = col.text;
-  ctx.font = "bold 30px system-ui, sans-serif";
-  ctx.fillText(label, 30, 148);
-
-  // Product name (truncate if needed)
-  const maxNameW = W - 60;
-  ctx.fillStyle = "#1a1a1a";
-  ctx.font = "bold 20px system-ui, sans-serif";
-  let displayName = productName || "Unknown product";
-  while (displayName.length > 4 && ctx.measureText(displayName).width > maxNameW) {
-    displayName = displayName.slice(0, -1);
-  }
-  if (displayName !== (productName || "Unknown product")) displayName += "…";
-  ctx.fillText(displayName, 30, 188);
-
-  // Brand
-  if (brand) {
-    ctx.fillStyle = "#555";
-    ctx.font = "15px system-ui, sans-serif";
-    ctx.fillText(brand, 30, 212);
-  }
-
-  // Reason chips
-  if (reasons && reasons.length) {
-    const chipY = brand ? 238 : 224;
-    ctx.font = "13px system-ui, sans-serif";
-    let x = 30;
-    reasons.slice(0, 5).forEach(r => {
-      const label = r.replace(/_/g, " ").toLowerCase();
-      const tw = ctx.measureText(label).width + 20;
-      if (x + tw > W - 30) return;
-      ctx.fillStyle = col.border + "30";
-      ctx.strokeStyle = col.border;
-      ctx.lineWidth = 1;
-      const rx = x, ry = chipY - 16, rw = tw, rh = 22;
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(rx, ry, rw, rh, 11);
-      } else {
-        // Fallback for browsers without roundRect (pre-2022)
-        ctx.moveTo(rx + 11, ry);
-        ctx.arcTo(rx + rw, ry, rx + rw, ry + rh, 11);
-        ctx.arcTo(rx + rw, ry + rh, rx, ry + rh, 11);
-        ctx.arcTo(rx, ry + rh, rx, ry, 11);
-        ctx.arcTo(rx, ry, rx + rw, ry, 11);
-        ctx.closePath();
-      }
-      ctx.fill(); ctx.stroke();
-      ctx.fillStyle = col.text;
-      ctx.fillText(label, rx + 10, chipY);
-      x += tw + 8;
-    });
-  }
-
-  // Barcode at bottom
-  ctx.fillStyle = "#999";
-  ctx.font = "12px monospace, system-ui";
-  ctx.fillText(barcode, 30, H - 18);
-
-  // Divider line
-  ctx.strokeStyle = col.border + "40";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(30, H - 34); ctx.lineTo(W - 30, H - 34);
-  ctx.stroke();
-
-  return c;
-}
-
-async function handleShare(barcode, status, productName, brand, reasons) {
-  const profile  = getActiveProfile();
-  const url      = getShareUrl(barcode, profile);
-  const verdict  = STATUS_META[status]?.label ?? "Unknown";
-  const title    = `Jaini: ${productName ? productName + " — " : ""}${verdict}`;
-  const text     = `${productName ? productName + " — " : ""}${verdict} (Jaini Jain dietary check)`;
-
-  // Try to share as image first (modern browsers + mobile)
-  if (navigator.share && navigator.canShare) {
-    try {
-      const canvas = buildVerdictImage(barcode, status, productName, brand, reasons);
-      const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
-      const file = new File([blob], "jaini-verdict.png", { type: "image/png" });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ title, text, url, files: [file] });
-        return;
-      }
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-      // fall through — image share failed, try URL share
-    }
-  }
-
-  // Fallback: share URL only (desktop / unsupported browsers)
-  if (navigator.share) {
-    try {
-      await navigator.share({ title, text, url });
-      return;
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-    }
-  }
-
-  // Last resort: copy URL to clipboard
-  try {
-    await navigator.clipboard.writeText(url);
-    showShareToast("Link copied to clipboard");
-  } catch {
-    showShareToast("Share: " + url, 8000);
-  }
-}
+// ─── Share (delegated to lib/share.js) ─────────────────────────────────────────
 
 let _shareToastTimer = null;
 function showShareToast(msg, ms = 3000) {
@@ -430,136 +271,42 @@ function showShareToast(msg, ms = 3000) {
   }, ms);
 }
 
-// ─── Scan history ────────────────────────────────────────────────────────────
-
-function historyLoad() {
-  try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]"); }
-  catch { return []; }
-}
-
-function historySave(entries) {
-  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(entries)); } catch {}
-}
-
-function historyPush(entry) {
-  // entry: {barcode, status, product_name, brand, profile, ts}
-  // Deduplicate by barcode+profile so the same product scanned under
-  // different dietary modes keeps separate history entries.
-  const entries = historyLoad().filter(
-    e => !(e.barcode === entry.barcode && e.profile === entry.profile)
-  );
-  entries.unshift(entry);
-  historySave(entries.slice(0, HISTORY_MAX));
-  renderHistory();
-}
-
-async function _syncServerHistory() {
-  // Merge server-side scan history with local history so signed-in
-  // users see their scans from all devices.
-  try {
-    const resp = await Auth.authFetch(`${getApiBase()}/v1/scan-history`);
-    if (!resp.ok) return;
-    const { history } = await resp.json();
-    if (!history || !history.length) return;
-    const local = historyLoad();
-    const seen = new Set(local.map(e => `${e.barcode}:${e.profile}`));
-    let added = 0;
-    for (const s of history) {
-      const key = `${s.barcode}:${s.profile}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      local.push({
-        barcode: s.barcode,
-        status: s.status || "UNKNOWN",
-        product_name: s.product_name || "",
-        brand: s.brand || "",
-        profile: s.profile || "jain",
-        ts: s.ts || "",
-        verdictData: null, // will re-fetch on click
-      });
-      added++;
-    }
-    if (added > 0) {
-      // Sort newest first, trim to max
-      local.sort((a, b) => (b.ts || "").localeCompare(a.ts || ""));
-      historySave(local.slice(0, HISTORY_MAX));
-      renderHistory();
-    }
-  } catch { /* non-critical */ }
-}
-
-function renderHistory() {
-  const entries = historyLoad();
-  if (!el.historySection || !el.historyList) return;
-
-  if (entries.length === 0) {
-    hide(el.historySection);
-    return;
-  }
-
-  show(el.historySection);
-  el.historyList.innerHTML = "";
-
-  entries.forEach(entry => {
-    const li = document.createElement("li");
-    li.className = "history-item";
-    li.setAttribute("role", "listitem");
-
-    // Status dot
-    const dot = document.createElement("span");
-    dot.className = `history-dot history-dot--${(entry.status || "UNKNOWN").toLowerCase()}`;
-    dot.setAttribute("aria-hidden", "true");
-
-    // Name / barcode
-    const name = document.createElement("span");
-    name.className = "history-name";
-    name.textContent = entry.product_name || entry.barcode;
-
-    // Time ago
-    const time = document.createElement("span");
-    time.className = "history-time";
-    time.textContent = timeAgo(entry.ts);
-
-    // Re-scan button
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "history-rescan";
-    btn.dataset.barcode = entry.barcode;
-    btn.setAttribute("aria-label", `Re-scan ${entry.product_name || entry.barcode}`);
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.62"/></svg>`;
-    const showVerdict = () => {
-      if (state.inFlight || state.scanLocked) return;
-      if (entry.verdictData && entry.profile === getActiveProfile()) {
-        // Show cached verdict instantly (only if profile matches)
-        clearMessage();
-        hideResult();
-        stopScanning();
-        renderResult(entry.verdictData);
-      } else {
-        fetchVerdict(entry.barcode).catch(() => renderError(MESSAGES.genericError));
-      }
-    };
-    btn.addEventListener("click", (e) => { e.stopPropagation(); showVerdict(); });
-    li.addEventListener("click", showVerdict);
-
-    li.appendChild(dot);
-    li.appendChild(name);
-    li.appendChild(time);
-    li.appendChild(btn);
-    el.historyList.appendChild(li);
+async function handleShare(barcode, status, productName, brand, reasons) {
+  return _handleShare(barcode, status, productName, brand, reasons, {
+    statusMeta: STATUS_META,
+    profileId: getActiveProfile(),
+    onToast: showShareToast,
   });
 }
 
-function timeAgo(isoString) {
-  if (!isoString) return "";
-  const diffMs  = Date.now() - new Date(isoString).getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1)  return "just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffH   = Math.floor(diffMin / 60);
-  if (diffH < 24)   return `${diffH}h ago`;
-  const diffD   = Math.floor(diffH / 24);
-  return `${diffD}d ago`;
+// ─── Scan history (delegated to lib/history.js) ──────────────────────────────
+
+function historyPush(entry) {
+  _historyPush(entry, renderHistory);
+}
+
+function renderHistory() {
+  _renderHistory({
+    section: el.historySection,
+    list: el.historyList,
+    show, hide,
+    getActiveProfile,
+    state,
+    onRescan: (barcode, verdictData, entryProfile) => {
+      if (verdictData && entryProfile === getActiveProfile()) {
+        clearMessage();
+        hideResult();
+        stopScanning();
+        renderResult(verdictData);
+      } else {
+        fetchVerdict(barcode).catch(() => renderError(MESSAGES.genericError));
+      }
+    },
+  });
+}
+
+async function _syncServerHistory() {
+  return syncServerHistory(getApiBase(), renderHistory);
 }
 
 // ─── Community verification ───────────────────────────────────────────────────
