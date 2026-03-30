@@ -6,6 +6,8 @@
     <title>Jaini</title>
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0b5b6f" />
     <meta name="description" content="Jaini — Jain dietary barcode scanner. Scan any food barcode to instantly check if it's Jain-friendly. Supports Everyday Jain, Temple, Paryushan and Greens+ modes." />
 
     <!-- Open Graph / WhatsApp / iMessage preview -->
@@ -20,7 +22,7 @@
     <meta name="twitter:description"content="Check if a product is Jain-friendly by scanning or entering its barcode." />
     <meta name="twitter:image"      content="https://jain.swapncore.com/logo.png" />
 
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://accounts.google.com 'wasm-unsafe-eval' 'sha256-l/PPiW0j5UqPTlsmdPowN38op3xjw7RMRgsJayOLnCo='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://web-production-31034.up.railway.app http://localhost:8000 https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://apis.google.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; font-src 'self'; frame-src https://jainapp-77aec.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://accounts.google.com 'wasm-unsafe-eval' 'sha256-im9jCqZ2Rlu4VxoM0mtuE+iEQ/oPsddnZ71fGtKLOew=' 'sha256-YOKGJSmdWtDMpVFT8facKNFPlQ4vEJzIn1pQwOqispI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://web-production-31034.up.railway.app http://localhost:8000 https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://apis.google.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; font-src 'self'; frame-src https://jaini-web.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'" />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -50,7 +52,7 @@
                 <!-- Email updates opt-in (prominent) -->
                 <div id="emailPrefBanner" class="email-pref-banner">
                   <label class="email-pref-toggle">
-                    <input type="checkbox" id="emailPrefCheckbox" checked />
+                    <input type="checkbox" id="emailPrefCheckbox" />
                     <span class="email-pref-label">Get weekly product picks &amp; updates</span>
                   </label>
                 </div>
@@ -488,11 +490,12 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script type="module" src="./app.js?v=3"></script>
+    <script type="module" src="./app.js?v=4"></script>
+    <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js').catch(function(){})}</script>
     <script>
       (function() {
         var ua = navigator.userAgent || '';
-        var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        var isIOS = /iPad|iPhone|iPod/.test(ua) || (/Mac/.test(navigator.userAgentData?.platform || navigator.platform || '') && navigator.maxTouchPoints > 1);
         var link = document.getElementById('getAppLink');
         if (link) {
           link.href = isIOS

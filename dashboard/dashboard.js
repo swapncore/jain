@@ -515,9 +515,11 @@
     )].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `jaini-email-subscribers-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   });
 
   // ── Brands CRM ─────────────────────────────────────────────────────────
@@ -607,9 +609,11 @@
     )].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
+    a.href = url;
     a.download = `jaini-brands-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   });
 
   // ── Placements ─────────────────────────────────────────────────────────
@@ -704,28 +708,47 @@
   // ── Users Tab ────────────────────────────────────────────────────────
   let _usersData = [];
 
-  async function loadUsers() {
+  let _usersOffset = 0;
+  const USERS_PAGE_SIZE = 200;
+
+  async function loadUsers(append = false) {
     const tbody = document.querySelector("#usersTable tbody");
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;"><div class="loading"></div></td></tr>';
+    if (!append) {
+      _usersOffset = 0;
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;"><div class="loading"></div></td></tr>';
+    }
     try {
-      const resp = await fetchWithAuth(`${API_BASE}/v1/dashboard/users?limit=200`);
+      const resp = await fetchWithAuth(`${API_BASE}/v1/dashboard/users?limit=${USERS_PAGE_SIZE}&offset=${_usersOffset}`);
       if (!resp.ok) throw new Error("Failed");
       const data = await resp.json();
-      _usersData = data.users || [];
-      renderUsers(_usersData);
-      setText("usersCount", `${_usersData.length} users`);
+      const users = data.users || [];
+      if (append) {
+        _usersData = _usersData.concat(users);
+        appendUserRows(users);
+      } else {
+        _usersData = users;
+        renderUsers(_usersData);
+      }
+      _usersOffset += users.length;
+      const total = data.total ?? _usersData.length;
+      setText("usersCount", `${_usersData.length} of ${total} users`);
+      // Show/hide load more
+      const loadMoreWrap = document.getElementById("usersLoadMore");
+      if (loadMoreWrap) loadMoreWrap.style.display = _usersData.length < total ? "" : "none";
     } catch (e) {
-      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:32px;">Failed to load users.</td></tr>';
+      if (!append) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:32px;">Failed to load users.</td></tr>';
     }
   }
 
-  function renderUsers(users) {
+  function appendUserRows(users) {
     const tbody = document.querySelector("#usersTable tbody");
-    if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:32px;">No users found.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = users.map(u => `
+    users.forEach(u => {
+      tbody.insertAdjacentHTML("beforeend", userRowHtml(u));
+    });
+  }
+
+  function userRowHtml(u) {
+    return `
       <tr class="user-row-clickable" data-user-id="${u.id}">
         <td><div class="user-cell">${u.avatar_url ? `<img class="user-row-avatar" src="${esc(u.avatar_url)}" alt="">` : '<span class="user-row-avatar-placeholder">?</span>'}<strong>${esc(u.display_name || "Unknown")}</strong></div></td>
         <td>${esc(u.email || "\u2014")}</td>
@@ -738,8 +761,16 @@
         <td><span class="digest-badge ${u.weekly_digest ? 'on' : 'off'}">${u.weekly_digest ? 'Yes' : 'No'}</span></td>
         <td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : '\u2014'}</td>
         <td>${u.last_login ? new Date(u.last_login).toLocaleDateString() : '\u2014'}</td>
-      </tr>
-    `).join("");
+      </tr>`;
+  }
+
+  function renderUsers(users) {
+    const tbody = document.querySelector("#usersTable tbody");
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#94a3b8;padding:32px;">No users found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => userRowHtml(u)).join("");
   }
 
   // User row click handler
@@ -877,7 +908,8 @@
     document.getElementById("userModal").style.display = "none";
     _currentUserDetail = null;
   });
-  document.getElementById("refreshUsersBtn")?.addEventListener("click", loadUsers);
+  document.getElementById("refreshUsersBtn")?.addEventListener("click", () => loadUsers(false));
+  document.getElementById("loadMoreUsersBtn")?.addEventListener("click", () => loadUsers(true));
 
   // ── Reports Tab ─────────────────────────────────────────────────────────
   let _reportsData = [];

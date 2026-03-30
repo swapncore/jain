@@ -100,6 +100,9 @@
             </thead>
             <tbody></tbody>
           </table>
+          <div id="usersLoadMore" style="text-align:center;padding:16px;display:none;">
+            <button class="btn-secondary btn-sm" id="loadMoreUsersBtn">Load More Users</button>
+          </div>
         </div>
         <!-- User detail modal -->
         <div id="userModal" class="modal" style="display:none;">
@@ -215,10 +218,11 @@
                     <textarea id="reviewIngredients" class="review-textarea" rows="6" placeholder="Paste the full ingredient list from the photo..."></textarea>
                     <label class="review-label" style="margin-top:8px;">Profile</label>
                     <select id="reviewProfile" class="review-select">
-                      <option value="jain" selected>Jain</option>
+                      <option value="jain" selected>Jain (Everyday)</option>
                       <option value="everyday_jain">Everyday Jain</option>
-                      <option value="vegan">Vegan</option>
-                      <option value="vegetarian">Vegetarian</option>
+                      <option value="temple_mode">Temple Mode</option>
+                      <option value="paryushan_mode">Paryushan Mode</option>
+                      <option value="greens_sensitive_mode">Greens+ Mode</option>
                     </select>
                   </div>
 

@@ -1,9 +1,24 @@
-import { BrowserMultiFormatReader } from "https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm";
-import {
-  DecodeHintType,
-  BarcodeFormat,
-} from "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm";
-import { BarcodeDetector as BarcodeDetectorPolyfill } from "https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm";
+// Barcode libraries are lazy-loaded on first camera use to cut initial page load (~200KB)
+let _BrowserMultiFormatReader = null;
+let _DecodeHintType = null;
+let _BarcodeFormat = null;
+let _BarcodeDetectorPolyfill = null;
+let _barcodeLibsLoaded = false;
+
+async function _loadBarcodeLibs() {
+  if (_barcodeLibsLoaded) return;
+  const [zxingBrowser, zxingLib, barcodeDetMod] = await Promise.all([
+    import("https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm"),
+    import("https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm"),
+    import("https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm"),
+  ]);
+  _BrowserMultiFormatReader = zxingBrowser.BrowserMultiFormatReader;
+  _DecodeHintType = zxingLib.DecodeHintType;
+  _BarcodeFormat = zxingLib.BarcodeFormat;
+  _BarcodeDetectorPolyfill = barcodeDetMod.BarcodeDetector;
+  _barcodeLibsLoaded = true;
+}
+
 import {
   API_BASE_PROD, API_BASE_DEV,
   REQUEST_TIMEOUT_MS, VERDICT_FAILSAFE_MS,
@@ -20,7 +35,8 @@ import * as Monetization from "./monetization.js";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const SCAN_FORMATS = [BarcodeFormat.EAN_13, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E];
+// SCAN_FORMATS is initialized lazily after barcode libs load
+let SCAN_FORMATS = null;
 
 // ─── Web-only: SVG icons merged into STATUS_META ──────────────────────────────
 // Labels, descriptions, and ariaPrefix come from shared/verdicts.json via shared-config.js.
@@ -147,6 +163,9 @@ const el = {
   favoriteBtnText:   document.getElementById("favoriteBtnText"),
 };
 
+// ─── Verdict session cache (instant re-scan within 24hrs) ─────────────────────
+const _verdictCache = new Map();
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 const state = {
@@ -166,8 +185,6 @@ const state = {
 };
 
 // ─── Utilities ────────────────────────────────────────────────────────────────
-
-function onlyDigits(v) { return (v || "").replace(/\D/g, ""); }
 
 function getApiBase() {
   const h = window.location.hostname;
@@ -1087,6 +1104,20 @@ function renderIngredientRows(categories) {
   });
 }
 
+/**
+ * Display cached verdict data instantly (no network request).
+ * Shows a "From recent scan" badge to indicate it's from cache.
+ */
+function displayVerdictData(data, barcode, fromCache = false) {
+  state.currentBarcode = barcode;
+  renderResult(data);
+  presentOutcome();
+  // Show cached indicator
+  if (fromCache && el.savedNote) {
+    el.savedNote.textContent = "\u21BB From your recent scan";
+  }
+}
+
 function renderResult(data) {
   clearMessage();
   setLoading(false);
@@ -1102,9 +1133,16 @@ function renderResult(data) {
   const meta   = STATUS_META[status];
   state.currentBarcode = data.barcode || "";
 
+  // Haptic feedback — subtle tactile response for verdict
+  if (navigator.vibrate) {
+    const haptics = { GREEN: [30], YELLOW: [30, 50, 30], ORANGE: [30, 50, 30], RED: [80] };
+    const pattern = haptics[status];
+    if (pattern) try { navigator.vibrate(pattern); } catch {}
+  }
+
   // Verdict block
   show(el.resultSection);
-  el.resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.resultSection.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   el.verdictCard.className = `verdict verdict-${status}`;
   el.verdictCard.setAttribute("aria-label", `${meta.ariaPrefix} ${data.explain || ""}`);
   el.verdictIcon.innerHTML  = meta.icon;
@@ -1208,6 +1246,25 @@ function renderResult(data) {
   renderIngredientRows(data.ingredient_categories);
 
   presentOutcome();
+
+  // First-scan celebration — show once ever
+  if (!localStorage.getItem("JAINI_FIRST_SCAN_DONE")) {
+    localStorage.setItem("JAINI_FIRST_SCAN_DONE", "1");
+    showFirstScanCelebration();
+  }
+}
+
+function showFirstScanCelebration() {
+  const toast = document.createElement("div");
+  toast.className = "first-scan-toast";
+  toast.setAttribute("role", "status");
+  toast.innerHTML = '<span class="first-scan-confetti">&#127881;</span> You\'re all set! Scan any product to check if it\'s Jain-friendly.';
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add("visible"));
+  setTimeout(() => {
+    toast.classList.remove("visible");
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
 }
 
 function renderNotFound(barcode) {
@@ -1220,7 +1277,7 @@ function renderNotFound(barcode) {
 
   state.currentBarcode = barcode;
   show(el.resultSection);
-  el.resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  el.resultSection.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   el.verdictCard.className = "verdict verdict-UNKNOWN";
   el.verdictIcon.innerHTML  = STATUS_META.UNKNOWN.icon;
   el.statusLabel.textContent = STATUS_META.UNKNOWN.label;
@@ -1301,16 +1358,19 @@ function presentOutcome() {
   hide(el.scanTriggerArea);
   show(el.newScanBtn);
   updateManualState();
+  // Mark free scan as used (allows 1 scan before auth gate)
+  if (!Auth.isSignedIn()) localStorage.setItem(FREE_SCAN_KEY, "1");
 }
-
-function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ""; }
 
 // ─── Network ──────────────────────────────────────────────────────────────────
 
+const FREE_SCAN_KEY = "JAINI_FREE_SCAN_USED";
+
 async function fetchVerdict(rawBarcode) {
-  // Require sign-in before scanning
-  if (!Auth.isSignedIn()) {
-    openAuthModal();
+  // Allow one free scan, then require sign-in
+  const freeScanUsed = localStorage.getItem(FREE_SCAN_KEY);
+  if (!Auth.isSignedIn() && freeScanUsed) {
+    openAuthModal("Sign in to continue scanning");
     return;
   }
 
@@ -1320,6 +1380,17 @@ async function fetchVerdict(rawBarcode) {
   if (barcode.length !== 12 && barcode.length !== 13) {
     updateManualState();
     showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
+    return;
+  }
+
+  // Instant re-scan: check session cache for recent verdicts
+  const cacheKey = `${barcode}:${getActiveProfile()}`;
+  const cached = _verdictCache.get(cacheKey);
+  if (cached && (Date.now() - cached._cachedAt) < 86400000) { // 24hr TTL
+    state.scanLocked = true;
+    clearMessage();
+    hideResult();
+    displayVerdictData(cached, barcode, true);
     return;
   }
 
@@ -1374,6 +1445,9 @@ async function fetchVerdict(rawBarcode) {
     }
 
     if (resp.ok) {
+      // Cache for instant re-scan
+      const ck = `${barcode}:${getActiveProfile()}`;
+      _verdictCache.set(ck, { ...data, _cachedAt: Date.now() });
       renderResult(data);
       el.scanStatus && (el.scanStatus.textContent = `Scan complete: ${barcode}`);
       return;
@@ -1492,12 +1566,15 @@ function resetTorch() {
 
 const NATIVE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
-// Use native BarcodeDetector if available, otherwise the WASM polyfill
-const DetectorImpl = (typeof globalThis.BarcodeDetector !== "undefined")
-  ? globalThis.BarcodeDetector
-  : BarcodeDetectorPolyfill;
+// DetectorImpl is resolved lazily after barcode libs load
+function _getDetectorImpl() {
+  return (typeof globalThis.BarcodeDetector !== "undefined")
+    ? globalThis.BarcodeDetector
+    : _BarcodeDetectorPolyfill;
+}
 
 async function startNativeScanning(stream) {
+  const DetectorImpl = _getDetectorImpl();
   const supported = await DetectorImpl.getSupportedFormats();
   const formats = NATIVE_FORMATS.filter(f => supported.includes(f));
   if (!formats.length) return false;              // fallback to ZXing
@@ -1530,6 +1607,18 @@ async function startNativeScanning(stream) {
 
 async function startScanning() {
   if (state.controls || state._nativeScanStop) return;
+
+  // Lazy-load barcode libraries on first camera use
+  try {
+    await _loadBarcodeLibs();
+    if (!SCAN_FORMATS) {
+      SCAN_FORMATS = [_BarcodeFormat.EAN_13, _BarcodeFormat.UPC_A, _BarcodeFormat.UPC_E];
+    }
+  } catch (e) {
+    console.error("Failed to load barcode scanning libraries", e);
+    showMessage(MESSAGES.cameraUnsupported, "error");
+    return;
+  }
 
   if (!navigator.mediaDevices?.getUserMedia) {
     hide(el.cameraArea);
@@ -1568,10 +1657,10 @@ async function startScanning() {
 
     // Fallback: ZXing (no UPC-E support but handles EAN-13 / UPC-A)
     const hints = new Map();
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
-    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
+    hints.set(_DecodeHintType.TRY_HARDER, true);
 
-    state.reader = new BrowserMultiFormatReader(hints, {
+    state.reader = new _BrowserMultiFormatReader(hints, {
       delayBetweenScanAttempts: 50,
       delayBetweenScanSuccess: 600,
     });
@@ -1784,11 +1873,6 @@ function bindEvents() {
   // Manual form submit
   el.manualForm.addEventListener("submit", e => {
     e.preventDefault();
-    // Require sign-in before scanning
-    if (!Auth.isSignedIn()) {
-      openAuthModal();
-      return;
-    }
     if (!updateManualState()) {
       showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
       return;
@@ -1801,11 +1885,6 @@ function bindEvents() {
 
   // Camera start
   el.startCameraBtn.addEventListener("click", () => {
-    // Require sign-in before scanning
-    if (!Auth.isSignedIn()) {
-      openAuthModal();
-      return;
-    }
     hideResult();
     clearMessage();
     setLoading(false);
@@ -1921,13 +2000,6 @@ function bindEvents() {
     if (e.target === el.missingModal) { stopMissingCamera(); closeModal(el.missingModal); }
   });
 
-  // Close modals on Escape
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
-      if (el.missingModal && !el.missingModal.classList.contains("hidden")) { stopMissingCamera(); closeModal(el.missingModal); }
-    }
-  });
-
   // Clean up cameras on unload
   window.addEventListener("beforeunload", () => { stopScanning(); stopMissingCamera(); });
 
@@ -1953,12 +2025,15 @@ function bindEvents() {
 
 // ─── Auth UI ──────────────────────────────────────────────────────────────────
 
-function openAuthModal() {
+function openAuthModal(subtitle) {
   openModal(el.authModal);
   // Always show sign-in buttons when opening auth modal
   const btns = el.authModal?.querySelector(".auth-buttons");
   if (btns) btns.classList.remove("hidden");
   hide(el.authModalError);
+  // Update subtitle if provided (e.g. "Sign in to continue scanning")
+  const sub = el.authModal?.querySelector(".auth-modal-subtitle");
+  if (sub && subtitle) sub.textContent = subtitle;
 }
 
 function toggleUserDropdown() {
@@ -2054,9 +2129,12 @@ function bindAuthEvents() {
     updateManualState();
   });
 
-  // Close auth modal on Escape
+  // Close any open modal on Escape (consolidated handler)
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      if (el.missingModal && !el.missingModal.classList.contains("hidden")) {
+        stopMissingCamera(); closeModal(el.missingModal);
+      }
       if (el.authModal && !el.authModal.classList.contains("hidden")) {
         closeModal(el.authModal);
       }

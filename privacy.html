@@ -27,7 +27,7 @@
 </header>
 <main id="main-content" class="legal-page">
   <h1>Privacy Policy</h1>
-  <p class="last-updated">Last updated: March 2026</p>
+  <p class="last-updated">Last updated: March 29, 2026</p>
 
   <p>Jaini is a lightweight, privacy-respecting tool. This page explains what data is collected when you use the app, how it is used, and your rights.</p>
 
@@ -42,7 +42,14 @@
     <li>Your selected profile mode (e.g. "everyday_jain", "temple_mode", "paryushan_mode", or "greens_sensitive_mode")</li>
     <li>A randomly generated anonymous client ID stored in your browser's localStorage, used only to apply per-device rate limits. It is not linked to your identity.</li>
   </ul>
-  <p>No names, no account, no email, and no location are sent with barcode lookups.</p>
+  <h2>Account and sign-in</h2>
+  <p>Jaini uses Google Sign-In (via Firebase Authentication) to provide personalized features like saved favorites and scan history. When you sign in, we collect your <strong>name, email address, and profile photo URL</strong> from your Google account. This information is stored in our database and used to:</p>
+  <ul>
+    <li>Identify your account across sessions and devices</li>
+    <li>Display your name and photo within the app</li>
+    <li>Send optional email communications (weekly digest), if you opt in</li>
+  </ul>
+  <p>You can sign out at any time. Email preferences can be changed from within the app. You may request account deletion by contacting <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>.</p>
 
   <h2>Anonymous client ID</h2>
   <p>A random UUID is generated the first time you use Jaini and stored in your browser's localStorage under the key <code>JAIN_CLIENT_ID</code>. This ID has no personal information attached to it. It is used solely for rate-limiting repeated requests. You can clear it at any time by clearing your browser's site data for this domain.</p>
@@ -58,7 +65,7 @@
   <p>Jaini does not use cookies. The anonymous client ID described above is stored in localStorage, not in a cookie.</p>
 
   <h2>Voluntary reports and submissions</h2>
-  <p>If you choose to submit a report (incorrect classification or missing product), the information you provide in that form is sent via your email client to <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>. Jaini does not store this information on our servers. It goes directly to our inbox. We use it only to review and improve the dataset.</p>
+  <p>If a product is not found in our database, you may photograph the ingredient list and submit it for review. Submitted photos and associated barcode data are stored on our servers for the purpose of expanding our product database. Photos are reviewed by administrators and may be deleted after processing. Your user ID is associated with submissions to prevent abuse.</p>
 
   <h2>Children</h2>
   <p>Jaini is not directed at children under 13. We do not knowingly collect any information from children.</p>

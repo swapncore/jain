@@ -32,10 +32,6 @@ let _user = null;
 let _accessToken = null;
 let _onAuthChange = null;
 
-export function isConfigured() {
-  return !!FIREBASE_CONFIG.apiKey;
-}
-
 export function getUser() { return _user; }
 export function getAccessToken() { return _accessToken; }
 export function isSignedIn() { return !!_user; }
@@ -59,7 +55,7 @@ function _loadGoogleScript() {
 }
 
 export async function init() {
-  if (!isConfigured()) return;
+  if (!FIREBASE_CONFIG.apiKey) return;
 
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);
@@ -141,20 +137,17 @@ async function _syncUser() {
       const backendUser = await resp.json();
       _user = { ..._user, ...backendUser };
     }
-    // Only opt-in on first sign-in (don't overwrite existing preference)
+    // Load existing email preferences (opt-in is explicit via UI checkbox)
     try {
       const prefResp = await fetch(`${API_BASE}/v1/email/preferences`, {
         headers: { Authorization: `Bearer ${_accessToken}` },
       });
       if (prefResp.ok) {
         const prefs = await prefResp.json();
-        // Only set if no preference exists yet (new user)
-        if (prefs.weekly_digest === null || prefs.weekly_digest === undefined) {
-          await fetch(`${API_BASE}/v1/email/preferences`, {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${_accessToken}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ weekly_digest: true }),
-          });
+        // Sync checkbox state with server preference
+        const checkbox = document.getElementById("emailPrefCheckbox");
+        if (checkbox && prefs.weekly_digest !== null && prefs.weekly_digest !== undefined) {
+          checkbox.checked = !!prefs.weekly_digest;
         }
       }
     } catch {}
