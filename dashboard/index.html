@@ -23,7 +23,6 @@
       <li><a href="#" class="nav-link active" data-tab="overview"><span class="nav-icon">&#9632;</span> Overview</a></li>
       <li><a href="#" class="nav-link" data-tab="scans"><span class="nav-icon">&#128274;</span> Scan Insights</a></li>
       <li><a href="#" class="nav-link" data-tab="recent-scans"><span class="nav-icon">&#128203;</span> Recent Scans</a></li>
-      <li><a href="#" class="nav-link" data-tab="searches"><span class="nav-icon">&#128269;</span> Search Insights</a></li>
       <li><a href="#" class="nav-link" data-tab="monetization"><span class="nav-icon">&#128176;</span> Monetization</a></li>
       <li><a href="#" class="nav-link" data-tab="users"><span class="nav-icon">&#128101;</span> Users</a></li>
       <li><a href="#" class="nav-link" data-tab="photos"><span class="nav-icon">&#128247;</span> Photo Submissions</a></li>
@@ -69,7 +68,6 @@
           <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#fef3c7;color:#d97706;">&#9889;</div><div><div class="metric-label">Active Users (7d)</div><div class="metric-value" id="m-activeUsers7d">--</div></div></div>
           <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#e0e7ff;color:#4f46e5;">&#128200;</div><div><div class="metric-label">Active Users (30d)</div><div class="metric-value" id="m-activeUsers30d">--</div></div></div>
           <div class="metric-card clickable" data-navigate="scans"><div class="metric-icon" style="background:#fce7f3;color:#db2777;">&#128274;</div><div><div class="metric-label">Scans (30d)</div><div class="metric-value" id="m-scans30d">--</div></div></div>
-          <div class="metric-card clickable" data-navigate="searches"><div class="metric-icon" style="background:#ccfbf1;color:#0d9488;">&#128269;</div><div><div class="metric-label">Searches (30d)</div><div class="metric-value" id="m-searches30d">--</div></div></div>
           <div class="metric-card clickable" data-navigate="users"><div class="metric-icon" style="background:#fef9c3;color:#ca8a04;">&#11088;</div><div><div class="metric-label">Total Favorites</div><div class="metric-value" id="m-favorites">--</div></div></div>
           <div class="metric-card clickable" data-navigate="photos" data-filter=""><div class="metric-icon" style="background:#f3e8ff;color:#9333ea;">&#128247;</div><div><div class="metric-label">Total Submissions</div><div class="metric-value" id="m-submissions">--</div></div></div>
           <div class="metric-card highlight clickable" data-navigate="photos" data-filter="pending"><div class="metric-icon" style="background:#fff7ed;color:#ea580c;">&#9888;</div><div><div class="metric-label">Pending Photos</div><div class="metric-value" id="m-pendingPhotos">--</div></div></div>
@@ -166,18 +164,6 @@
               <tbody></tbody>
             </table>
           </div>
-        </div>
-      </section>
-
-      <!-- Search Insights tab -->
-      <section id="tab-searches" class="tab-panel">
-        <div class="section-card">
-          <h3 class="section-title">Top Searches (30d)</h3>
-          <table class="data-table" id="topSearchesTable"><thead><tr><th>Query</th><th>Count</th></tr></thead><tbody></tbody></table>
-        </div>
-        <div class="section-card">
-          <h3 class="section-title">Top Searches with No Results</h3>
-          <table class="data-table" id="emptySearchesTable"><thead><tr><th>Query</th><th>Count</th></tr></thead><tbody></tbody></table>
         </div>
       </section>
 

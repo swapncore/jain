@@ -135,14 +135,9 @@
     setText("m-activeUsers7d", fmt(u.active_this_week));
     setText("m-activeUsers30d", fmt(u.active_this_month));
     setText("m-scans30d", fmt((d.scans || {}).total_30d));
-    setText("m-searches30d", fmt((d.searches || {}).total_30d));
     setText("m-favorites", fmt((d.favorites || {}).total));
     setText("m-submissions", fmt((d.submissions || {}).total));
     setText("m-pendingPhotos", fmt((d.submissions || {}).pending_photos));
-
-    // Search insights
-    renderTable("topSearchesTable", (d.search_insights || {}).top_searches || [], ["query", "count"]);
-    renderTable("emptySearchesTable", (d.search_insights || {}).top_empty_searches || [], ["query", "count"]);
 
     // Monetization
     const mon = d.monetization || {};
