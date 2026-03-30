@@ -54,8 +54,6 @@
                     <span class="email-pref-label">Get weekly product picks &amp; updates</span>
                   </label>
                 </div>
-                <!-- Preferences link (subtle, for opt-out) -->
-                <a href="javascript:void(0)" id="emailPrefManageLink" class="email-pref-manage-link">Preferences</a>
                 <button type="button" id="dropdownSignOutBtn" class="btn btn-ghost btn-sm user-dropdown-signout">Sign out</button>
               </div>
             </span>
@@ -272,30 +270,8 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             Share
           </button>
-          <button type="button" id="reportIssueBtn" class="btn-link hidden">Report incorrect classification</button>
           <span id="savedNote" class="saved-note" aria-live="polite"></span>
           <span id="shareToast" class="share-toast" aria-live="polite"></span>
-        </div>
-      </section>
-
-      <!-- ═══════════════════════════════════════════
-           SEARCH CARD
-      ═══════════════════════════════════════════ -->
-      <section class="card search-card" aria-labelledby="search-heading">
-        <h2 class="card-heading" id="search-heading">Search by product name</h2>
-        <form id="searchForm" class="search-form" novalidate>
-          <div class="search-row">
-            <div class="input-wrap search-input-wrap">
-              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input id="searchInput" type="search" placeholder="e.g. Oreo cookies, Amul butter..." maxlength="200" autocomplete="off" aria-label="Search products by name or brand" />
-            </div>
-            <button type="submit" class="btn btn-primary" id="searchBtn">Search</button>
-          </div>
-        </form>
-        <div id="searchResults" class="search-results hidden" role="region" aria-label="Search results" aria-live="polite"></div>
-        <div id="searchEmpty" class="search-empty hidden">
-          <p>No products found for this search.</p>
-          <p class="search-empty-hint">Try a different name, or <button type="button" class="btn-link" id="switchToBarcode">scan the barcode instead</button>.</p>
         </div>
       </section>
 
@@ -426,42 +402,6 @@
     </footer>
 
     <!-- ═══════════════════════════════════════════
-         REPORT ISSUE MODAL
-    ═══════════════════════════════════════════ -->
-    <div id="reportModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
-      <div class="modal-box">
-        <button type="button" class="modal-close" id="reportModalClose" aria-label="Close dialog">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-        <h2 class="modal-title" id="report-modal-title">Report incorrect classification</h2>
-        <form id="reportForm" class="modal-form" novalidate>
-          <div class="field-group">
-            <label class="field-label" for="reportBarcode">Barcode</label>
-            <input type="text" id="reportBarcode" name="barcode" class="field-input" readonly />
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="reportWrong">What seems wrong? <span class="field-required" aria-hidden="true">*</span></label>
-            <textarea id="reportWrong" name="what_wrong" class="field-textarea" rows="3" placeholder="Describe the issue…" required aria-required="true"></textarea>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="reportIngredients">Corrected ingredients (optional)</label>
-            <textarea id="reportIngredients" name="corrected_ingredients" class="field-textarea" rows="2" placeholder="Paste the correct ingredient text from the label…"></textarea>
-          </div>
-          <div class="field-group">
-            <label class="field-label" for="reportEmail">Your email (optional)</label>
-            <input type="email" id="reportEmail" name="email" class="field-input" placeholder="you@example.com" />
-            <p class="field-help">Only used to follow up on your report. Not stored beyond this request.</p>
-          </div>
-          <div id="reportFormMsg" class="form-msg hidden" role="status" aria-live="polite"></div>
-          <div class="modal-actions">
-            <button type="button" class="btn btn-ghost" id="reportModalCancel">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="reportSubmitBtn">Submit report</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════
          SUBMIT MISSING PRODUCT MODAL
     ═══════════════════════════════════════════ -->
     <div id="missingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="missingModalTitle">
@@ -523,7 +463,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
         <h2 class="modal-title" id="auth-modal-title">Sign in to Jaini</h2>
-        <p class="auth-modal-sub">Save products, get weekly picks, and access your favorites on any device.</p>
+        <p class="auth-modal-sub">Sign in with Google to scan products, save favorites, and sync across devices.</p>
         <div class="auth-buttons">
           <div id="googleSignInBtn" class="google-signin-container">
             <!-- Google Identity Services renders its button here -->

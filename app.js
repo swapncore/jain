@@ -15,7 +15,6 @@ import {
 } from "./config/shared-config.js";
 import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "./barcode.js";
 import * as Auth from "./auth.js?v=3";
-import * as Search from "./search.js";
 import * as Favorites from "./favorites.js";
 import * as Monetization from "./monetization.js";
 
@@ -74,7 +73,6 @@ const el = {
   savedNote:         document.getElementById("savedNote"),
   shareBtn:          document.getElementById("shareBtn"),
   shareToast:        document.getElementById("shareToast"),
-  reportIssueBtn:    document.getElementById("reportIssueBtn"),
   notFoundState:     document.getElementById("notFoundState"),
   ingredientSection: document.getElementById("ingredientSection"),
   ingredientsText:   document.getElementById("ingredientsText"),
@@ -106,15 +104,6 @@ const el = {
   clearHistoryBtn:   document.getElementById("clearHistoryBtn"),
 
   // Modals
-  reportModal:       document.getElementById("reportModal"),
-  reportForm:        document.getElementById("reportForm"),
-  reportBarcode:     document.getElementById("reportBarcode"),
-  reportWrong:       document.getElementById("reportWrong"),
-  reportIngredients: document.getElementById("reportIngredients"),
-  reportEmail:       document.getElementById("reportEmail"),
-  reportFormMsg:     document.getElementById("reportFormMsg"),
-  reportSubmitBtn:   document.getElementById("reportSubmitBtn"),
-
   missingModal:      document.getElementById("missingModal"),
   missingStep1:      document.getElementById("missingStep1"),
   missingCameraArea: document.getElementById("missingCameraArea"),
@@ -152,7 +141,6 @@ const el = {
   // Email preferences in dropdown
   emailPrefBanner:   document.getElementById("emailPrefBanner"),
   emailPrefCheckbox: document.getElementById("emailPrefCheckbox"),
-  emailPrefManageLink:document.getElementById("emailPrefManageLink"),
 
   // Favorite button (in result card)
   favoriteBtn:       document.getElementById("favoriteBtn"),
@@ -903,7 +891,6 @@ function showVerdictSkeleton() {
   hideAlternatives();
   Favorites.hideButton();
   hide(el.shareBtn);
-  hide(el.reportIssueBtn);
   Monetization.hide();
 }
 
@@ -961,7 +948,6 @@ function hideResult() {
   hide(el.notFoundState);
   hide(el.ingredientSection);
   hide(el.productDetails);
-  hide(el.reportIssueBtn);
   hide(el.shareBtn);
   hideCommunitySection();
   hideAlternatives();
@@ -1216,9 +1202,6 @@ function renderResult(data) {
     show(el.shareBtn);
   }
 
-  // Report link
-  show(el.reportIssueBtn);
-
   // Ingredients
   show(el.ingredientSection);
   el.ingredientsText.textContent = data.ingredients_text || "Ingredient text not available.";
@@ -1302,6 +1285,12 @@ function capitalize(s) { return s ? s[0].toUpperCase() + s.slice(1) : ""; }
 // ─── Network ──────────────────────────────────────────────────────────────────
 
 async function fetchVerdict(rawBarcode) {
+  // Require sign-in before scanning
+  if (!Auth.isSignedIn()) {
+    openAuthModal();
+    return;
+  }
+
   const normalized = normalizeBarcode(rawBarcode);
   // Use expanded UPC-A for API lookup (UPC-E → 12-digit), otherwise cleaned digits
   const barcode = normalized.upc12 || normalized.ean13 || normalized.cleaned;
@@ -1357,7 +1346,6 @@ async function fetchVerdict(rawBarcode) {
     if (resp.ok) {
       renderResult(data);
       el.scanStatus && (el.scanStatus.textContent = `Scan complete: ${barcode}`);
-      if (el.reportBarcode) el.reportBarcode.value = barcode;
       return;
     }
 
@@ -1648,49 +1636,6 @@ function showFormMsg(modal, message, type = "success") {
   show(msg);
 }
 
-async function handleReportSubmit(e) {
-  e.preventDefault();
-  const wrong = el.reportWrong.value.trim();
-  if (!wrong) {
-    el.reportWrong.focus();
-    showFormMsg(el.reportModal, "Please describe what seems wrong.", "error");
-    return;
-  }
-
-  el.reportSubmitBtn.disabled = true;
-  el.reportSubmitBtn.textContent = "Submitting...";
-
-  try {
-    const resp = await fetch(`${getApiBase()}/v1/report-classification`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Client-Id": getClientId(),
-      },
-      body: JSON.stringify({
-        barcode: el.reportBarcode.value,
-        profile: getActiveProfile(),
-        what_wrong: wrong,
-        corrected_ingredients: el.reportIngredients.value.trim(),
-        reporter_email: el.reportEmail.value.trim(),
-      }),
-    });
-
-    if (resp.ok) {
-      showFormMsg(el.reportModal, "Thanks! Your report has been submitted. Our team will review it.", "success");
-    } else {
-      const data = await resp.json().catch(() => ({}));
-      showFormMsg(el.reportModal, data.detail || data.message || "Failed to submit report. Please try again.", "error");
-      el.reportSubmitBtn.disabled = false;
-      el.reportSubmitBtn.textContent = "Submit report";
-    }
-  } catch (err) {
-    showFormMsg(el.reportModal, "Connection error. Please try again.", "error");
-    el.reportSubmitBtn.disabled = false;
-    el.reportSubmitBtn.textContent = "Submit report";
-  }
-}
-
 // Missing product photo flow
 let _missingStream = null;
 
@@ -1806,6 +1751,11 @@ function bindEvents() {
   // Manual form submit
   el.manualForm.addEventListener("submit", e => {
     e.preventDefault();
+    // Require sign-in before scanning
+    if (!Auth.isSignedIn()) {
+      openAuthModal();
+      return;
+    }
     if (!updateManualState()) {
       showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
       return;
@@ -1818,6 +1768,11 @@ function bindEvents() {
 
   // Camera start
   el.startCameraBtn.addEventListener("click", () => {
+    // Require sign-in before scanning
+    if (!Auth.isSignedIn()) {
+      openAuthModal();
+      return;
+    }
     hideResult();
     clearMessage();
     setLoading(false);
@@ -1865,17 +1820,6 @@ function bindEvents() {
   el.shareBtn?.addEventListener("click", () => {
     const { barcode, status, name, brand, reasons } = el.shareBtn.dataset;
     if (barcode) handleShare(barcode, status, name, brand, JSON.parse(reasons || "[]"));
-  });
-
-  // Report issue button (in result card)
-  el.reportIssueBtn?.addEventListener("click", () => {
-    if (el.reportBarcode) el.reportBarcode.value = state.currentBarcode;
-    el.reportWrong.value = "";
-    el.reportIngredients.value = "";
-    el.reportEmail.value = "";
-    el.reportSubmitBtn.disabled = false;
-    clearFormMsg(el.reportModal);
-    openModal(el.reportModal);
   });
 
   // Not found - report missing
@@ -1932,15 +1876,7 @@ function bindEvents() {
     el.manualInput.focus();
   });
 
-  // Report modal
-  document.getElementById("reportModalClose")?.addEventListener("click", () => closeModal(el.reportModal));
-  document.getElementById("reportModalCancel")?.addEventListener("click", () => closeModal(el.reportModal));
-  el.reportForm?.addEventListener("submit", handleReportSubmit);
-
   // Close modals on backdrop click
-  el.reportModal?.addEventListener("click", e => {
-    if (e.target === el.reportModal) closeModal(el.reportModal);
-  });
   el.missingModal?.addEventListener("click", e => {
     if (e.target === el.missingModal) { stopMissingCamera(); closeModal(el.missingModal); }
   });
@@ -1948,7 +1884,6 @@ function bindEvents() {
   // Close modals on Escape
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
-      if (el.reportModal && !el.reportModal.classList.contains("hidden")) closeModal(el.reportModal);
       if (el.missingModal && !el.missingModal.classList.contains("hidden")) { stopMissingCamera(); closeModal(el.missingModal); }
     }
   });
@@ -2068,17 +2003,6 @@ function bindAuthEvents() {
     _toggleEmailPref(e.target.checked);
   });
 
-  // "Preferences" link — toggles checkbox off (opt-out action)
-  el.emailPrefManageLink?.addEventListener("click", () => {
-    if (el.emailPrefCheckbox && el.emailPrefCheckbox.checked) {
-      el.emailPrefCheckbox.checked = false;
-      _toggleEmailPref(false);
-    } else if (el.emailPrefCheckbox) {
-      el.emailPrefCheckbox.checked = true;
-      _toggleEmailPref(true);
-    }
-  });
-
   el.dropdownSignOutBtn?.addEventListener("click", async () => {
     await Auth.signOut();
     closeUserDropdown();
@@ -2135,16 +2059,6 @@ async function init() {
     if (user) _syncServerHistory();
   });
   await Auth.init();
-
-  // Search
-  Search.init({
-    apiBase,
-    getClientId,
-    getProfile: getActiveProfile,
-    onProductSelect: (barcode) => {
-      fetchVerdict(barcode).catch(() => renderError(MESSAGES.genericError));
-    },
-  });
 
   // Favorites
   Favorites.init({
