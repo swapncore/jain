@@ -1782,6 +1782,61 @@ details[open] > .collapsible-heading::after {
 .missing-video { width: 100%; height: auto; max-height: 260px; object-fit: cover; display: block; }
 .missing-preview { position: relative; }
 .missing-preview img { width: 100%; height: auto; max-height: 260px; object-fit: contain; background: #000; display: block; }
+/* Ingredient-list guide overlay (on missing-product camera) */
+.ingredient-guide-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+.ingredient-guide {
+  position: relative;
+  width: 78%;
+  aspect-ratio: 1.4 / 1;
+  max-height: 70%;
+}
+.ingredient-guide .corner {
+  border-color: rgba(255,255,255,0.7);
+}
+.ingredient-guide-lines {
+  position: absolute;
+  top: 28%;
+  left: 14%;
+  right: 14%;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ingredient-guide-lines span {
+  display: block;
+  height: 2px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 1px;
+}
+.ingredient-guide-lines span:nth-child(2) { width: 90%; }
+.ingredient-guide-lines span:nth-child(3) { width: 75%; }
+.ingredient-guide-lines span:nth-child(4) { width: 60%; }
+.ingredient-guide-label {
+  position: absolute;
+  top: 10%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: rgba(255,255,255,0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* Hide guide when preview (captured photo) is showing */
+.missing-preview:not(.hidden) ~ .ingredient-guide-overlay,
+.missing-camera-area:has(.missing-preview:not(.hidden)) .ingredient-guide-overlay {
+  display: none;
+}
+
 .missing-camera-controls { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem; background: rgba(0,0,0,0.5); flex-wrap: wrap; }
 .btn-upload { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.9rem; background: transparent; border: 1.5px solid rgba(255,255,255,0.5); color: #fff; border-radius: var(--r-pill); font-size: 0.82rem; cursor: pointer; font-weight: 500; }
 .btn-upload:hover { border-color: #fff; }

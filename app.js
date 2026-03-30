@@ -1716,6 +1716,9 @@ function setMissingPhoto(dataUrl) {
   if (el.missingPreviewImg) el.missingPreviewImg.src = dataUrl;
   show(el.missingPreview);
   hide(el.missingVideo);
+  // Hide ingredient guide overlay when showing captured photo
+  const guideOverlay = document.querySelector(".ingredient-guide-overlay");
+  if (guideOverlay) guideOverlay.style.display = "none";
   stopMissingCamera();
   // Enable submit
   if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = false;
@@ -1870,6 +1873,9 @@ function bindEvents() {
   el.missingRetakeBtn?.addEventListener("click", () => {
     state.missingPhotoData = null;
     hide(el.missingPreview);
+    // Restore ingredient guide overlay for retake
+    const guideOverlay = document.querySelector(".ingredient-guide-overlay");
+    if (guideOverlay) guideOverlay.style.display = "";
     startMissingCamera();
     if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
     if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Capture a photo first";

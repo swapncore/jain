@@ -415,10 +415,23 @@
 
         <!-- Step 1: Barcode confirm + photo capture -->
         <div id="missingStep1" class="missing-step">
-          <p class="missing-intro">Take a clear photo of the <strong>ingredient label</strong> on the back of the packaging. We'll extract the ingredients automatically.</p>
+          <p class="missing-intro">Flip the package over and photograph the <strong>ingredient list</strong>. We'll read it automatically.</p>
 
           <div id="missingCameraArea" class="missing-camera-area">
             <video id="missingVideo" class="missing-video" autoplay playsinline muted></video>
+            <!-- Ingredient-list guide overlay (visible on live camera feed) -->
+            <div class="ingredient-guide-overlay" aria-hidden="true">
+              <div class="ingredient-guide">
+                <span class="corner tl"></span>
+                <span class="corner tr"></span>
+                <span class="corner bl"></span>
+                <span class="corner br"></span>
+                <div class="ingredient-guide-lines">
+                  <span></span><span></span><span></span><span></span>
+                </div>
+                <p class="ingredient-guide-label">Ingredient list</p>
+              </div>
+            </div>
             <canvas id="missingCanvas" class="hidden"></canvas>
             <div id="missingPreview" class="missing-preview hidden">
               <img id="missingPreviewImg" alt="Ingredient label photo" />
