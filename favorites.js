@@ -107,6 +107,9 @@ export async function loadFavorites() {
 
   // Hide sign-in prompt, show loading
   if (_favoritesSignIn) _favoritesSignIn.classList.add("hidden");
+  if (_favoritesEmpty) _favoritesEmpty.classList.add("hidden");
+  if (_favoritesList) _favoritesList.innerHTML = '<div class="favorites-loading">Loading saved products...</div>';
+  if (_favoritesSection) _favoritesSection.classList.remove("hidden");
 
   try {
     const profile = _getProfile();

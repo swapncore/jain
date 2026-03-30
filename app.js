@@ -747,7 +747,7 @@ async function fetchAndRenderAlternatives(barcode, status) {
 
     el.alternativesList.replaceChildren();
     alts.forEach(a => {
-      const safeStatus = ["green","yellow"].includes((a.status||"").toLowerCase()) ? a.status.toLowerCase() : "unknown";
+      const safeStatus = ["green","yellow","orange","red"].includes((a.status||"").toLowerCase()) ? a.status.toLowerCase() : "unknown";
       const label = STATUS_META[(a.status||"").toUpperCase()]?.label || a.status;
 
       const li = document.createElement("li");
@@ -1260,13 +1260,36 @@ function renderRateLimit(data) {
 }
 
 function renderError(message) {
+  // Preserve the barcode before hideResult() clears it
+  const retryBarcode = state.currentBarcode;
+
   clearMessage();
   setLoading(false);
   if (el.verdictCard.classList.contains("verdict-skeleton-wrap")) {
     restoreVerdictCard();
   }
   hideResult();
-  showMessage({ variant: "error", message: message || MESSAGES.genericError });
+
+  if (retryBarcode) {
+    // Build error message with retry button
+    const container = document.createElement("div");
+    const text = document.createElement("span");
+    text.textContent = message || MESSAGES.genericError;
+    container.appendChild(text);
+
+    const retryBtn = document.createElement("button");
+    retryBtn.type = "button";
+    retryBtn.className = "btn-link retry-btn";
+    retryBtn.textContent = "Try again";
+    retryBtn.style.marginLeft = "0.5em";
+    retryBtn.addEventListener("click", () => fetchVerdict(retryBarcode));
+    container.appendChild(retryBtn);
+
+    showMessage({ variant: "error", domContent: container });
+  } else {
+    showMessage({ variant: "error", message: message || MESSAGES.genericError });
+  }
+
   presentOutcome();
 }
 
@@ -1342,6 +1365,13 @@ async function fetchVerdict(rawBarcode) {
     if (reqId !== state.requestId) return;
     const data = await resp.json().catch(() => ({}));
     if (reqId !== state.requestId) return;
+
+    if (resp.status === 401) {
+      openAuthModal();
+      presentOutcome();
+      showMessage({ variant: "warn", message: "Your session expired. Please sign in again." });
+      return;
+    }
 
     if (resp.ok) {
       renderResult(data);
@@ -1861,6 +1891,10 @@ function bindEvents() {
   });
   el.missingCloseBtn?.addEventListener("click", () => {
     stopMissingCamera();
+    state.missingPhotoData = null;
+    hide(el.missingPreview);
+    if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
+    clearFormMsg(el.missingModal);
     closeModal(el.missingModal);
   });
   el.missingSubmitBtn?.addEventListener("click", handleMissingSubmit);
@@ -2096,3 +2130,11 @@ async function init() {
 }
 
 init();
+
+// Global error tracking
+window.onerror = (msg, src, line, col, err) => {
+  reportClientEvent("js_error", { error_msg: `${msg} at ${src}:${line}:${col}` });
+};
+window.addEventListener("unhandledrejection", (e) => {
+  reportClientEvent("js_error", { error_msg: `Unhandled: ${e.reason?.message || e.reason}` });
+});
