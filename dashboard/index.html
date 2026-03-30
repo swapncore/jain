@@ -22,6 +22,7 @@
     <ul class="nav-links">
       <li><a href="#" class="nav-link active" data-tab="overview"><span class="nav-icon">&#9632;</span> Overview</a></li>
       <li><a href="#" class="nav-link" data-tab="scans"><span class="nav-icon">&#128274;</span> Scan Insights</a></li>
+      <li><a href="#" class="nav-link" data-tab="recent-scans"><span class="nav-icon">&#128203;</span> Recent Scans</a></li>
       <li><a href="#" class="nav-link" data-tab="searches"><span class="nav-icon">&#128269;</span> Search Insights</a></li>
       <li><a href="#" class="nav-link" data-tab="monetization"><span class="nav-icon">&#128176;</span> Monetization</a></li>
       <li><a href="#" class="nav-link" data-tab="users"><span class="nav-icon">&#128101;</span> Users</a></li>
@@ -135,6 +136,36 @@
         <div class="section-card">
           <h3 class="section-title">Top Scanned Products (30d)</h3>
           <table class="data-table" id="topScannedTable"><thead><tr><th>Product</th><th>Brand</th><th>Barcode</th><th>Status</th><th>Scans</th></tr></thead><tbody></tbody></table>
+        </div>
+      </section>
+
+      <!-- Recent Scans tab -->
+      <section id="tab-recent-scans" class="tab-panel">
+        <div class="toolbar">
+          <button class="btn-secondary btn-sm" id="refreshRecentScans">Refresh</button>
+          <div style="flex:1;"></div>
+          <span class="muted-text" id="recentScansCount"></span>
+        </div>
+        <div class="section-card">
+          <div style="overflow-x:auto;">
+            <table class="data-table" id="recentScansTable">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>User</th>
+                  <th>Product</th>
+                  <th>Brand</th>
+                  <th>Barcode</th>
+                  <th>Status</th>
+                  <th>Confidence</th>
+                  <th>Profile</th>
+                  <th>Location</th>
+                  <th>Response</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </section>
 

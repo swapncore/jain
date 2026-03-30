@@ -95,6 +95,7 @@
     if (tab === "email") loadEmailTab();
     if (tab === "users") loadUsers();
     if (tab === "reports") loadReports();
+    if (tab === "recent-scans") loadRecentScans();
   }
 
   document.querySelectorAll(".nav-link").forEach(link => {
@@ -989,6 +990,68 @@
     sessionStorage.removeItem("JAINI_ADMIN_KEY");
     location.reload();
   });
+
+  // ── Recent Scans Tab ─────────────────────────────────────────────────
+  async function loadRecentScans() {
+    const tbody = document.querySelector("#recentScansTable tbody");
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;"><div class="loading"></div></td></tr>';
+    try {
+      const resp = await fetchWithAuth(`${API_BASE}/v1/admin/recent-scans?limit=200`);
+      if (!resp.ok) throw new Error("Failed");
+      const data = await resp.json();
+      const scans = data.scans || [];
+      renderRecentScans(scans);
+      setText("recentScansCount", `${scans.length} of ${fmt(data.total)} scans`);
+    } catch (e) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:32px;">Failed to load recent scans.</td></tr>';
+    }
+  }
+
+  function formatTimeAgo(ts) {
+    if (!ts) return "—";
+    const d = new Date(ts);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return "just now";
+    if (diffMin < 60) return diffMin + "m ago";
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return diffHr + "h ago";
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return diffDay + "d ago";
+    return d.toLocaleDateString();
+  }
+
+  function renderRecentScans(scans) {
+    const tbody = document.querySelector("#recentScansTable tbody");
+    if (!scans.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:32px;">No scan data yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = scans.map(s => {
+      const statusClass = s.verdict_status === "GREEN" ? "active"
+        : s.verdict_status === "RED" ? "rejected"
+        : s.verdict_status === "ORANGE" ? "pending"
+        : s.verdict_status === "YELLOW" ? "pending"
+        : "prospect";
+      const location = [s.city, s.country].filter(Boolean).join(", ") || "—";
+      const userName = s.user_name || s.user_email || s.client_id || "—";
+      return `<tr>
+        <td title="${s.ts ? new Date(s.ts).toLocaleString() : ''}">${formatTimeAgo(s.ts)}</td>
+        <td>${esc(userName)}</td>
+        <td><strong>${esc(s.product_name || "Unknown")}</strong></td>
+        <td>${esc(s.brand || "")}</td>
+        <td style="font-family:monospace;font-size:12px;color:var(--muted);">${esc(s.barcode || "")}</td>
+        <td>${s.verdict_status ? `<span class="status-badge ${statusClass}" style="text-transform:none;">${s.verdict_status}</span>` : `<span class="status-badge prospect" style="text-transform:none;">${esc(s.outcome || "—")}</span>`}</td>
+        <td>${s.confidence ? esc(s.confidence) : "—"}</td>
+        <td>${esc(s.profile || "")}</td>
+        <td>${esc(location)}</td>
+        <td>${s.response_ms != null ? s.response_ms + "ms" : "—"}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  document.getElementById("refreshRecentScans")?.addEventListener("click", loadRecentScans);
 
   // ── Helpers ────────────────────────────────────────────────────────────
   function setText(id, value) {
