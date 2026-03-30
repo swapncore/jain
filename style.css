@@ -65,6 +65,14 @@
   --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md: 0 4px 16px rgba(0,0,0,0.07), 0 2px 6px rgba(0,0,0,0.04);
 
+  /* Video / Camera */
+  --video-bg:     #0a0e14;
+
+  /* Torch */
+  --torch-bg:     rgba(255,220,30,0.8);
+  --torch-text:   #1a1000;
+  --torch-border: rgba(255,200,0,0.6);
+
   /* Transitions */
   --transition: 160ms ease;
 }
@@ -435,7 +443,7 @@ ul, ol { list-style: none; }
   border-radius: var(--r-md);
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #0a0e14;
+  background: var(--video-bg);
 }
 
 #videoPreview {
@@ -500,9 +508,9 @@ ul, ol { list-style: none; }
 }
 .torch-btn:hover { background: rgba(0,0,0,0.7); }
 .torch-btn.torch-on {
-  background: rgba(255,220,30,0.8);
-  color: #1a1000;
-  border-color: rgba(255,200,0,0.6);
+  background: var(--torch-bg);
+  color: var(--torch-text);
+  border-color: var(--torch-border);
 }
 
 .camera-controls {
@@ -1417,7 +1425,7 @@ details[open] > .collapsible-heading::after {
   text-decoration: none;
   transition: background 0.15s, transform 0.1s;
 }
-.get-app-btn:hover { background: #094a5a; transform: translateY(-1px); }
+.get-app-btn:hover { background: var(--brand-dark); transform: translateY(-1px); }
 .get-app-btn:active { transform: translateY(0); }
 .get-app-btn svg { flex-shrink: 0; }
 
@@ -1560,6 +1568,15 @@ details[open] > .collapsible-heading::after {
 /* ============================================================
    RESPONSIVE
    ============================================================ */
+@media (max-width: 900px) {
+  .header-nav {
+    gap: 0.75rem;
+  }
+  .nav-link {
+    font-size: 0.8rem;
+  }
+}
+
 @media (max-width: 600px) {
   .main-content {
     padding: 1rem 0.75rem 3rem;
@@ -2395,7 +2412,7 @@ body.modal-open {
   /* ── Camera / scan area ───────────────────────────────────── */
   .video-wrap {
     border-color: var(--border);
-    background: #0a0e14;
+    background: var(--video-bg);
   }
   .scan-divider::before,
   .scan-divider::after {
@@ -2536,7 +2553,7 @@ body.modal-open {
 
   /* ── Missing-product camera modal ─────────────────────────── */
   .missing-camera-area {
-    background: #0a0e14;
+    background: var(--video-bg);
   }
 
   /* ── Inline disclaimer ────────────────────────────────────── */
@@ -2693,13 +2710,17 @@ body.modal-open {
    PRINT STYLES
    ============================================================ */
 @media print {
-  /* Hide chrome: nav, header, footer, sidebar, buttons, inputs */
+  /* Hide chrome: nav, header, footer, sidebar, camera buttons, inputs */
   header,
   footer,
   nav,
   .sidebar,
   .auth-nav,
-  .btn,
+  .btn-camera,
+  .btn-ghost,
+  .scan-trigger-area,
+  .camera-area,
+  .torch-btn,
   .spinner,
   .skeleton,
   .monetization-cards,
