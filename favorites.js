@@ -80,7 +80,7 @@ export async function onResultDisplayed(barcode) {
       { headers: { "X-Client-Id": _getClientId() } }
     );
     if (resp.ok) {
-      const data = await resp.json();
+      const data = await resp.json().catch(() => ({}));
       _currentIsFav = !!data.is_favorite;
     }
   } catch {
@@ -123,7 +123,7 @@ export async function loadFavorites() {
       return;
     }
 
-    const data = await resp.json();
+    const data = await resp.json().catch(() => ({}));
     const items = data.favorites || data || [];
 
     if (items.length === 0) {
@@ -164,12 +164,16 @@ function updateFavButton() {
   }
 }
 
+let _toggleInFlight = false;
 async function handleToggle() {
+  if (_toggleInFlight) return;
   if (!isSignedIn()) {
     if (_onSignInRequest) _onSignInRequest();
     return;
   }
   if (!_currentBarcode) return;
+  _toggleInFlight = true;
+  try {
 
   const profile = _getProfile();
 
@@ -201,6 +205,9 @@ async function handleToggle() {
 
   // Refresh favorites list
   loadFavorites();
+  } finally {
+    _toggleInFlight = false;
+  }
 }
 
 function renderFavorites(items) {

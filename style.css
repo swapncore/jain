@@ -2807,6 +2807,38 @@ body.modal-open {
 }
 
 /* ============================================================
+   FREE SCAN BANNER
+   ============================================================ */
+.free-scan-banner {
+  margin: 0.75rem auto;
+  max-width: var(--max-w);
+  padding: 0.7rem 1rem;
+  background: var(--bg-1);
+  border: 1px solid var(--brand-light, #d4e6f1);
+  border-radius: var(--r-md);
+  font-size: 0.85rem;
+  color: var(--text-2);
+  text-align: center;
+  transition: opacity 0.5s ease;
+}
+.free-scan-banner--fade {
+  opacity: 0;
+}
+.free-scan-signin {
+  background: none;
+  border: none;
+  color: var(--brand);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.free-scan-signin:hover {
+  color: var(--brand-dark, #1a5276);
+}
+
+/* ============================================================
    VERDICT GLOW (DARK MODE)
    ============================================================ */
 @media (prefers-color-scheme: dark) {
@@ -2814,4 +2846,9 @@ body.modal-open {
   .verdict-YELLOW .verdict-icon { filter: drop-shadow(0 0 8px rgba(234,179,8,0.4)); }
   .verdict-ORANGE .verdict-icon { filter: drop-shadow(0 0 8px rgba(249,115,22,0.4)); }
   .verdict-RED .verdict-icon    { filter: drop-shadow(0 0 8px rgba(239,68,68,0.4)); }
+
+  .free-scan-banner {
+    background: var(--bg-2);
+    border-color: var(--border);
+  }
 }

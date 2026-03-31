@@ -3,20 +3,22 @@ let _BrowserMultiFormatReader = null;
 let _DecodeHintType = null;
 let _BarcodeFormat = null;
 let _BarcodeDetectorPolyfill = null;
-let _barcodeLibsLoaded = false;
+let _barcodeLibsLoading = null;
 
 async function _loadBarcodeLibs() {
-  if (_barcodeLibsLoaded) return;
-  const [zxingBrowser, zxingLib, barcodeDetMod] = await Promise.all([
-    import("https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm"),
-    import("https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm"),
-    import("https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm"),
-  ]);
-  _BrowserMultiFormatReader = zxingBrowser.BrowserMultiFormatReader;
-  _DecodeHintType = zxingLib.DecodeHintType;
-  _BarcodeFormat = zxingLib.BarcodeFormat;
-  _BarcodeDetectorPolyfill = barcodeDetMod.BarcodeDetector;
-  _barcodeLibsLoaded = true;
+  if (_barcodeLibsLoading) return _barcodeLibsLoading;
+  _barcodeLibsLoading = (async () => {
+    const [zxingBrowser, zxingLib, barcodeDetMod] = await Promise.all([
+      import("https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm"),
+      import("https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm"),
+      import("https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm"),
+    ]);
+    _BrowserMultiFormatReader = zxingBrowser.BrowserMultiFormatReader;
+    _DecodeHintType = zxingLib.DecodeHintType;
+    _BarcodeFormat = zxingLib.BarcodeFormat;
+    _BarcodeDetectorPolyfill = barcodeDetMod.BarcodeDetector;
+  })();
+  return _barcodeLibsLoading;
 }
 
 import {
@@ -587,7 +589,7 @@ function clearMessage() {
   el.messageBox.replaceChildren();
 }
 
-function showMessage({ message, variant = "info", safeHtml = false, domContent = null }) {
+function showMessage({ message, variant = "info", domContent = null }) {
   el.messageBox.className = `notice notice-${variant}`;
 
   const iconSvgs = {
@@ -616,11 +618,6 @@ function showMessage({ message, variant = "info", safeHtml = false, domContent =
   if (domContent) {
     // Pre-built DOM node (e.g. from renderRateLimit) — no innerHTML needed
     wrapper.appendChild(domContent);
-  } else if (safeHtml) {
-    // Only used for trusted internal HTML (rate limit messages with mailto links)
-    const p = document.createElement("p");
-    p.innerHTML = message;
-    wrapper.appendChild(p);
   } else {
     const p = document.createElement("p");
     p.textContent = message;
@@ -974,7 +971,11 @@ function renderResult(data) {
     brand:        data.brand || "",
     profile:      getActiveProfile(),
     ts:           new Date().toISOString(),
-    verdictData:  data,
+    verdictData:  {
+      status: data.status, explain: data.explain, product_name: data.product_name,
+      brand: data.brand, reasons: data.reasons, barcode: data.barcode,
+      confidence: data.confidence, exactness: data.exactness,
+    },
   });
 
   // Saved banner
@@ -1108,19 +1109,73 @@ function presentOutcome() {
   hide(el.scanTriggerArea);
   show(el.newScanBtn);
   updateManualState();
-  // Mark free scan as used (allows 1 scan before auth gate)
-  if (!Auth.isSignedIn()) localStorage.setItem(FREE_SCAN_KEY, "1");
+  // Track free scans for anonymous users
+  if (!Auth.isSignedIn()) {
+    const count = incrementFreeScanCount();
+    const remaining = Math.max(0, FREE_SCAN_LIMIT - count);
+    if (remaining > 0 && remaining < FREE_SCAN_LIMIT) {
+      showFreeScanBanner(remaining);
+    }
+  }
+}
+
+function showFreeScanBanner(remaining) {
+  // Show a subtle inline banner with scans remaining
+  const existingBanner = document.getElementById("freeScanBanner");
+  if (existingBanner) existingBanner.remove();
+
+  const banner = document.createElement("div");
+  banner.id = "freeScanBanner";
+  banner.className = "free-scan-banner";
+  banner.setAttribute("role", "status");
+
+  const text = document.createElement("span");
+  text.textContent = remaining === 1
+    ? "1 free scan remaining. "
+    : `${remaining} free scans remaining. `;
+
+  const link = document.createElement("button");
+  link.type = "button";
+  link.className = "free-scan-signin";
+  link.textContent = "Sign in for unlimited scans";
+  link.addEventListener("click", () => {
+    openAuthModal("Sign in with Google for unlimited scans");
+    banner.remove();
+  });
+
+  banner.appendChild(text);
+  banner.appendChild(link);
+
+  // Insert after result section
+  const insertTarget = el.resultSection || el.messageBox;
+  if (insertTarget?.parentNode) {
+    insertTarget.parentNode.insertBefore(banner, insertTarget.nextSibling);
+  }
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => { banner.classList.add("free-scan-banner--fade"); }, 7000);
+  setTimeout(() => { banner.remove(); }, 8000);
 }
 
 // ─── Network ──────────────────────────────────────────────────────────────────
 
-const FREE_SCAN_KEY = "JAINI_FREE_SCAN_USED";
+const FREE_SCAN_KEY = "JAINI_FREE_SCANS";
+const FREE_SCAN_LIMIT = 3;
+
+function getFreeScanCount() {
+  return parseInt(localStorage.getItem(FREE_SCAN_KEY) || "0", 10);
+}
+
+function incrementFreeScanCount() {
+  const count = getFreeScanCount() + 1;
+  localStorage.setItem(FREE_SCAN_KEY, String(count));
+  return count;
+}
 
 async function fetchVerdict(rawBarcode) {
-  // Allow one free scan, then require sign-in
-  const freeScanUsed = localStorage.getItem(FREE_SCAN_KEY);
-  if (!Auth.isSignedIn() && freeScanUsed) {
-    openAuthModal("Sign in to continue scanning");
+  // Anonymous users get 3 free scans, then must sign in
+  if (!Auth.isSignedIn() && getFreeScanCount() >= FREE_SCAN_LIMIT) {
+    openAuthModal("Sign in with Google to keep scanning");
     return;
   }
 
@@ -1137,6 +1192,9 @@ async function fetchVerdict(rawBarcode) {
   const cacheKey = `${barcode}:${getActiveProfile()}`;
   const cached = _verdictCache.get(cacheKey);
   if (cached && (Date.now() - cached._cachedAt) < 86400000) { // 24hr TTL
+    // Refresh access time for LRU eviction — delete and re-set moves to end of Map
+    _verdictCache.delete(cacheKey);
+    _verdictCache.set(cacheKey, { ...cached, _cachedAt: Date.now() });
     state.scanLocked = true;
     clearMessage();
     hideResult();
@@ -1189,6 +1247,14 @@ async function fetchVerdict(rawBarcode) {
     if (reqId !== state.requestId) return;
 
     if (resp.status === 401) {
+      if (data.error === "AUTH_REQUIRED" && !Auth.isSignedIn()) {
+        // Free scan limit exhausted — sync client counter and show auth gate
+        localStorage.setItem(FREE_SCAN_KEY, String(FREE_SCAN_LIMIT));
+        openAuthModal(data.message || "Sign in with Google to keep scanning");
+        presentOutcome();
+        return;
+      }
+      // Signed-in user with expired token
       openAuthModal();
       presentOutcome();
       showMessage({ variant: "warn", message: "Your session expired. Please sign in again." });
@@ -1494,8 +1560,10 @@ function closeModal(modal) {
     modal._trapFocusHandler = null;
   }
   hide(modal);
-  document.body.classList.remove("modal-open");
   clearFormMsg(modal);
+  // Only remove modal-open if no other modals are visible
+  const anyOpen = document.querySelector('.modal-backdrop:not(.hidden)');
+  if (!anyOpen) document.body.classList.remove("modal-open");
 }
 
 function clearFormMsg(modal) {
@@ -1629,6 +1697,7 @@ function bindEvents() {
   // Manual form submit
   el.manualForm.addEventListener("submit", e => {
     e.preventDefault();
+    if (state.inFlight || state.scanLocked) return;
     if (!updateManualState()) {
       showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
       return;
@@ -1788,7 +1857,7 @@ function openAuthModal(subtitle) {
   if (btns) btns.classList.remove("hidden");
   hide(el.authModalError);
   // Update subtitle if provided (e.g. "Sign in to continue scanning")
-  const sub = el.authModal?.querySelector(".auth-modal-subtitle");
+  const sub = el.authModal?.querySelector(".auth-modal-sub");
   if (sub && subtitle) sub.textContent = subtitle;
 }
 
@@ -1797,10 +1866,12 @@ function toggleUserDropdown() {
   const isOpen = !el.userDropdown.classList.contains("hidden");
   if (isOpen) {
     el.userDropdown.classList.add("hidden");
+    el.userMenuBtn?.setAttribute("aria-expanded", "false");
   } else {
     const user = Auth.getUser();
     if (el.userDropdownEmail) el.userDropdownEmail.textContent = user?.email || "";
     el.userDropdown.classList.remove("hidden");
+    el.userMenuBtn?.setAttribute("aria-expanded", "true");
     // Load current email preference when dropdown opens
     _loadEmailPref();
   }
@@ -1832,6 +1903,7 @@ async function _toggleEmailPref(value) {
 
 function closeUserDropdown() {
   el.userDropdown?.classList.add("hidden");
+  el.userMenuBtn?.setAttribute("aria-expanded", "false");
 }
 
 function updateAuthNav(user) {
@@ -1889,10 +1961,10 @@ function bindAuthEvents() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (el.missingModal && !el.missingModal.classList.contains("hidden")) {
-        stopMissingCamera(); closeModal(el.missingModal);
+        stopMissingCamera(); closeModal(el.missingModal); return;
       }
       if (el.authModal && !el.authModal.classList.contains("hidden")) {
-        closeModal(el.authModal);
+        closeModal(el.authModal); return;
       }
       closeUserDropdown();
     }
@@ -1929,11 +2001,18 @@ async function init() {
 
   // Auth
   Auth.onAuthStateChange((user) => {
+    _verdictCache.clear();
     updateAuthNav(user);
     Favorites.onAuthChange();
     // Close auth modal on successful sign-in
     if (user && el.authModal && !el.authModal.classList.contains("hidden")) {
       closeModal(el.authModal);
+    }
+    // Clear free-scan counter on sign-in (no longer needed)
+    if (user) {
+      localStorage.removeItem(FREE_SCAN_KEY);
+      // Remove any lingering free-scan banner
+      document.getElementById("freeScanBanner")?.remove();
     }
     // Sync scan history from server when signed in
     if (user) _syncServerHistory();

@@ -18,6 +18,7 @@ let _cardsEl = null;
 
 // Track impressions already fired this session to avoid duplicates
 const _impressionsSent = new Set();
+const _IMPRESSIONS_MAX = 500;
 
 export function init({ apiBase, getClientId }) {
   _apiBase = apiBase;
@@ -60,6 +61,9 @@ export async function showForVerdict(barcode, status) {
       const key = `${p.id}-${barcode}`;
       if (!_impressionsSent.has(key)) {
         _impressionsSent.add(key);
+        if (_impressionsSent.size > _IMPRESSIONS_MAX) {
+          _impressionsSent.delete(_impressionsSent.values().next().value);
+        }
         logEvent(p.id, "impression", barcode);
       }
     });
@@ -97,7 +101,7 @@ function renderCards(placements, contextBarcode) {
     card.setAttribute("aria-label", `${p.product_name || "Sponsored product"} — ${p.cta_text || "Learn more"}`);
 
     card.innerHTML = `
-      ${p.image_url ? `<img class="monetization-card-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" />` : ""}
+      ${p.image_url ? `<img class="monetization-card-img" src="${escHtml(p.image_url)}" alt="" loading="lazy" onerror="this.style.display='none'" />` : ""}
       <div class="monetization-card-body">
         <span class="monetization-card-name">${escHtml(p.product_name || p.name || "Sponsored")}</span>
         ${p.brand ? `<span class="monetization-card-brand">${escHtml(p.brand)}</span>` : ""}

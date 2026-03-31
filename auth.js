@@ -179,8 +179,7 @@ export async function authFetch(url, options = {}) {
     } catch {
       // proceed without auth
     }
-  } else if (_accessToken) {
-    headers["Authorization"] = `Bearer ${_accessToken}`;
   }
+  // Removed stale _accessToken fallback — expired tokens cause silent 401 failures
   return fetch(url, { ...options, headers });
 }

@@ -43,7 +43,7 @@
           <span id="authNav" class="auth-nav">
             <button type="button" id="signInBtn" class="btn btn-ghost btn-sm auth-btn hidden">Sign in</button>
             <span class="user-menu-wrap">
-              <button type="button" id="userMenuBtn" class="btn btn-ghost btn-sm auth-btn hidden">
+              <button type="button" id="userMenuBtn" class="btn btn-ghost btn-sm auth-btn hidden" aria-expanded="false" aria-haspopup="true">
                 <img id="userAvatar" src="" alt="" class="user-avatar" />
                 <span id="userName"></span>
               </button>
@@ -67,7 +67,7 @@
     </header>
 
     <!-- Offline banner (initially hidden) -->
-    <div id="offlineBanner" class="offline-banner hidden" role="alert">No internet connection — scan results unavailable</div>
+    <div id="offlineBanner" class="offline-banner hidden" role="alert" aria-live="assertive" aria-atomic="true">No internet connection — scan results unavailable</div>
 
     <main class="main-content" id="main">
 
@@ -182,7 +182,7 @@
         </div>
 
         <!-- Product details -->
-        <div id="productDetails" class="product-details hidden">
+        <div id="productDetails" class="product-details hidden" aria-hidden="true">
           <div class="product-meta">
             <p id="productNameText" class="product-name"></p>
             <p id="brandText" class="product-brand"></p>
