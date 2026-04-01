@@ -1331,7 +1331,7 @@ function onDecodedText(text) {
   if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
 
   const now = Date.now();
-  if (digits === state.lastBarcode && now - state.lastScanAt < 2200) return;
+  if (digits === state.lastBarcode && now - state.lastScanAt < 1200) return;
 
   // Require 2 consecutive identical reads - filters single-frame misreads
   if (digits !== state.pendingBarcode) {
@@ -1424,7 +1424,7 @@ async function startNativeScanning(stream) {
   let running = true;
   state._nativeScanStop = () => { running = false; };
 
-  const SCAN_INTERVAL_MS = 80; // ~12fps — fast enough for reliable detection on mobile
+  const SCAN_INTERVAL_MS = 50; // ~20fps — faster detection on mobile
   const tick = async () => {
     if (!running) return;
     try {
@@ -1522,23 +1522,34 @@ async function startScanning() {
         el.video.srcObject = null;
       };
 
-      const FRAME_MS = 80; // ~12fps — fast enough for reliable detection
+      const FRAME_MS = 50; // ~20fps — faster detection
+      // Use a center-cropped canvas for faster decode (barcodes are usually centered)
+      const cropCanvas = document.createElement("canvas");
+      const cropCtx = cropCanvas.getContext("2d", { willReadFrequently: true });
       const tick = () => {
         if (!running) return;
         try {
           if (el.video.readyState >= 2 && el.video.videoWidth > 0) {
-            if (canvas.width !== el.video.videoWidth) {
-              canvas.width  = el.video.videoWidth;
-              canvas.height = el.video.videoHeight;
+            const vw = el.video.videoWidth, vh = el.video.videoHeight;
+            // Crop center 60% width, 40% height — where barcodes usually are
+            const cw = Math.round(vw * 0.6), ch = Math.round(vh * 0.4);
+            const cx = Math.round((vw - cw) / 2), cy = Math.round((vh - ch) / 2);
+            if (cropCanvas.width !== cw) { cropCanvas.width = cw; cropCanvas.height = ch; }
+            cropCtx.drawImage(el.video, cx, cy, cw, ch, 0, 0, cw, ch);
+            const result = state.reader.decodeFromCanvas(cropCanvas);
+            if (result) { onDecodedText(result.getText()); }
+            else {
+              // Fallback: try full frame every other tick for off-center barcodes
+              if (canvas.width !== vw) { canvas.width = vw; canvas.height = vh; }
+              ctx.drawImage(el.video, 0, 0);
+              const r2 = state.reader.decodeFromCanvas(canvas);
+              if (r2) onDecodedText(r2.getText());
             }
-            ctx.drawImage(el.video, 0, 0);
-            const result = state.reader.decodeFromCanvas(canvas);
-            if (result) onDecodedText(result.getText());
           }
         } catch { /* NotFoundException on frames with no barcode — expected */ }
         if (running) setTimeout(tick, FRAME_MS);
       };
-      setTimeout(tick, 400); // small delay so video has time to produce frames
+      setTimeout(tick, 200); // reduced delay — video produces frames quickly
 
       await setupTorch();
       el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
@@ -2116,6 +2127,10 @@ async function init() {
     history.replaceState(null, "", window.location.pathname);
     fetchVerdict(_urlBarcode).catch(() => renderError(MESSAGES.genericError));
   }
+
+  // Pre-warm barcode scanning libraries so first scan is instant
+  // (non-blocking — failure here is fine, libs will be loaded on-demand)
+  _loadBarcodeLibs().catch(() => {});
 }
 
 init();
