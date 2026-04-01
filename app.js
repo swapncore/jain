@@ -8,16 +8,27 @@ let _barcodeLibsLoading = null;
 async function _loadBarcodeLibs() {
   if (_barcodeLibsLoading) return _barcodeLibsLoading;
   _barcodeLibsLoading = (async () => {
-    const [zxingBrowser, zxingLib, barcodeDetMod] = await Promise.all([
+    // Load ZXing libs first — these MUST succeed (pure JS, no WASM, works on all browsers)
+    const [zxingBrowser, zxingLib] = await Promise.all([
       import("https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm"),
       import("https://cdn.jsdelivr.net/npm/@zxing/library@0.21.0/+esm"),
-      import("https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm"),
     ]);
     _BrowserMultiFormatReader = zxingBrowser.BrowserMultiFormatReader;
     _DecodeHintType = zxingLib.DecodeHintType;
     _BarcodeFormat = zxingLib.BarcodeFormat;
-    _BarcodeDetectorPolyfill = barcodeDetMod.BarcodeDetector;
+
+    // Load barcode-detector polyfill separately — it uses WASM and can fail on iOS
+    // (CSP wasm-unsafe-eval not supported on older iOS versions).
+    // A failure here is fine — we fall back to ZXing for all scanning.
+    try {
+      const barcodeDetMod = await import("https://cdn.jsdelivr.net/npm/barcode-detector@2/+esm");
+      _BarcodeDetectorPolyfill = barcodeDetMod.BarcodeDetector;
+    } catch {
+      _BarcodeDetectorPolyfill = null;
+    }
   })();
+  // Don't cache failures — a transient network error shouldn't permanently break scanning
+  _barcodeLibsLoading.catch(() => { _barcodeLibsLoading = null; });
   return _barcodeLibsLoading;
 }
 
@@ -1391,14 +1402,15 @@ function resetTorch() {
 const NATIVE_FORMATS = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
 // DetectorImpl is resolved lazily after barcode libs load
+// Returns null if neither native API nor polyfill is available (ZXing will be used instead)
 function _getDetectorImpl() {
-  return (typeof globalThis.BarcodeDetector !== "undefined")
-    ? globalThis.BarcodeDetector
-    : _BarcodeDetectorPolyfill;
+  if (typeof globalThis.BarcodeDetector !== "undefined") return globalThis.BarcodeDetector;
+  return _BarcodeDetectorPolyfill; // may be null if polyfill failed to load
 }
 
 async function startNativeScanning(stream) {
   const DetectorImpl = _getDetectorImpl();
+  if (!DetectorImpl) return false;   // polyfill failed to load — use ZXing
   const supported = await DetectorImpl.getSupportedFormats();
   const formats = NATIVE_FORMATS.filter(f => supported.includes(f));
   if (!formats.length) return false;              // fallback to ZXing
@@ -1436,7 +1448,7 @@ async function startScanning() {
   try {
     await _loadBarcodeLibs();
     if (!SCAN_FORMATS) {
-      SCAN_FORMATS = [_BarcodeFormat.EAN_13, _BarcodeFormat.UPC_A, _BarcodeFormat.UPC_E];
+      SCAN_FORMATS = [_BarcodeFormat.EAN_13, _BarcodeFormat.EAN_8, _BarcodeFormat.UPC_A, _BarcodeFormat.UPC_E];
     }
   } catch (e) {
     console.error("Failed to load barcode scanning libraries", e);
@@ -1459,33 +1471,44 @@ async function startScanning() {
   state.scanLocked = false;
 
   try {
-    // Use lower resolution on mobile — 1080p is too heavy for mobile browser barcode decoding.
-    // 720p gives fast frame processing while still being sharp enough for all barcode types.
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    // iOS Safari does NOT support the native BarcodeDetector API.
+    // The WASM polyfill (barcode-detector@2) claims support via getSupportedFormats()
+    // but silently returns empty arrays from detect() on iOS — causing the "camera live
+    // but nothing detected" bug. On iOS, go directly to ZXing which actually works.
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isMobile = isIOS || /Mobi|Android/i.test(navigator.userAgent);
     const idealW = isMobile ? 1280 : 1920;
     const idealH = isMobile ? 720  : 1080;
 
     const deviceId = await pickBackCamera();
-    const videoConstraints = deviceId
-      ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
-      : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } };
 
-    // Try BarcodeDetector first (native or WASM polyfill — has UPC-E support)
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
-      const ok = await startNativeScanning(stream);
-      if (ok) {
-        await setupTorch();
-        el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
-        return;
+    // iOS doesn't support focusMode constraint — omit it to avoid unexpected behavior
+    const videoConstraints = isIOS
+      ? (deviceId
+          ? { deviceId: { exact: deviceId }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
+          : { facingMode: { ideal: "environment" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } })
+      : (deviceId
+          ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
+          : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } });
+
+    // Try native BarcodeDetector on non-iOS platforms only (polyfill is unreliable on iOS)
+    if (!isIOS) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
+        const ok = await startNativeScanning(stream);
+        if (ok) {
+          await setupTorch();
+          el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+          return;
+        }
+        // Detector didn't support any formats — stop stream, fall through to ZXing
+        stream.getTracks().forEach(t => t.stop());
+      } catch (detErr) {
+        // BarcodeDetector unavailable — fall through to ZXing
       }
-      // Detector didn't support any formats — stop stream, fall through to ZXing
-      stream.getTracks().forEach(t => t.stop());
-    } catch (detErr) {
-      // BarcodeDetector unavailable — fall through to ZXing
     }
 
-    // Fallback: ZXing (no UPC-E support but handles EAN-13 / UPC-A)
+    // ZXing: primary scanner on iOS, fallback everywhere else
     const hints = new Map();
     hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
     hints.set(_DecodeHintType.TRY_HARDER, true);
@@ -1505,9 +1528,9 @@ async function startScanning() {
       state.controls = await state.reader.decodeFromConstraints(
         { audio: false, video: videoConstraints }, el.video, onResult);
     } catch {
-      // Last-resort fallback: no resolution constraint, just back camera
+      // Last-resort fallback: minimal constraints, just back camera
       state.controls = await state.reader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 } } }, el.video, onResult);
+        { audio: false, video: { facingMode: { ideal: "environment" } } }, el.video, onResult);
     }
 
     await setupTorch();
