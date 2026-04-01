@@ -412,6 +412,12 @@
           });
           // Refresh the list behind the modal
           loadPhotos();
+          // Auto-close modal after a brief delay so reviewer sees the confirmation
+          setTimeout(() => {
+            document.getElementById("photoModal").style.display = "none";
+            _currentPhotoId = null;
+            _currentPhotoB64 = null;
+          }, 1200);
         } else {
           const errData = await resp.json().catch(() => ({}));
           resultEl.className = "review-result error";

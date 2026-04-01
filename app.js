@@ -1409,11 +1409,20 @@ function _getDetectorImpl() {
 }
 
 async function startNativeScanning(stream) {
+  // On mobile, skip native BarcodeDetector — it claims to support formats but
+  // often fails to actually detect barcodes on many Android phones and iOS browsers.
+  // ZXing with TRY_HARDER is far more reliable.
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isMobile) return false;
+
   const DetectorImpl = _getDetectorImpl();
-  if (!DetectorImpl) return false;   // polyfill failed to load — use ZXing
-  const supported = await DetectorImpl.getSupportedFormats();
+  if (!DetectorImpl) return false;
+
+  let supported;
+  try { supported = await DetectorImpl.getSupportedFormats(); }
+  catch { return false; }
   const formats = NATIVE_FORMATS.filter(f => supported.includes(f));
-  if (!formats.length) return false;              // fallback to ZXing
+  if (!formats.length) return false;
 
   const detector = new DetectorImpl({ formats });
   state._nativeDetector = detector;
@@ -1424,7 +1433,7 @@ async function startNativeScanning(stream) {
   let running = true;
   state._nativeScanStop = () => { running = false; };
 
-  const SCAN_INTERVAL_MS = 50; // ~20fps — faster detection on mobile
+  const SCAN_INTERVAL_MS = 60;
   const tick = async () => {
     if (!running) return;
     try {
@@ -1487,12 +1496,12 @@ async function startScanning() {
           ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
           : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } });
 
-    // ── iOS: manual decode loop ──────────────────────────────────────────────
-    // ZXing's decodeFromConstraints manages its own stream internally with async
-    // callbacks that silently break on iOS Safari. Instead: get the stream
-    // ourselves, attach it to the video, then call decodeFromCanvas() in a tight
-    // loop — synchronous per-frame, full control, proven to work on iOS.
-    if (isIOS) {
+    // ── Mobile (iOS + Android): manual ZXing decode loop ──────────────────
+    // decodeFromConstraints manages its own stream internally and silently
+    // breaks on iOS Safari, Chrome WKWebView, and many Android browsers.
+    // Manual loop: we own the stream, draw frames to canvas, decode with ZXing.
+    // Proven most reliable across all mobile browsers.
+    if (isMobile) {
       const hints = new Map();
       hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
       hints.set(_DecodeHintType.TRY_HARDER, true);
@@ -1511,9 +1520,15 @@ async function startScanning() {
       el.video.muted = true;
       await el.video.play();
 
-      // Offscreen canvas for frame capture
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      // Get actual video dimensions from the track (Chrome WKWebView may report
+      // videoWidth/videoHeight as 0 on the element, but track settings are reliable)
+      const track = stream.getVideoTracks()[0];
+      const settings = track?.getSettings?.() || {};
+      const trackW = settings.width || 0;
+      const trackH = settings.height || 0;
+
+      const aCanvas = document.createElement("canvas");
+      const aCtx = aCanvas.getContext("2d", { willReadFrequently: true });
       let running = true;
 
       state._nativeScanStop = () => {
@@ -1522,41 +1537,32 @@ async function startScanning() {
         el.video.srcObject = null;
       };
 
-      const FRAME_MS = 50; // ~20fps — faster detection
-      // Use a center-cropped canvas for faster decode (barcodes are usually centered)
-      const cropCanvas = document.createElement("canvas");
-      const cropCtx = cropCanvas.getContext("2d", { willReadFrequently: true });
+      const FRAME_MS = 60;
       const tick = () => {
         if (!running) return;
         try {
-          if (el.video.readyState >= 2 && el.video.videoWidth > 0) {
-            const vw = el.video.videoWidth, vh = el.video.videoHeight;
-            // Crop center 60% width, 40% height — where barcodes usually are
-            const cw = Math.round(vw * 0.6), ch = Math.round(vh * 0.4);
-            const cx = Math.round((vw - cw) / 2), cy = Math.round((vh - ch) / 2);
-            if (cropCanvas.width !== cw) { cropCanvas.width = cw; cropCanvas.height = ch; }
-            cropCtx.drawImage(el.video, cx, cy, cw, ch, 0, 0, cw, ch);
-            const result = state.reader.decodeFromCanvas(cropCanvas);
-            if (result) { onDecodedText(result.getText()); }
-            else {
-              // Fallback: try full frame every other tick for off-center barcodes
-              if (canvas.width !== vw) { canvas.width = vw; canvas.height = vh; }
-              ctx.drawImage(el.video, 0, 0);
-              const r2 = state.reader.decodeFromCanvas(canvas);
-              if (r2) onDecodedText(r2.getText());
-            }
+          if (el.video.readyState >= 2) {
+            // Use video element dimensions, fall back to track settings, fall back to defaults
+            const vw = el.video.videoWidth || trackW || 640;
+            const vh = el.video.videoHeight || trackH || 480;
+            if (aCanvas.width !== vw) { aCanvas.width = vw; aCanvas.height = vh; }
+            aCtx.drawImage(el.video, 0, 0, vw, vh);
+            const result = state.reader.decodeFromCanvas(aCanvas);
+            if (result) onDecodedText(result.getText());
           }
-        } catch { /* NotFoundException on frames with no barcode — expected */ }
-        if (running) setTimeout(tick, FRAME_MS);
+        } catch { /* NotFoundException — expected */ }
+        if (running) requestAnimationFrame(() => setTimeout(tick, FRAME_MS));
       };
-      setTimeout(tick, 200); // reduced delay — video produces frames quickly
+      // Give Chrome WKWebView extra time to initialize camera stream
+      const isChromeIOS = /CriOS/i.test(navigator.userAgent);
+      setTimeout(tick, isChromeIOS ? 500 : 250);
 
       await setupTorch();
       el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
       return;
     }
 
-    // ── Non-iOS: native BarcodeDetector → ZXing fallback ────────────────────
+    // ── Desktop: native BarcodeDetector → ZXing fallback ─────────────────────
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
       const ok = await startNativeScanning(stream);
@@ -1568,7 +1574,7 @@ async function startScanning() {
       stream.getTracks().forEach(t => t.stop());
     } catch { /* BarcodeDetector unavailable — fall through to ZXing */ }
 
-    // ZXing decodeFromConstraints fallback (non-iOS)
+    // ZXing decodeFromConstraints fallback (desktop)
     const hints = new Map();
     hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
     hints.set(_DecodeHintType.TRY_HARDER, true);
@@ -1805,16 +1811,15 @@ function bindEvents() {
     el.scanStatus && (el.scanStatus.textContent = "Camera stopped.");
   });
 
-  // New scan
+  // New scan — restart camera scanner directly
   el.newScanBtn.addEventListener("click", () => {
     clearMessage();
     hideResult();
     setLoading(false);
     hide(el.newScanBtn);
-    show(el.scanTriggerArea);
     el.manualInput.value = "";
     updateManualState();
-    el.manualInput.focus();
+    startScanning();
   });
 
   // Torch
@@ -1890,15 +1895,14 @@ function bindEvents() {
   });
   el.missingSubmitBtn?.addEventListener("click", handleMissingSubmit);
 
-  // Not found - try another
+  // Not found - try another — restart camera scanner directly
   document.getElementById("tryAnotherBtn")?.addEventListener("click", () => {
     clearMessage();
     hideResult();
     hide(el.newScanBtn);
-    show(el.scanTriggerArea);
     el.manualInput.value = "";
     updateManualState();
-    el.manualInput.focus();
+    startScanning();
   });
 
   // Close modals on backdrop click
