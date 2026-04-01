@@ -273,11 +273,12 @@ function showShareToast(msg, ms = 3000) {
   }, ms);
 }
 
-async function handleShare(barcode, status, productName, brand, reasons) {
+async function handleShare(barcode, status, productName, brand, reasons, explain) {
   return _handleShare(barcode, status, productName, brand, reasons, {
     statusMeta: STATUS_META,
     profileId: getActiveProfile(),
     onToast: showShareToast,
+    explain: explain || "",
   });
 }
 
@@ -988,6 +989,7 @@ function renderResult(data) {
     el.shareBtn.dataset.name     = data.product_name || "";
     el.shareBtn.dataset.brand    = data.brand || "";
     el.shareBtn.dataset.reasons  = JSON.stringify(data.reasons || []);
+    el.shareBtn.dataset.explain  = data.explain || "";
     show(el.shareBtn);
   }
 
@@ -1410,7 +1412,7 @@ async function startNativeScanning(stream) {
   let running = true;
   state._nativeScanStop = () => { running = false; };
 
-  const SCAN_INTERVAL_MS = 150; // ~7fps — saves CPU/battery vs 60fps rAF
+  const SCAN_INTERVAL_MS = 80; // ~12fps — fast enough for reliable detection on mobile
   const tick = async () => {
     if (!running) return;
     try {
@@ -1457,10 +1459,16 @@ async function startScanning() {
   state.scanLocked = false;
 
   try {
+    // Use lower resolution on mobile — 1080p is too heavy for mobile browser barcode decoding.
+    // 720p gives fast frame processing while still being sharp enough for all barcode types.
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const idealW = isMobile ? 1280 : 1920;
+    const idealH = isMobile ? 720  : 1080;
+
     const deviceId = await pickBackCamera();
     const videoConstraints = deviceId
-      ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } }
-      : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: 1920 }, height: { ideal: 1080 } };
+      ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
+      : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } };
 
     // Try BarcodeDetector first (native or WASM polyfill — has UPC-E support)
     try {
@@ -1497,8 +1505,9 @@ async function startScanning() {
       state.controls = await state.reader.decodeFromConstraints(
         { audio: false, video: videoConstraints }, el.video, onResult);
     } catch {
+      // Last-resort fallback: no resolution constraint, just back camera
       state.controls = await state.reader.decodeFromConstraints(
-        { audio: false, video: { facingMode: { ideal: "environment" } } }, el.video, onResult);
+        { audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: 1280, min: 640 }, height: { ideal: 720, min: 480 } } }, el.video, onResult);
     }
 
     await setupTorch();
@@ -1755,8 +1764,8 @@ function bindEvents() {
 
   // Share button
   el.shareBtn?.addEventListener("click", () => {
-    const { barcode, status, name, brand, reasons } = el.shareBtn.dataset;
-    if (barcode) handleShare(barcode, status, name, brand, JSON.parse(reasons || "[]"));
+    const { barcode, status, name, brand, reasons, explain } = el.shareBtn.dataset;
+    if (barcode) handleShare(barcode, status, name, brand, JSON.parse(reasons || "[]"), explain);
   });
 
   // Not found - report missing
