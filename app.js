@@ -1471,10 +1471,6 @@ async function startScanning() {
   state.scanLocked = false;
 
   try {
-    // iOS Safari does NOT support the native BarcodeDetector API.
-    // The WASM polyfill (barcode-detector@2) claims support via getSupportedFormats()
-    // but silently returns empty arrays from detect() on iOS — causing the "camera live
-    // but nothing detected" bug. On iOS, go directly to ZXing which actually works.
     const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const isMobile = isIOS || /Mobi|Android/i.test(navigator.userAgent);
     const idealW = isMobile ? 1280 : 1920;
@@ -1482,7 +1478,7 @@ async function startScanning() {
 
     const deviceId = await pickBackCamera();
 
-    // iOS doesn't support focusMode constraint — omit it to avoid unexpected behavior
+    // iOS doesn't support focusMode constraint
     const videoConstraints = isIOS
       ? (deviceId
           ? { deviceId: { exact: deviceId }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
@@ -1491,44 +1487,86 @@ async function startScanning() {
           ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
           : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } });
 
-    // Try native BarcodeDetector on non-iOS platforms only (polyfill is unreliable on iOS)
-    if (!isIOS) {
+    // ── iOS: manual decode loop ──────────────────────────────────────────────
+    // ZXing's decodeFromConstraints manages its own stream internally with async
+    // callbacks that silently break on iOS Safari. Instead: get the stream
+    // ourselves, attach it to the video, then call decodeFromCanvas() in a tight
+    // loop — synchronous per-frame, full control, proven to work on iOS.
+    if (isIOS) {
+      const hints = new Map();
+      hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
+      hints.set(_DecodeHintType.TRY_HARDER, true);
+      state.reader = new _BrowserMultiFormatReader(hints, 50);
+
+      // Try preferred constraints first, then minimal fallback
+      let stream;
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
-        const ok = await startNativeScanning(stream);
-        if (ok) {
-          await setupTorch();
-          el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
-          return;
-        }
-        // Detector didn't support any formats — stop stream, fall through to ZXing
-        stream.getTracks().forEach(t => t.stop());
-      } catch (detErr) {
-        // BarcodeDetector unavailable — fall through to ZXing
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" } } });
       }
+
+      el.video.srcObject = stream;
+      el.video.setAttribute("playsinline", "");
+      el.video.muted = true;
+      await el.video.play();
+
+      // Offscreen canvas for frame capture
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      let running = true;
+
+      state._nativeScanStop = () => {
+        running = false;
+        stream.getTracks().forEach(t => t.stop());
+        el.video.srcObject = null;
+      };
+
+      const FRAME_MS = 80; // ~12fps — fast enough for reliable detection
+      const tick = () => {
+        if (!running) return;
+        try {
+          if (el.video.readyState >= 2 && el.video.videoWidth > 0) {
+            if (canvas.width !== el.video.videoWidth) {
+              canvas.width  = el.video.videoWidth;
+              canvas.height = el.video.videoHeight;
+            }
+            ctx.drawImage(el.video, 0, 0);
+            const result = state.reader.decodeFromCanvas(canvas);
+            if (result) onDecodedText(result.getText());
+          }
+        } catch { /* NotFoundException on frames with no barcode — expected */ }
+        if (running) setTimeout(tick, FRAME_MS);
+      };
+      setTimeout(tick, 400); // small delay so video has time to produce frames
+
+      await setupTorch();
+      el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+      return;
     }
 
-    // ZXing: primary scanner on iOS, fallback everywhere else
+    // ── Non-iOS: native BarcodeDetector → ZXing fallback ────────────────────
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
+      const ok = await startNativeScanning(stream);
+      if (ok) {
+        await setupTorch();
+        el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+        return;
+      }
+      stream.getTracks().forEach(t => t.stop());
+    } catch { /* BarcodeDetector unavailable — fall through to ZXing */ }
+
+    // ZXing decodeFromConstraints fallback (non-iOS)
     const hints = new Map();
     hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
     hints.set(_DecodeHintType.TRY_HARDER, true);
-
-    state.reader = new _BrowserMultiFormatReader(hints, {
-      delayBetweenScanAttempts: 50,
-      delayBetweenScanSuccess: 600,
-    });
-
-    const onResult = r => {
-      if (r) {
-        onDecodedText(r.getText());
-      }
-    };
-
+    state.reader = new _BrowserMultiFormatReader(hints, 50);
+    const onResult = (r) => { if (r) onDecodedText(r.getText()); };
     try {
       state.controls = await state.reader.decodeFromConstraints(
         { audio: false, video: videoConstraints }, el.video, onResult);
     } catch {
-      // Last-resort fallback: minimal constraints, just back camera
       state.controls = await state.reader.decodeFromConstraints(
         { audio: false, video: { facingMode: { ideal: "environment" } } }, el.video, onResult);
     }
