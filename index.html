@@ -415,13 +415,20 @@
           </button>
         </div>
 
-        <!-- Step 1: Barcode confirm + photo capture -->
         <div id="missingStep1" class="missing-step">
-          <p class="missing-intro">Flip the package over and photograph the <strong>ingredient list</strong>. We'll read it automatically.</p>
+          <!-- Barcode chip -->
+          <div class="missing-barcode-chip" id="missingBarcodeChip">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="2" height="18"/><rect x="7" y="3" width="1" height="18"/><rect x="10" y="3" width="3" height="18"/><rect x="15" y="3" width="1" height="18"/><rect x="18" y="3" width="3" height="18"/></svg>
+            <span id="missingBarcodeDisplay"></span>
+          </div>
+          <!-- Hidden input keeps value for form submission -->
+          <input type="hidden" id="missingBarcode" />
 
+          <p class="missing-intro">Photograph the <strong>ingredient list</strong> on the back of the package.</p>
+
+          <!-- Camera / preview area -->
           <div id="missingCameraArea" class="missing-camera-area">
             <video id="missingVideo" class="missing-video" autoplay playsinline muted></video>
-            <!-- Ingredient-list guide overlay (visible on live camera feed) -->
             <div class="ingredient-guide-overlay" aria-hidden="true">
               <div class="ingredient-guide">
                 <span class="corner tl"></span>
@@ -437,36 +444,34 @@
             <canvas id="missingCanvas" class="hidden"></canvas>
             <div id="missingPreview" class="missing-preview hidden">
               <img id="missingPreviewImg" alt="Ingredient label photo" />
-              <button type="button" id="missingRetakeBtn" class="btn-secondary btn-sm">Retake</button>
-            </div>
-            <div class="missing-camera-controls">
-              <button type="button" id="missingCaptureBtn" class="btn-primary">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
-                Capture
-              </button>
-              <span class="or-divider">or</span>
-              <label class="btn-upload" for="missingFileInput">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
-                Upload photo
-              </label>
-              <input type="file" id="missingFileInput" accept="image/*" capture="environment" class="hidden" />
             </div>
           </div>
 
+          <!-- Controls below camera — two states -->
+          <div id="missingCaptureControls" class="missing-actions">
+            <button type="button" id="missingCaptureBtn" class="btn-capture-round" aria-label="Take photo">
+              <span class="capture-ring"><span class="capture-dot"></span></span>
+            </button>
+            <label class="missing-upload-link" for="missingFileInput">
+              or <span class="underline-text">choose from gallery</span>
+            </label>
+            <input type="file" id="missingFileInput" accept="image/*" capture="environment" class="hidden" />
+          </div>
+
+          <div id="missingReviewControls" class="missing-actions hidden">
+            <button type="button" id="missingRetakeBtn" class="btn btn-secondary">Retake</button>
+            <button type="button" id="missingSubmitBtn" class="btn btn-primary">
+              <span id="missingSubmitLabel">Submit Photo</span>
+            </button>
+          </div>
+
+          <!-- Optional product name -->
           <div class="missing-meta">
-            <label for="missingBarcode" class="sr-only">Barcode</label>
-            <input type="text" id="missingBarcode" class="form-input" placeholder="Barcode (auto-filled)" readonly aria-label="Barcode" />
             <label for="missingName" class="sr-only">Product name</label>
             <input type="text" id="missingName" class="form-input" placeholder="Product name (optional)" maxlength="300" autocomplete="off" aria-label="Product name" />
           </div>
 
           <div id="missingFormMsg" class="form-msg hidden" aria-live="polite"></div>
-
-          <div class="modal-actions">
-            <button type="button" id="missingSubmitBtn" class="btn btn-primary" disabled>
-              <span id="missingSubmitLabel">Capture a photo first</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>

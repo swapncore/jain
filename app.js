@@ -134,22 +134,25 @@ const el = {
   clearHistoryBtn:   document.getElementById("clearHistoryBtn"),
 
   // Modals
-  missingModal:      document.getElementById("missingModal"),
-  missingStep1:      document.getElementById("missingStep1"),
-  missingCameraArea: document.getElementById("missingCameraArea"),
-  missingVideo:      document.getElementById("missingVideo"),
-  missingCanvas:     document.getElementById("missingCanvas"),
-  missingPreview:    document.getElementById("missingPreview"),
-  missingPreviewImg: document.getElementById("missingPreviewImg"),
-  missingCaptureBtn: document.getElementById("missingCaptureBtn"),
-  missingRetakeBtn:  document.getElementById("missingRetakeBtn"),
-  missingFileInput:  document.getElementById("missingFileInput"),
-  missingBarcode:    document.getElementById("missingBarcode"),
-  missingName:       document.getElementById("missingName"),
-  missingFormMsg:    document.getElementById("missingFormMsg"),
-  missingSubmitBtn:  document.getElementById("missingSubmitBtn"),
-  missingSubmitLabel:document.getElementById("missingSubmitLabel"),
-  missingCloseBtn:   document.getElementById("missingCloseBtn"),
+  missingModal:          document.getElementById("missingModal"),
+  missingStep1:          document.getElementById("missingStep1"),
+  missingCameraArea:     document.getElementById("missingCameraArea"),
+  missingVideo:          document.getElementById("missingVideo"),
+  missingCanvas:         document.getElementById("missingCanvas"),
+  missingPreview:        document.getElementById("missingPreview"),
+  missingPreviewImg:     document.getElementById("missingPreviewImg"),
+  missingCaptureBtn:     document.getElementById("missingCaptureBtn"),
+  missingRetakeBtn:      document.getElementById("missingRetakeBtn"),
+  missingFileInput:      document.getElementById("missingFileInput"),
+  missingCaptureControls:document.getElementById("missingCaptureControls"),
+  missingReviewControls: document.getElementById("missingReviewControls"),
+  missingBarcode:        document.getElementById("missingBarcode"),
+  missingBarcodeDisplay: document.getElementById("missingBarcodeDisplay"),
+  missingName:           document.getElementById("missingName"),
+  missingFormMsg:        document.getElementById("missingFormMsg"),
+  missingSubmitBtn:      document.getElementById("missingSubmitBtn"),
+  missingSubmitLabel:    document.getElementById("missingSubmitLabel"),
+  missingCloseBtn:       document.getElementById("missingCloseBtn"),
 
   // Auth nav
   signInBtn:         document.getElementById("signInBtn"),
@@ -1409,11 +1412,12 @@ function _getDetectorImpl() {
 }
 
 async function startNativeScanning(stream) {
-  // On mobile, skip native BarcodeDetector — it claims to support formats but
-  // often fails to actually detect barcodes on many Android phones and iOS browsers.
-  // ZXing with TRY_HARDER is far more reliable.
-  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (isMobile) return false;
+  // On Android, skip native BarcodeDetector — it claims to support formats but
+  // often fails to actually detect barcodes on many Android phones.
+  // ZXing with TRY_HARDER is far more reliable on Android.
+  // iOS is allowed: both Safari and Chrome use WebKit which has a reliable implementation.
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  if (isAndroid) return false;
 
   const DetectorImpl = _getDetectorImpl();
   if (!DetectorImpl) return false;
@@ -1496,17 +1500,9 @@ async function startScanning() {
           ? { deviceId: { exact: deviceId }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } }
           : { facingMode: { ideal: "environment" }, focusMode: { ideal: "continuous" }, width: { ideal: idealW, min: 640 }, height: { ideal: idealH, min: 480 } });
 
-    // ── Mobile (iOS + Android): manual ZXing decode loop ──────────────────
-    // decodeFromConstraints manages its own stream internally and silently
-    // breaks on iOS Safari, Chrome WKWebView, and many Android browsers.
-    // Manual loop: we own the stream, draw frames to canvas, decode with ZXing.
-    // Proven most reliable across all mobile browsers.
-    if (isMobile) {
-      const hints = new Map();
-      hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
-      hints.set(_DecodeHintType.TRY_HARDER, true);
-      state.reader = new _BrowserMultiFormatReader(hints, 50);
+    // ── Mobile (iOS + Android) ─────────────────────────────────────────────
 
+    if (isMobile) {
       // Try preferred constraints first, then minimal fallback
       let stream;
       try {
@@ -1519,6 +1515,51 @@ async function startScanning() {
       el.video.setAttribute("playsinline", "");
       el.video.muted = true;
       await el.video.play();
+
+      // ── iOS: try native BarcodeDetector first ──
+      // Safari and Chrome on iOS both use WebKit. BarcodeDetector.detect(video)
+      // works directly with the video element — no canvas needed — which avoids
+      // the blank-frame issue Chrome's WKWebView has with canvas.drawImage(video).
+      if (isIOS) {
+        const DetectorImpl = _getDetectorImpl();
+        if (DetectorImpl) {
+          try {
+            const supported = await DetectorImpl.getSupportedFormats();
+            const formats = NATIVE_FORMATS.filter(f => supported.includes(f));
+            if (formats.length) {
+              const detector = new DetectorImpl({ formats });
+              state._nativeDetector = detector;
+              let running = true;
+              state._nativeScanStop = () => {
+                running = false;
+                stream.getTracks().forEach(t => t.stop());
+                el.video.srcObject = null;
+              };
+              const tick = async () => {
+                if (!running) return;
+                try {
+                  const barcodes = await detector.detect(el.video);
+                  for (const bc of barcodes) onDecodedText(bc.rawValue);
+                } catch { /* frame not ready */ }
+                if (running) setTimeout(tick, 60);
+              };
+              setTimeout(tick, 300);
+              await setupTorch();
+              el.scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+              return;
+            }
+          } catch { /* native unavailable — fall through to ZXing */ }
+        }
+      }
+
+      // ── ZXing manual canvas decode loop (Android, or older iOS without BarcodeDetector) ──
+      // decodeFromConstraints manages its own stream internally and silently
+      // breaks on iOS Safari, Chrome WKWebView, and many Android browsers.
+      // Manual loop: we own the stream, draw frames to canvas, decode with ZXing.
+      const hints = new Map();
+      hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
+      hints.set(_DecodeHintType.TRY_HARDER, true);
+      state.reader = new _BrowserMultiFormatReader(hints, 50);
 
       // Get actual video dimensions from the track (Chrome WKWebView may report
       // videoWidth/videoHeight as 0 on the element, but track settings are reliable)
@@ -1715,12 +1756,10 @@ function setMissingPhoto(dataUrl) {
   state.missingPhotoData = dataUrl;
   if (el.missingPreviewImg) el.missingPreviewImg.src = dataUrl;
   show(el.missingPreview);
-  hide(el.missingVideo);
-  // Hide ingredient guide overlay when showing captured photo
-  const guideOverlay = document.querySelector(".ingredient-guide-overlay");
-  if (guideOverlay) guideOverlay.style.display = "none";
+  // Switch to review controls (retake + submit)
+  hide(el.missingCaptureControls);
+  show(el.missingReviewControls);
   stopMissingCamera();
-  // Enable submit
   if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = false;
   if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Submit Photo";
 }
@@ -1847,12 +1886,14 @@ function bindEvents() {
 
   // Not found - report missing
   document.getElementById("reportMissingBtn")?.addEventListener("click", () => {
-    if (el.missingBarcode) el.missingBarcode.value = state.currentBarcode || "";
+    const bc = state.currentBarcode || "";
+    if (el.missingBarcode) el.missingBarcode.value = bc;
+    if (el.missingBarcodeDisplay) el.missingBarcodeDisplay.textContent = bc;
     if (el.missingName) el.missingName.value = "";
     state.missingPhotoData = null;
-    if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
-    if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Capture a photo first";
     hide(el.missingPreview);
+    show(el.missingCaptureControls);
+    hide(el.missingReviewControls);
     clearFormMsg(el.missingModal);
     startMissingCamera();
     openModal(el.missingModal);
@@ -1863,33 +1904,30 @@ function bindEvents() {
   el.missingRetakeBtn?.addEventListener("click", () => {
     state.missingPhotoData = null;
     hide(el.missingPreview);
-    // Restore ingredient guide overlay for retake
-    const guideOverlay = document.querySelector(".ingredient-guide-overlay");
-    if (guideOverlay) guideOverlay.style.display = "";
+    show(el.missingCaptureControls);
+    hide(el.missingReviewControls);
     startMissingCamera();
-    if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
-    if (el.missingSubmitLabel) el.missingSubmitLabel.textContent = "Capture a photo first";
   });
   el.missingFileInput?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const MAX_FILE_SIZE = 1.5 * 1024 * 1024; // 1.5 MB (must match backend limit)
     if (file.size > MAX_FILE_SIZE) {
-      showMessage({ message: "Image too large — please choose a file under 1.5 MB.", variant: "warn" });
+      showFormMsg(el.missingModal, "Image too large — please choose a file under 1.5 MB.", "error");
       e.target.value = "";
       return;
     }
     const reader = new FileReader();
     reader.onload = (ev) => setMissingPhoto(ev.target.result);
     reader.readAsDataURL(file);
-    // Reset so re-selecting the same file triggers change event
     e.target.value = "";
   });
   el.missingCloseBtn?.addEventListener("click", () => {
     stopMissingCamera();
     state.missingPhotoData = null;
     hide(el.missingPreview);
-    if (el.missingSubmitBtn) el.missingSubmitBtn.disabled = true;
+    show(el.missingCaptureControls);
+    hide(el.missingReviewControls);
     clearFormMsg(el.missingModal);
     closeModal(el.missingModal);
   });
