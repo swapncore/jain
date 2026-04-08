@@ -673,18 +673,13 @@ body {
 /* ── Photo review modal ────────────────────────────────────────── */
 .modal-photo-review {
   max-width: 900px;
-  max-height: 90vh;
   padding: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
 .photo-review-layout {
   display: flex;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 400px;
 }
 
 .photo-review-image {
@@ -1525,3 +1520,190 @@ body {
     width: 100%;
   }
 }
+
+/* ============================================================
+   AI REVIEW TAB
+   ============================================================ */
+
+/* Sidebar queue badge */
+.ai-queue-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #ea580c;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* Header strip */
+.ai-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.ai-review-summary {
+  flex: 1;
+}
+.ai-review-stats {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.ai-stat {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  min-width: 110px;
+}
+.ai-stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  font-weight: 600;
+}
+.ai-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+/* Per-item card */
+.ai-review-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.ai-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.ai-card-badges {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.ai-conf-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ai-conf-high { background: #dcfce7; color: #15803d; }
+.ai-conf-med  { background: #fef3c7; color: #92400e; }
+.ai-conf-low  { background: #fee2e2; color: #991b1b; }
+.ai-reviewer-chip {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.ai-reasoning {
+  background: #f8fafc;
+  border-left: 3px solid #0ea5e9;
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 0.88rem;
+  color: #334155;
+  border-radius: 4px;
+}
+.ai-sources {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 6px 0;
+}
+.ai-source-pill {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-right: 4px;
+  font-family: monospace;
+  font-size: 0.75rem;
+}
+.ai-draft-ingredients {
+  margin: 8px 0;
+}
+.ai-draft-ingredients summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #475569;
+  font-weight: 600;
+  padding: 4px 0;
+}
+.ai-ingredients-text {
+  font-family: monospace;
+  font-size: 0.82rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ai-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* AI draft banner inside the photo review modal */
+.ai-modal-banner {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-left: 3px solid #0ea5e9;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  color: #1e40af;
+}
+.ai-modal-banner strong { color: #1e3a5f; }
+
+/* Run history list */
+.ai-runs-section summary { color: #475569; }
+.ai-run-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 6px;
+}
+.ai-run-counts {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85rem;
+  color: #475569;
+}
+.ai-run-counts span { font-variant-numeric: tabular-nums; }
+

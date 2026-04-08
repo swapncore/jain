@@ -2,6 +2,10 @@
 (function () {
   "use strict";
 
+  // API_BASE auto-detects which backend to hit:
+  //   - localhost              → local dev FastAPI on :8000
+  //   - *.railway.app           → served from the same Railway host
+  //   - everywhere else         → hardcoded Railway URL (e.g. jain.swapncore.com/dashboard/)
   const API_BASE = window.location.hostname === "localhost"
     ? "http://localhost:8000"
     : window.location.origin.includes("railway.app")
@@ -74,6 +78,7 @@
     info.textContent = user.display_name || "Admin";
     if (user.avatar_url) info.innerHTML = `<img src="${esc(user.avatar_url)}" alt=""> ${esc(user.display_name || "Admin")}`;
     loadMetrics();
+    loadAiRuns();  // populate the sidebar AI queue badge
   }
 
   // ── Tab navigation ─────────────────────────────────────────────────────
@@ -100,6 +105,7 @@
     if (tab === "users") loadUsers();
     if (tab === "reports") loadReports();
     if (tab === "recent-scans") loadRecentScans();
+    if (tab === "ai-review") loadAiReview();
   }
 
   document.querySelectorAll(".nav-link").forEach(link => {
@@ -287,7 +293,14 @@
 
   let _currentPhotoId = null;
   let _currentPhotoB64 = null;
+  // Tracked for the Open Food Facts auto-fill button (sends the barcode to
+  // world.openfoodfacts.org and populates the form with what it finds).
   let _currentPhotoBarcode = null;
+  // Whether the modal was opened on a submission that the AI agent has already
+  // drafted. When true, the "Approve & Add" button will route to /confirm_ai
+  // (which promotes reviewer_type from ai_queued to ai_assisted) instead of
+  // the regular admin_review_photo PATCH.
+  let _currentPhotoIsAiQueued = false;
 
   window.viewPhoto = async function (id) {
     let resp = await fetchWithAuth(`${API_BASE}/v1/dashboard/photos/${id}`);
@@ -297,6 +310,7 @@
     _currentPhotoId = id;
     _currentPhotoB64 = data.photo_b64 || "";
     _currentPhotoBarcode = data.barcode || null;
+    _currentPhotoIsAiQueued = (data.reviewer_type === "ai_queued");
 
     const modal = document.getElementById("photoModal");
     const img = document.getElementById("photoImage");
@@ -305,13 +319,25 @@
     const noteField = document.getElementById("reviewNote");
 
     img.src = _currentPhotoB64 ? `data:image/jpeg;base64,${_currentPhotoB64}` : "";
-    document.getElementById("photoReviewTitle").textContent = esc(data.product_name || "Unknown Product");
+    document.getElementById("photoReviewTitle").textContent = esc(data.product_name || data.ai_extracted_brand || "Unknown Product");
+
+    // Show AI metadata banner when this submission has been pre-processed
+    const hasAiDraft = !!(data.ai_extracted_ingredients || data.ai_reasoning || data.ai_confidence);
+    const aiBanner = hasAiDraft ? `
+      <div class="ai-modal-banner">
+        <strong>🤖 AI draft pre-filled</strong>
+        ${data.ai_confidence ? ` &middot; confidence: <span class="ai-conf-chip ai-conf-${(data.ai_confidence||'').toLowerCase()}">${esc(data.ai_confidence)}</span>` : ''}
+        ${data.ai_reasoning ? `<p style="margin:6px 0 0 0;font-size:0.85em;color:#475569;">${esc(data.ai_reasoning)}</p>` : ''}
+        <p style="margin:6px 0 0 0;font-size:0.8em;color:#64748b;">Ingredients below were extracted by the AI agent. Edit before approving if needed.</p>
+      </div>
+    ` : '';
 
     meta.innerHTML = `
+      ${aiBanner}
       <p><strong>Barcode:</strong> <span style="font-family:monospace;">${esc(data.barcode)}</span></p>
-      <p><strong>Product:</strong> ${esc(data.product_name || "N/A")}</p>
+      <p><strong>Product:</strong> ${esc(data.product_name || data.ai_extracted_brand || "N/A")}</p>
       <p><strong>Submitted:</strong> ${new Date(data.submitted_at).toLocaleString()}</p>
-      <p><strong>Status:</strong> <span class="status-badge ${data.review_status}">${data.review_status}</span></p>
+      <p><strong>Status:</strong> <span class="status-badge ${data.review_status}">${data.review_status}</span> ${data.reviewer_type && data.reviewer_type !== 'human' ? `<span class="ai-reviewer-chip">${esc(data.reviewer_type)}</span>` : ''}</p>
       ${data.submitter_email ? `<p><strong>Email:</strong> ${esc(data.submitter_email)}</p>` : ''}
       ${data.reviewer_note ? `<p><strong>Note:</strong> ${esc(data.reviewer_note)}</p>` : ""}
     `;
@@ -322,13 +348,14 @@
     const verdictResultEl = document.getElementById("verdictResult");
     if (verdictResultEl) verdictResultEl.style.display = "none";
 
-    // Pre-fill ingredient entry fields from submission data
+    // Pre-fill ingredient entry fields from submission data, preferring AI draft
+    // values when present so reviewers don't have to retype anything.
     const productNameInput = document.getElementById("reviewProductName");
     const brandInput = document.getElementById("reviewBrand");
     const ingredientsInput = document.getElementById("reviewIngredients");
     if (productNameInput) productNameInput.value = data.product_name || "";
-    if (brandInput) brandInput.value = data.brand || "";
-    if (ingredientsInput) ingredientsInput.value = "";
+    if (brandInput) brandInput.value = data.ai_extracted_brand || data.brand || "";
+    if (ingredientsInput) ingredientsInput.value = data.ai_extracted_ingredients || "";
 
     document.querySelectorAll(".review-btn").forEach(b => {
       b.classList.remove("active-status");
@@ -348,11 +375,15 @@
       const resultEl = document.getElementById("reviewResult");
       const verdictResultEl = document.getElementById("verdictResult");
 
-      // Build payload — include ingredient data when approving
+      // Build payload — include ingredient data when approving.
+      // For AI-queued items the ingredients field is already pre-filled with
+      // the agent's extracted text; the reviewer can edit it before submitting.
+      // The /confirm_ai backend handler also falls back to ai_extracted_ingredients
+      // if the field is empty, so the only blocker is a fully-empty + non-AI item.
       const body = { status, note };
       if (status === "added") {
         const ingredients = (document.getElementById("reviewIngredients")?.value || "").trim();
-        if (!ingredients) {
+        if (!ingredients && !_currentPhotoIsAiQueued) {
           resultEl.className = "review-result error";
           resultEl.textContent = "Ingredients are required when approving. Please paste the ingredient list from the photo.";
           resultEl.style.display = "block";
@@ -361,22 +392,36 @@
         body.ingredients_text = ingredients;
         body.product_name = (document.getElementById("reviewProductName")?.value || "").trim();
         body.brand = (document.getElementById("reviewBrand")?.value || "").trim();
+        body.profile = document.getElementById("reviewProfile")?.value || "jain";
       }
 
       // Disable all buttons during request
       document.querySelectorAll(".review-btn").forEach(b => b.disabled = true);
 
       try {
-        let resp = await fetchWithAuth(`${API_BASE}/v1/dashboard/photos/${_currentPhotoId}`, {
-          method: "PATCH",
-          body: JSON.stringify(body),
-        });
-        if (!resp.ok) {
-          resp = await fetchWithAuth(`${API_BASE}/v1/admin/photos/${_currentPhotoId}`, {
-            method: "PATCH",
+        let resp;
+        if (_currentPhotoIsAiQueued) {
+          // AI-queued items go through confirm_ai so the row is promoted
+          // from reviewer_type='ai_queued' to 'ai_assisted'. The endpoint
+          // also falls back to ai_extracted_ingredients if the human left
+          // the field empty.
+          resp = await fetchWithAuth(`${API_BASE}/v1/admin/photos/${_currentPhotoId}/confirm_ai`, {
+            method: "POST",
             headers: { "Content-Type": "application/json", "X-Admin-Key": getAdminKey() },
             body: JSON.stringify(body),
           });
+        } else {
+          resp = await fetchWithAuth(`${API_BASE}/v1/dashboard/photos/${_currentPhotoId}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          });
+          if (!resp.ok) {
+            resp = await fetchWithAuth(`${API_BASE}/v1/admin/photos/${_currentPhotoId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json", "X-Admin-Key": getAdminKey() },
+              body: JSON.stringify(body),
+            });
+          }
         }
 
         if (resp.ok) {
@@ -411,13 +456,20 @@
             b.classList.remove("active-status");
             if (b.dataset.status === status) b.classList.add("active-status");
           });
-          // Refresh the list behind the modal
-          loadPhotos();
+          // Refresh whichever list is behind the modal
+          if (_currentPhotoIsAiQueued && typeof loadAiReview === 'function') {
+            loadAiReview();
+          } else {
+            loadPhotos();
+          }
+          loadAiRuns();
           // Auto-close modal after a brief delay so reviewer sees the confirmation
           setTimeout(() => {
             document.getElementById("photoModal").style.display = "none";
             _currentPhotoId = null;
             _currentPhotoB64 = null;
+            _currentPhotoBarcode = null;
+            _currentPhotoIsAiQueued = false;
           }, 1200);
         } else {
           const errData = await resp.json().catch(() => ({}));
@@ -481,11 +533,17 @@
     _currentPhotoId = null;
     _currentPhotoB64 = null;
     _currentPhotoBarcode = null;
+    _currentPhotoIsAiQueued = false;
   });
   document.getElementById("refreshPhotos")?.addEventListener("click", loadPhotos);
   document.getElementById("photoStatusFilter")?.addEventListener("change", loadPhotos);
 
   // ── Open Food Facts auto-fill ──────────────────────────────────────────────
+  // Live lookup against world.openfoodfacts.org to pre-fill the review form
+  // with product name, brand, and ingredients when the item is already in OFF.
+  // Complements the AI agent's draft — the reviewer can click this if the
+  // agent didn't have a chance to process this submission yet, or to
+  // cross-check what the agent extracted.
   document.getElementById("offLookupBtn")?.addEventListener("click", async () => {
     const barcode = _currentPhotoBarcode;
     const statusEl = document.getElementById("offLookupStatus");
@@ -535,6 +593,180 @@
       btn.textContent = "🔍 Auto-fill from Open Food Facts";
     }
   });
+
+  // ── AI Review Tab ──────────────────────────────────────────────────────
+  let _aiCurrentItems = [];
+
+  async function loadAiReview() {
+    const reviewerType = document.getElementById("aiFilterReviewerType")?.value || "ai_queued";
+    const listEl = document.getElementById("aiReviewList");
+    if (!listEl) return;
+    listEl.innerHTML = '<div class="loading"></div>';
+
+    // For ai_queued use the dedicated endpoint, otherwise fall back to /photos with filter
+    let url;
+    if (reviewerType === "ai_queued") {
+      url = `${API_BASE}/v1/admin/photos/ai_queue?limit=50`;
+    } else {
+      url = `${API_BASE}/v1/admin/photos?status=&limit=50&reviewer_type=${encodeURIComponent(reviewerType)}`;
+    }
+    try {
+      const resp = await fetchWithAuth(url);
+      if (!resp.ok) {
+        listEl.innerHTML = '<div class="info-box">Failed to load AI review queue.</div>';
+        return;
+      }
+      const data = await resp.json();
+      _aiCurrentItems = data.items || data.submissions || [];
+      const totalLabel = document.getElementById("aiQueueTotalLabel");
+      if (totalLabel) totalLabel.textContent = data.pending_total != null ? `${data.pending_total} total queued` : "";
+      renderAiReviewList(_aiCurrentItems);
+    } catch (e) {
+      console.error("loadAiReview failed", e);
+      listEl.innerHTML = '<div class="info-box">Connection error loading AI queue.</div>';
+    }
+
+    // Also refresh the run-summary stats
+    loadAiRuns();
+  }
+
+  function renderAiReviewList(items) {
+    const container = document.getElementById("aiReviewList");
+    if (!items.length) {
+      container.innerHTML = '<div class="info-box">No items in this category. The AI agent will populate this on its next run.</div>';
+      return;
+    }
+    container.innerHTML = items.map(p => {
+      const conf = (p.ai_confidence || "").toUpperCase();
+      const confClass = conf === "HIGH" ? "high" : conf === "MED" ? "med" : conf === "LOW" ? "low" : "";
+      const sources = p.ai_sources ? safeParseSources(p.ai_sources) : [];
+      const ingredientsPreview = (p.ai_extracted_ingredients || "").slice(0, 200);
+      const reasoning = (p.ai_reasoning || "").slice(0, 300);
+      return `
+        <div class="ai-review-card">
+          <div class="ai-card-head">
+            <div>
+              <strong>${esc(p.ai_extracted_brand || p.product_name || "Unknown")}</strong>
+              <div class="muted-text" style="font-size:0.85em;">
+                <span style="font-family:monospace;">${esc(p.barcode)}</span>
+                &middot; ${new Date(p.submitted_at).toLocaleString()}
+                ${p.submitter_email ? '&middot; ' + esc(p.submitter_email) : ''}
+              </div>
+            </div>
+            <div class="ai-card-badges">
+              <span class="ai-conf-chip ai-conf-${confClass}">${esc(conf || "?")}</span>
+              <span class="ai-reviewer-chip">${esc(p.reviewer_type || "unknown")}</span>
+            </div>
+          </div>
+          ${reasoning ? `<div class="ai-reasoning">${esc(reasoning)}${(p.ai_reasoning || "").length > 300 ? "…" : ""}</div>` : ""}
+          ${sources.length ? `<div class="ai-sources">Cross-checked: ${sources.map(s => `<span class="ai-source-pill">${esc(s)}</span>`).join("")}</div>` : ""}
+          ${ingredientsPreview ? `<details class="ai-draft-ingredients"><summary>Draft ingredients (click to expand)</summary><div class="ai-ingredients-text">${esc(p.ai_extracted_ingredients || "")}</div></details>` : ""}
+          <div class="ai-card-actions">
+            <button class="btn-primary btn-sm" onclick="confirmAiSubmission('${esc(p.id)}', 'added')">✓ Confirm &amp; Add</button>
+            <button class="btn-secondary btn-sm" onclick="confirmAiSubmission('${esc(p.id)}', 'rejected')">✗ Reject</button>
+            <button class="btn-view btn-sm" onclick="openAiOverride('${esc(p.id)}')">Override &amp; Edit</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function safeParseSources(raw) {
+    try {
+      if (Array.isArray(raw)) return raw;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+
+  window.confirmAiSubmission = async function(id, status) {
+    if (!confirm(`Confirm "${status}" for this submission? The submitter will be emailed automatically.`)) return;
+    try {
+      const resp = await fetchWithAuth(`${API_BASE}/v1/admin/photos/${id}/confirm_ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Key": getAdminKey() },
+        body: JSON.stringify({ status, note: "" }),
+      });
+      if (resp.ok) {
+        loadAiReview();
+      } else {
+        const err = await resp.json().catch(() => ({}));
+        alert(err.detail || err.message || err.error || "Failed to confirm.");
+      }
+    } catch (e) {
+      alert("Connection error.");
+    }
+  };
+
+  window.openAiOverride = async function(id) {
+    // viewPhoto() now reads ai_extracted_ingredients and ai_extracted_brand
+    // from the GET response and pre-fills the modal directly. It also sets
+    // _currentPhotoIsAiQueued so the review-button handler routes to
+    // /confirm_ai instead of the regular admin_review_photo PATCH.
+    await viewPhoto(id);
+  };
+
+  async function loadAiRuns() {
+    try {
+      const resp = await fetchWithAuth(`${API_BASE}/v1/admin/ai_runs?days=7&limit=20`);
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const runs = data.runs || [];
+      // Stats summary
+      const today = new Date(); today.setHours(0,0,0,0);
+      const todays = runs.filter(r => new Date(r.run_started_at) >= today);
+      const autoAdded = todays.reduce((s,r) => s + (r.auto_approved || 0), 0);
+      const autoRejected = todays.reduce((s,r) => s + (r.auto_rejected || 0), 0);
+      const queued = runs.reduce((s,r) => s + (r.queued_for_human || 0), 0);
+      setText("aiStatAutoAdded", autoAdded);
+      setText("aiStatAutoRejected", autoRejected);
+      setText("aiStatQueued", queued);
+      setText("aiStatLastRun", runs.length ? new Date(runs[0].run_started_at).toLocaleString() : "Never");
+      // Update the sidebar badge
+      const badge = document.getElementById("aiQueueBadge");
+      if (badge) {
+        if (queued > 0) {
+          badge.textContent = queued;
+          badge.style.display = "inline-block";
+        } else {
+          badge.style.display = "none";
+        }
+      }
+      // Render run list
+      const list = document.getElementById("aiRunsList");
+      if (list) {
+        if (!runs.length) {
+          list.innerHTML = '<div class="info-box">No agent runs in the last 7 days.</div>';
+        } else {
+          list.innerHTML = runs.map(r => `
+            <div class="ai-run-row">
+              <div>
+                <strong>${esc(r.ai_run_id)}</strong>
+                <div class="muted-text" style="font-size:0.85em;">${new Date(r.run_started_at).toLocaleString()}</div>
+              </div>
+              <div class="ai-run-counts">
+                <span title="Auto-approved">✓ ${r.auto_approved || 0}</span>
+                <span title="Auto-rejected">✗ ${r.auto_rejected || 0}</span>
+                <span title="Queued for human">⊙ ${r.queued_for_human || 0}</span>
+                <span title="Confirmed by human">⌘ ${r.confirmed_by_human || 0}</span>
+              </div>
+            </div>
+          `).join("");
+        }
+      }
+    } catch (e) { console.error("loadAiRuns failed", e); }
+  }
+
+  document.getElementById("aiRefreshBtn")?.addEventListener("click", loadAiReview);
+  document.getElementById("aiFilterReviewerType")?.addEventListener("change", loadAiReview);
+  document.getElementById("aiReviewHelpLink")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    alert("The AI Review Agent runs hourly via Claude Code. It pulls pending photos, OCRs the ingredients, cross-checks against Open Food Facts and FDC, and either auto-approves (high confidence + DB match) or queues for your 1-click review. See compliance_core/scripts/ai_review_agent_prompt.md for the full prompt and decision rules.");
+  });
+
+  // Poll the queue badge every 60s while the dashboard is open so the
+  // sidebar count stays fresh even if the user is on another tab.
+  setInterval(() => { loadAiRuns(); }, 60000);
 
   // ── Email Tab ──────────────────────────────────────────────────────────
   let _emailSubscribers = [];
@@ -795,7 +1027,6 @@
       _usersOffset += users.length;
       const total = data.total ?? _usersData.length;
       setText("usersCount", `${_usersData.length} of ${total} users`);
-      // Show/hide load more
       const loadMoreWrap = document.getElementById("usersLoadMore");
       if (loadMoreWrap) loadMoreWrap.style.display = _usersData.length < total ? "" : "none";
     } catch (e) {
@@ -1132,7 +1363,7 @@
   }
 
   function formatTimeAgo(ts) {
-    if (!ts) return "—";
+    if (!ts) return "\u2014";
     const d = new Date(ts);
     const now = new Date();
     const diffMs = now - d;
@@ -1152,19 +1383,19 @@
       : s.verdict_status === "ORANGE" ? "pending"
       : s.verdict_status === "YELLOW" ? "pending"
       : "prospect";
-    const location = [s.city, s.country].filter(Boolean).join(", ") || "—";
-    const userName = s.user_name || s.user_email || s.client_id || "—";
+    const location = [s.city, s.country].filter(Boolean).join(", ") || "\u2014";
+    const userName = s.user_name || s.user_email || s.client_id || "\u2014";
     return `<tr>
       <td title="${s.ts ? new Date(s.ts).toLocaleString() : ''}">${formatTimeAgo(s.ts)}</td>
       <td>${esc(userName)}</td>
       <td><strong>${esc(s.product_name || "Unknown")}</strong></td>
       <td>${esc(s.brand || "")}</td>
       <td style="font-family:monospace;font-size:12px;color:var(--muted);">${esc(s.barcode || "")}</td>
-      <td>${s.verdict_status ? `<span class="status-badge ${statusClass}" style="text-transform:none;">${s.verdict_status}</span>` : `<span class="status-badge prospect" style="text-transform:none;">${esc(s.outcome || "—")}</span>`}</td>
-      <td>${s.confidence ? esc(s.confidence) : "—"}</td>
+      <td>${s.verdict_status ? `<span class="status-badge ${statusClass}" style="text-transform:none;">${s.verdict_status}</span>` : `<span class="status-badge prospect" style="text-transform:none;">${esc(s.outcome || "\u2014")}</span>`}</td>
+      <td>${s.confidence ? esc(s.confidence) : "\u2014"}</td>
       <td>${esc(s.profile || "")}</td>
       <td>${esc(location)}</td>
-      <td>${s.response_ms != null ? s.response_ms + "ms" : "—"}</td>
+      <td>${s.response_ms != null ? s.response_ms + "ms" : "\u2014"}</td>
     </tr>`;
   }
 

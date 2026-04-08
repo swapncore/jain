@@ -26,6 +26,7 @@
       <li><a href="#" class="nav-link" data-tab="monetization"><span class="nav-icon">&#128176;</span> Monetization</a></li>
       <li><a href="#" class="nav-link" data-tab="users"><span class="nav-icon">&#128101;</span> Users</a></li>
       <li><a href="#" class="nav-link" data-tab="photos"><span class="nav-icon">&#128247;</span> Photo Submissions</a></li>
+      <li><a href="#" class="nav-link" data-tab="ai-review"><span class="nav-icon">&#129302;</span> AI Review <span class="ai-queue-badge" id="aiQueueBadge" style="display:none;"></span></a></li>
       <li><a href="#" class="nav-link" data-tab="reports"><span class="nav-icon">&#128196;</span> Reports</a></li>
       <li><a href="#" class="nav-link" data-tab="brands"><span class="nav-icon">&#127980;</span> Brands / Partners</a></li>
       <li><a href="#" class="nav-link" data-tab="placements"><span class="nav-icon">&#128204;</span> Ad Placements</a></li>
@@ -217,6 +218,13 @@
                     <label class="review-label" style="margin-top:8px;">Ingredients <span style="color:var(--red);font-weight:700;">*</span></label>
                     <textarea id="reviewIngredients" class="review-textarea" rows="6" placeholder="Paste the full ingredient list from the photo..."></textarea>
                     <p style="font-size:11px;color:var(--muted);margin-top:4px;">Verdict computed for all 4 Jain profiles automatically on approval.</p>
+                    <label class="review-label" style="margin-top:8px;">Profile</label>
+                    <select id="reviewProfile" class="review-select">
+                      <option value="jain" selected>Everyday Jain</option>
+                      <option value="temple_mode">Temple Mode</option>
+                      <option value="paryushan_mode">Paryushan Mode</option>
+                      <option value="greens_sensitive_mode">Greens+ Mode</option>
+                    </select>
                   </div>
                   <button type="button" id="offLookupBtn" class="btn-secondary btn-sm btn-full" style="margin-top:12px;">&#128269; Auto-fill from Open Food Facts</button>
                   <div id="offLookupStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;"></div>
@@ -236,6 +244,41 @@
             </div>
           </div>
         </div>
+      </section>
+
+      <!-- AI Review tab — items processed by the autonomous agent -->
+      <section id="tab-ai-review" class="tab-panel">
+        <div class="ai-review-header">
+          <div class="ai-review-summary">
+            <h3 style="margin:0 0 4px 0;">AI Review Agent</h3>
+            <p class="muted-text" style="margin:0;">Hourly autonomous moderation. Auto-approves high-confidence + cross-verified items, queues the rest for your 1-click review. <a href="#" id="aiReviewHelpLink">How it works →</a></p>
+          </div>
+          <div class="ai-review-stats" id="aiReviewStats">
+            <div class="ai-stat"><div class="ai-stat-label">Queued for you</div><div class="ai-stat-value" id="aiStatQueued">--</div></div>
+            <div class="ai-stat"><div class="ai-stat-label">Auto-approved (24h)</div><div class="ai-stat-value" id="aiStatAutoAdded">--</div></div>
+            <div class="ai-stat"><div class="ai-stat-label">Auto-rejected (24h)</div><div class="ai-stat-value" id="aiStatAutoRejected">--</div></div>
+            <div class="ai-stat"><div class="ai-stat-label">Last run</div><div class="ai-stat-value" id="aiStatLastRun">--</div></div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <select id="aiFilterReviewerType">
+            <option value="ai_queued" selected>Queued for you</option>
+            <option value="ai_auto">Auto-decided</option>
+            <option value="ai_assisted">Confirmed by you</option>
+          </select>
+          <button class="btn-secondary btn-sm" id="aiRefreshBtn">Refresh</button>
+          <div style="flex:1;"></div>
+          <span class="muted-text" id="aiQueueTotalLabel"></span>
+        </div>
+
+        <div id="aiReviewList"></div>
+
+        <!-- Recent runs section -->
+        <details class="ai-runs-section" style="margin-top:24px;">
+          <summary style="cursor:pointer;font-weight:600;padding:12px 0;">Recent agent runs (last 7 days)</summary>
+          <div id="aiRunsList"></div>
+        </details>
       </section>
 
       <!-- Classification Reports tab -->
