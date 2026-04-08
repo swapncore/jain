@@ -198,6 +198,97 @@ async function startNativeScanning(stream, onDecodedText) {
   return true;
 }
 
+// ── Video frame readiness ───────────────────────────────────────────────────
+
+/**
+ * Wait until the video element has actual frame dimensions (not just
+ * readyState >= 2). Chrome iOS WKWebView is known to report HAVE_CURRENT_DATA
+ * before videoWidth/videoHeight become non-zero, which causes the decode loop
+ * to feed empty canvases to ZXing.
+ */
+async function _waitForVideoFrame(video, timeoutMs = 3000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+      return true;
+    }
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return false;
+}
+
+// ── ZXing canvas decode loop (extracted into a helper so the watchdog can
+//    invoke it as a fallback when the BarcodeDetector polyfill silently
+//    fails on certain iOS browsers) ────────────────────────────────────────
+
+function _startZxingCanvasLoop({ stream, video, onDecodedText, scanStatus, isWKWebViewIOS }) {
+  const hints = new Map();
+  hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
+  hints.set(_DecodeHintType.TRY_HARDER, true);
+  scanState.reader = new _BrowserMultiFormatReader(hints, 50);
+
+  const track = stream.getVideoTracks()[0];
+  const settings = track?.getSettings?.() || {};
+  const trackW = settings.width || 0;
+  const trackH = settings.height || 0;
+
+  // On Chrome iOS / Firefox iOS (WKWebView) we attach the working canvas to
+  // the DOM (visually hidden) because off-DOM canvas drawImage from <video>
+  // is unreliable in WKWebView. On other browsers a detached canvas is fine
+  // and avoids polluting the DOM.
+  let aCanvas;
+  if (isWKWebViewIOS) {
+    aCanvas = document.getElementById("__scanCanvas");
+    if (!aCanvas) {
+      aCanvas = document.createElement("canvas");
+      aCanvas.id = "__scanCanvas";
+      // Visually hidden but still painted by the rendering engine so
+      // drawImage(video) actually captures frames.
+      aCanvas.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none;";
+      document.body.appendChild(aCanvas);
+    }
+  } else {
+    aCanvas = document.createElement("canvas");
+  }
+  const aCtx = aCanvas.getContext("2d", { willReadFrequently: true });
+  let running = true;
+
+  scanState._nativeScanStop = () => {
+    running = false;
+    try { stream.getTracks().forEach(t => t.stop()); } catch {}
+    video.srcObject = null;
+  };
+
+  const FRAME_MS = isWKWebViewIOS ? 100 : 60;
+  const tick = () => {
+    if (!running) return;
+    try {
+      const vw = video.videoWidth || trackW || 0;
+      const vh = video.videoHeight || trackH || 0;
+      if (video.readyState >= 2 && vw > 0 && vh > 0) {
+        if (aCanvas.width !== vw) { aCanvas.width = vw; aCanvas.height = vh; }
+        aCtx.drawImage(video, 0, 0, vw, vh);
+        const result = scanState.reader.decodeFromCanvas(aCanvas);
+        if (result) onDecodedText(result.getText());
+      }
+    } catch { /* NotFoundException — barcode not in this frame */ }
+    if (running) {
+      // On WKWebView iOS, requestAnimationFrame can be paused unexpectedly,
+      // so use plain setTimeout for reliability. On other platforms RAF is
+      // preferable for vsync alignment.
+      if (isWKWebViewIOS) {
+        setTimeout(tick, FRAME_MS);
+      } else {
+        requestAnimationFrame(() => setTimeout(tick, FRAME_MS));
+      }
+    }
+  };
+  // Give the camera a moment to deliver real frames before the first decode.
+  setTimeout(tick, isWKWebViewIOS ? 600 : 250);
+
+  if (scanStatus) scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
+}
+
 // ── Camera device selection ─────────────────────────────────────────────────
 
 async function pickBackCamera() {
@@ -266,6 +357,14 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
 
     // ── Mobile (iOS + Android) ─────────────────────────────────────────────
     if (isMobile) {
+      const isChromeIOS = /CriOS/i.test(navigator.userAgent);
+      const isFirefoxIOS = /FxiOS/i.test(navigator.userAgent);
+      // Non-Safari iOS browsers (Chrome/Firefox) use WKWebView, where the
+      // BarcodeDetector polyfill's internal off-DOM canvas frame capture is
+      // unreliable. We skip the polyfill on those browsers entirely and go
+      // straight to the ZXing canvas loop with a DOM-attached canvas.
+      const isWKWebViewIOS = isIOS && (isChromeIOS || isFirefoxIOS);
+
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: videoConstraints });
@@ -278,8 +377,17 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
       video.muted = true;
       await video.play();
 
-      // ── iOS: try native BarcodeDetector first ──
-      if (isIOS) {
+      // Wait for the video to actually have frame dimensions. On Chrome iOS
+      // WKWebView, video.readyState can reach HAVE_CURRENT_DATA before
+      // videoWidth/videoHeight become non-zero, which causes the decode loop
+      // to feed empty canvases. We poll for up to ~3s.
+      await _waitForVideoFrame(video, 3000);
+
+      // ── iOS Safari only: try BarcodeDetector polyfill first ──
+      // On Safari iOS this path works well; on Chrome/Firefox iOS we skip it
+      // because the polyfill's internal canvas can't reliably read video
+      // frames inside WKWebView.
+      if (isIOS && !isWKWebViewIOS) {
         const DetectorImpl = _getDetectorImpl();
         if (DetectorImpl) {
           try {
@@ -289,6 +397,8 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
               const detector = new DetectorImpl({ formats });
               scanState._nativeDetector = detector;
               let running = true;
+              let lastDecodeAttempts = 0;
+              let nativeWatchdogFired = false;
               scanState._nativeScanStop = () => {
                 running = false;
                 stream.getTracks().forEach(t => t.stop());
@@ -298,11 +408,30 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
                 if (!running) return;
                 try {
                   const barcodes = await detector.detect(video);
+                  lastDecodeAttempts++;
                   for (const bc of barcodes) onDecodedText(bc.rawValue);
                 } catch { /* frame not ready */ }
                 if (running) setTimeout(tick, 60);
               };
               setTimeout(tick, 300);
+
+              // Watchdog: if the polyfill produces no decoded barcodes after
+              // ~6s of attempts AND no manual entry has happened, fall back
+              // to the ZXing canvas loop. This catches the "polyfill loaded
+              // but silently fails" case on certain iOS versions.
+              setTimeout(() => {
+                if (!running || nativeWatchdogFired) return;
+                if (appState.lastBarcode) return; // already decoded something
+                if (lastDecodeAttempts === 0) return; // never even attempted
+                nativeWatchdogFired = true;
+                console.warn("BarcodeDetector polyfill produced no decodes in 6s — falling back to ZXing");
+                running = false;
+                _startZxingCanvasLoop({
+                  stream, video, onDecodedText, scanStatus,
+                  isWKWebViewIOS: false, isMobile: true,
+                });
+              }, 6000);
+
               await setupTorch();
               scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
               return;
@@ -311,45 +440,11 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
         }
       }
 
-      // ── ZXing manual canvas decode loop ──
-      const hints = new Map();
-      hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
-      hints.set(_DecodeHintType.TRY_HARDER, true);
-      scanState.reader = new _BrowserMultiFormatReader(hints, 50);
-
-      const track = stream.getVideoTracks()[0];
-      const settings = track?.getSettings?.() || {};
-      const trackW = settings.width || 0;
-      const trackH = settings.height || 0;
-
-      const aCanvas = document.createElement("canvas");
-      const aCtx = aCanvas.getContext("2d", { willReadFrequently: true });
-      let running = true;
-
-      scanState._nativeScanStop = () => {
-        running = false;
-        stream.getTracks().forEach(t => t.stop());
-        video.srcObject = null;
-      };
-
-      const FRAME_MS = 60;
-      const tick = () => {
-        if (!running) return;
-        try {
-          if (video.readyState >= 2) {
-            const vw = video.videoWidth || trackW || 640;
-            const vh = video.videoHeight || trackH || 480;
-            if (aCanvas.width !== vw) { aCanvas.width = vw; aCanvas.height = vh; }
-            aCtx.drawImage(video, 0, 0, vw, vh);
-            const result = scanState.reader.decodeFromCanvas(aCanvas);
-            if (result) onDecodedText(result.getText());
-          }
-        } catch { /* NotFoundException */ }
-        if (running) requestAnimationFrame(() => setTimeout(tick, FRAME_MS));
-      };
-      const isChromeIOS = /CriOS/i.test(navigator.userAgent);
-      setTimeout(tick, isChromeIOS ? 500 : 250);
-
+      // ── ZXing manual canvas decode loop (Android, Chrome iOS, Firefox iOS, fallback) ──
+      _startZxingCanvasLoop({
+        stream, video, onDecodedText, scanStatus,
+        isWKWebViewIOS, isMobile: true,
+      });
       await setupTorch();
       scanStatus.textContent = "Scanner is live. Point the barcode within the guide.";
       return;
