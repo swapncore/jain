@@ -2135,6 +2135,118 @@ body.modal-open {
   margin-top: 0.75rem;
 }
 
+/* ── Email magic link form ──────────────────────────────────────────────── */
+.magic-link-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.magic-link-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.magic-link-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.magic-link-input:focus {
+  border-color: var(--brand);
+}
+.magic-link-input::placeholder {
+  color: var(--muted);
+}
+
+.magic-link-btn {
+  width: 100%;
+  padding: 0.8rem;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Spinner inside button */
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Or divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Google button container — smaller secondary option */
+.google-signin-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+}
+
+/* ── Sent confirmation state ─────────────────────────────────────────────── */
+.auth-sent-icon {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.auth-sent-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0.75rem 0 1rem;
+}
+
+.auth-sent-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.auth-sent-actions .btn {
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
+  justify-content: center;
+}
+
+/* Dark mode */
+[data-theme="dark"] .magic-link-input {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text);
+}
+
 /* ─── Loading skeletons ────────────────────────────────────────────────── */
 @keyframes shimmer {
   0%   { background-position: -200px 0; }

@@ -23,6 +23,42 @@ import * as Auth from "./auth.js";
 import * as Favorites from "./favorites.js";
 import * as Monetization from "./monetization.js";
 
+// ── Auth modal: magic link form helpers ──────────────────────────────────────
+
+function _showEmailStep() {
+  document.getElementById("authEmailStep")?.classList.remove("hidden");
+  document.getElementById("authSentStep")?.classList.add("hidden");
+}
+
+function _showSentStep(email) {
+  document.getElementById("authEmailStep")?.classList.add("hidden");
+  const sentStep = document.getElementById("authSentStep");
+  sentStep?.classList.remove("hidden");
+  const sentEmail = document.getElementById("authSentEmail");
+  if (sentEmail) sentEmail.textContent = email;
+}
+
+function _setMagicLinkLoading(on) {
+  const btn = document.getElementById("magicLinkBtn");
+  const txt = document.getElementById("magicLinkBtnText");
+  const spinner = document.getElementById("magicLinkBtnSpinner");
+  if (btn) btn.disabled = on;
+  if (txt) txt.textContent = on ? "Sending…" : "Send me a sign-in link";
+  spinner?.classList.toggle("hidden", !on);
+}
+
+function _showMagicLinkError(msg) {
+  const el = document.getElementById("authModalError");
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+function _clearMagicLinkError() {
+  const el = document.getElementById("authModalError");
+  if (el) { el.textContent = ""; el.classList.add("hidden"); }
+}
+
 // ── Shared app state ────────────────────────────────────────────────────────
 
 const state = {
@@ -45,12 +81,12 @@ const state = {
 
 function openAuthModal(subtitle) {
   const authModal = document.getElementById("authModal");
-  openModal(authModal);
-  const btns = authModal?.querySelector(".auth-buttons");
-  if (btns) btns.classList.remove("hidden");
-  hide(document.getElementById("authModalError"));
-  const sub = authModal?.querySelector(".auth-modal-sub");
+  _showEmailStep();
+  _clearMagicLinkError();
+  const sub = document.getElementById("authModalSub");
   if (sub && subtitle) sub.textContent = subtitle;
+  openModal(authModal);
+  setTimeout(() => document.getElementById("magicLinkEmail")?.focus(), 80);
 }
 
 function toggleUserDropdown() {
@@ -277,7 +313,53 @@ function bindAuthEvents() {
     }
   });
 
-  document.getElementById("authModalClose")?.addEventListener("click", () => closeModal(authModal));
+  document.getElementById("authModalClose")?.addEventListener("click", () => {
+    closeModal(authModal);
+    _showEmailStep();
+    _clearMagicLinkError();
+  });
+
+  // Magic link form submit
+  document.getElementById("magicLinkForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    _clearMagicLinkError();
+    const email = document.getElementById("magicLinkEmail")?.value?.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      _showMagicLinkError("Please enter a valid email address.");
+      return;
+    }
+    _setMagicLinkLoading(true);
+    try {
+      await Auth.sendMagicLink(email);
+      _showSentStep(email);
+    } catch (err) {
+      const msg = err?.code === "auth/too-many-requests"
+        ? "Too many attempts. Please wait a moment and try again."
+        : "Couldn't send the link. Please check your email and try again.";
+      _showMagicLinkError(msg);
+    } finally {
+      _setMagicLinkLoading(false);
+    }
+  });
+
+  // Resend link
+  document.getElementById("magicLinkResendBtn")?.addEventListener("click", async () => {
+    const email = document.getElementById("magicLinkEmail")?.value?.trim()
+      || localStorage.getItem("JAINI_MAGIC_EMAIL");
+    if (!email) { _showEmailStep(); return; }
+    try {
+      await Auth.sendMagicLink(email);
+      // Brief confirmation
+      const btn = document.getElementById("magicLinkResendBtn");
+      if (btn) { const orig = btn.textContent; btn.textContent = "Sent!"; btn.disabled = true; setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 3000); }
+    } catch { /* silent */ }
+  });
+
+  // Use different email
+  document.getElementById("magicLinkChangeBtn")?.addEventListener("click", () => {
+    _showEmailStep();
+    document.getElementById("magicLinkEmail")?.focus();
+  });
   authModal?.addEventListener("click", (e) => {
     if (e.target === authModal) closeModal(authModal);
   });
@@ -357,6 +439,9 @@ async function init() {
 
   // Auth
   const apiBase = getApiBase();
+
+  // Check if page was opened via a magic link (email sign-in link)
+  Auth.completeMagicLinkIfPresent().catch(() => {});
 
   Auth.onAuthStateChange((user) => {
     clearVerdictCache();

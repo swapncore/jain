@@ -500,15 +500,52 @@
         <button type="button" class="modal-close" id="authModalClose" aria-label="Close">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <h2 class="modal-title" id="auth-modal-title">Sign in to Jaini</h2>
-        <p class="auth-modal-sub">Sign in with Google to scan products, save favorites, and sync across devices.</p>
-        <div class="auth-buttons">
+
+        <!-- ── Default state: enter email ─────────────────── -->
+        <div id="authEmailStep">
+          <h2 class="modal-title" id="auth-modal-title">Sign in to Jaini</h2>
+          <p class="auth-modal-sub" id="authModalSub">Enter your email — we'll send you a one-tap sign-in link. No password needed.</p>
+
+          <form id="magicLinkForm" class="magic-link-form" novalidate>
+            <label class="magic-link-label" for="magicLinkEmail">Email address</label>
+            <input
+              type="email"
+              id="magicLinkEmail"
+              class="magic-link-input"
+              placeholder="you@example.com"
+              autocomplete="email"
+              inputmode="email"
+              required
+            />
+            <button type="submit" id="magicLinkBtn" class="btn btn-primary magic-link-btn">
+              <span id="magicLinkBtnText">Send me a sign-in link</span>
+              <span id="magicLinkBtnSpinner" class="btn-spinner hidden" aria-hidden="true"></span>
+            </button>
+          </form>
+
+          <p id="authModalError" class="auth-modal-error hidden" role="alert"></p>
+
+          <div class="auth-divider"><span>or</span></div>
+
           <div id="googleSignInBtn" class="google-signin-container">
             <!-- Google Identity Services renders its button here -->
           </div>
+
+          <p class="auth-modal-disclaimer">By signing in, you agree to receive a weekly digest of new Jain-safe products. You can opt out at any time.</p>
         </div>
-        <p id="authModalError" class="auth-modal-error hidden"></p>
-        <p class="auth-modal-disclaimer">By signing in, you agree to receive a weekly digest of new Jain-safe products via email. You can opt out at any time.</p>
+
+        <!-- ── Sent state: check your email ──────────────── -->
+        <div id="authSentStep" class="hidden">
+          <div class="auth-sent-icon" aria-hidden="true">✉</div>
+          <h2 class="modal-title">Check your email</h2>
+          <p class="auth-modal-sub">We sent a sign-in link to<br><strong id="authSentEmail"></strong></p>
+          <p class="auth-sent-hint">Tap the link in the email to sign in instantly. Check your spam folder if it doesn't arrive within a minute.</p>
+          <div class="auth-sent-actions">
+            <button type="button" id="magicLinkResendBtn" class="btn btn-ghost btn-sm">Resend link</button>
+            <button type="button" id="magicLinkChangeBtn" class="btn btn-ghost btn-sm">Use different email</button>
+          </div>
+        </div>
+
       </div>
     </div>
 

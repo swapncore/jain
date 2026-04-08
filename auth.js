@@ -15,6 +15,9 @@ import {
   signInWithCredential,
   signOut as _firebaseSignOut,
   GoogleAuthProvider,
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID } from "./src/env.js";
@@ -155,6 +158,48 @@ export async function signOut() {
   _user = null;
   _accessToken = null;
   if (_onAuthChange) _onAuthChange(null);
+}
+
+// ── Email magic link ────────────────────────────────────────────────────────
+
+const _MAGIC_EMAIL_KEY = "JAINI_MAGIC_EMAIL";
+
+export async function sendMagicLink(email) {
+  if (!_auth) throw new Error("Firebase not initialised");
+  const actionCodeSettings = {
+    url: window.location.origin + "/",
+    handleCodeInApp: true,
+  };
+  await sendSignInLinkToEmail(_auth, email, actionCodeSettings);
+  localStorage.setItem(_MAGIC_EMAIL_KEY, email);
+}
+
+/**
+ * Called on page load — if the current URL is a sign-in link, complete the flow.
+ * Returns true if a magic-link sign-in was detected and completed.
+ */
+export async function completeMagicLinkIfPresent() {
+  if (!_auth) return false;
+  if (!isSignInWithEmailLink(_auth, window.location.href)) return false;
+
+  let email = localStorage.getItem(_MAGIC_EMAIL_KEY);
+  if (!email) {
+    // Fallback: prompt (edge case — user opened link in a different browser)
+    email = window.prompt("To finish signing in, please enter your email address:");
+    if (!email) return false;
+  }
+
+  try {
+    await signInWithEmailLink(_auth, email, window.location.href);
+    localStorage.removeItem(_MAGIC_EMAIL_KEY);
+    // Remove the Firebase query params from the URL so it looks clean
+    window.history.replaceState(null, "", window.location.pathname);
+    return true;
+  } catch (err) {
+    console.error("auth: magic link sign-in failed", err?.code, err?.message);
+    localStorage.removeItem(_MAGIC_EMAIL_KEY);
+    return false;
+  }
 }
 
 function _getApiBase() {
