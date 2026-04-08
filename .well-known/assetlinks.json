@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.swapncore.jaini",
+      "sha256_cert_fingerprints": [
+        "2B:30:AD:5E:E4:A9:0B:B8:C3:F1:37:21:F6:FF:EF:CF:2D:81:7C:A1:D4:46:7E:5D:35:63:2A:65:DA:A4:E9:55"
+      ]
+    }
+  }
+]

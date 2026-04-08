@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["XVD66LAV3K.com.swapncore.jaini"],
+        "components": [
+          { "/": "/*" }
+        ]
+      }
+    ]
+  }
+}
