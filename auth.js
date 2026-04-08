@@ -175,31 +175,49 @@ export async function sendMagicLink(email) {
 }
 
 /**
- * Called on page load — if the current URL is a sign-in link, complete the flow.
- * Returns true if a magic-link sign-in was detected and completed.
+ * Returns true if the current URL looks like a Firebase email sign-in link.
+ * Safe to call before init() — checks URL params directly.
+ */
+export function isMagicLinkUrl() {
+  // Firebase email links always contain mode=signIn and oobCode
+  const p = new URLSearchParams(window.location.search);
+  return p.get("mode") === "signIn" && !!p.get("oobCode");
+}
+
+/**
+ * Called on page load (after Auth.init) — if the current URL is a sign-in link,
+ * complete the flow using the stored email.
+ * Returns: 'done' | 'needs-email' | 'error' | false
  */
 export async function completeMagicLinkIfPresent() {
   if (!_auth) return false;
   if (!isSignInWithEmailLink(_auth, window.location.href)) return false;
 
-  let email = localStorage.getItem(_MAGIC_EMAIL_KEY);
-  if (!email) {
-    // Fallback: prompt (edge case — user opened link in a different browser)
-    email = window.prompt("To finish signing in, please enter your email address:");
-    if (!email) return false;
-  }
+  const email = localStorage.getItem(_MAGIC_EMAIL_KEY);
+  if (!email) return "needs-email"; // opened on a different device/browser
 
   try {
     await signInWithEmailLink(_auth, email, window.location.href);
     localStorage.removeItem(_MAGIC_EMAIL_KEY);
-    // Remove the Firebase query params from the URL so it looks clean
     window.history.replaceState(null, "", window.location.pathname);
-    return true;
+    return "done";
   } catch (err) {
     console.error("auth: magic link sign-in failed", err?.code, err?.message);
     localStorage.removeItem(_MAGIC_EMAIL_KEY);
-    return false;
+    return "error";
   }
+}
+
+/**
+ * Complete a magic-link sign-in with an explicitly supplied email address.
+ * Used when the user opened the link on a different device (no localStorage).
+ */
+export async function completeMagicLinkWithEmail(email) {
+  if (!_auth) throw new Error("Firebase not initialised");
+  const result = await signInWithEmailLink(_auth, email, window.location.href);
+  localStorage.removeItem(_MAGIC_EMAIL_KEY);
+  window.history.replaceState(null, "", window.location.pathname);
+  return result.user;
 }
 
 function _getApiBase() {

@@ -25,6 +25,10 @@ import * as Monetization from "./monetization.js";
 
 // ── Auth modal: magic link form helpers ──────────────────────────────────────
 
+// true when the page was opened from a magic-link and we need the user to
+// confirm their email address (cross-device case — no localStorage entry)
+let _confirmingMagicLink = false;
+
 function _showEmailStep() {
   document.getElementById("authEmailStep")?.classList.remove("hidden");
   document.getElementById("authSentStep")?.classList.add("hidden");
@@ -43,8 +47,34 @@ function _setMagicLinkLoading(on) {
   const txt = document.getElementById("magicLinkBtnText");
   const spinner = document.getElementById("magicLinkBtnSpinner");
   if (btn) btn.disabled = on;
-  if (txt) txt.textContent = on ? "Sending…" : "Send me a sign-in link";
+  if (txt) {
+    if (on) {
+      txt.textContent = _confirmingMagicLink ? "Signing you in…" : "Sending…";
+    } else {
+      txt.textContent = _confirmingMagicLink ? "Confirm & sign in" : "Send me a sign-in link";
+    }
+  }
   spinner?.classList.toggle("hidden", !on);
+}
+
+function _enterConfirmMagicLinkMode() {
+  _confirmingMagicLink = true;
+  const title = document.getElementById("auth-modal-title");
+  const sub = document.getElementById("authModalSub");
+  const btn = document.getElementById("magicLinkBtnText");
+  if (title) title.textContent = "Confirm your email";
+  if (sub) sub.textContent = "Enter the email address you used to request the sign-in link.";
+  if (btn) btn.textContent = "Confirm & sign in";
+}
+
+function _exitConfirmMagicLinkMode() {
+  _confirmingMagicLink = false;
+  const title = document.getElementById("auth-modal-title");
+  const sub = document.getElementById("authModalSub");
+  const btn = document.getElementById("magicLinkBtnText");
+  if (title) title.textContent = "Sign in to Jaini";
+  if (sub) sub.textContent = "Enter your email — we'll send you a one-tap sign-in link. No password needed.";
+  if (btn) btn.textContent = "Send me a sign-in link";
 }
 
 function _showMagicLinkError(msg) {
@@ -317,18 +347,40 @@ function bindAuthEvents() {
     closeModal(authModal);
     _showEmailStep();
     _clearMagicLinkError();
+    _exitConfirmMagicLinkMode();
   });
 
   // Magic link form submit
   document.getElementById("magicLinkForm")?.addEventListener("submit", async (e) => {
     e.preventDefault();
     _clearMagicLinkError();
-    const email = document.getElementById("magicLinkEmail")?.value?.trim();
+    const email = document.getElementById("magicLinkEmail")?.value?.trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       _showMagicLinkError("Please enter a valid email address.");
       return;
     }
     _setMagicLinkLoading(true);
+
+    if (_confirmingMagicLink) {
+      // Cross-device: user confirmed their email, complete sign-in now
+      try {
+        await Auth.completeMagicLinkWithEmail(email);
+        _exitConfirmMagicLinkMode();
+        // onAuthStateChange will close the modal
+      } catch (err) {
+        _exitConfirmMagicLinkMode();
+        if (err?.code === "auth/invalid-action-code" || err?.code === "auth/expired-action-code") {
+          _showMagicLinkError("This sign-in link has expired or already been used. Enter your email to get a fresh one.");
+        } else {
+          _showMagicLinkError("Could not sign in. Please try again or request a new link.");
+        }
+      } finally {
+        _setMagicLinkLoading(false);
+      }
+      return;
+    }
+
+    // Normal flow: send a new magic link
     try {
       await Auth.sendMagicLink(email);
       _showSentStep(email);
@@ -440,9 +492,6 @@ async function init() {
   // Auth
   const apiBase = getApiBase();
 
-  // Check if page was opened via a magic link (email sign-in link)
-  Auth.completeMagicLinkIfPresent().catch(() => {});
-
   Auth.onAuthStateChange((user) => {
     clearVerdictCache();
     updateAuthNav(user);
@@ -458,6 +507,21 @@ async function init() {
     if (user) syncServerHistory(doRenderHistory);
   });
   await Auth.init();
+
+  // Magic link completion — MUST run after Auth.init() so _auth is set
+  if (Auth.isMagicLinkUrl()) {
+    const mlResult = await Auth.completeMagicLinkIfPresent();
+    if (mlResult === "done") {
+      // onAuthStateChange will update the UI and close any open modal
+    } else if (mlResult === "needs-email") {
+      // Opened on a different device — ask user to confirm their email
+      openAuthModal();
+      _enterConfirmMagicLinkMode();
+    } else if (mlResult === "error") {
+      openAuthModal();
+      _showMagicLinkError("This sign-in link has expired or already been used. Enter your email to get a fresh one.");
+    }
+  }
 
   // Favorites
   Favorites.init({

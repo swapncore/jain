@@ -539,7 +539,16 @@
           <div class="auth-sent-icon" aria-hidden="true">✉</div>
           <h2 class="modal-title">Check your email</h2>
           <p class="auth-modal-sub">We sent a sign-in link to<br><strong id="authSentEmail"></strong></p>
-          <p class="auth-sent-hint">Tap the link in the email to sign in instantly. Check your spam folder if it doesn't arrive within a minute.</p>
+          <div class="auth-open-email-btns">
+            <a href="https://mail.google.com" target="_blank" rel="noopener" class="btn btn-primary auth-open-gmail-btn">
+              Open Gmail
+            </a>
+            <a href="https://outlook.live.com/mail" target="_blank" rel="noopener" class="btn btn-ghost btn-sm auth-open-outlook-btn">
+              Open Outlook
+            </a>
+          </div>
+          <p class="auth-sent-hint">Tap the link in the email — this page will sign you in automatically.<br>
+          <strong>Not seeing it?</strong> Check your <em>Spam</em> or <em>Junk</em> folder. The email comes from <code>noreply@jaini-web.firebaseapp.com</code> — mark it as "Not Spam" to avoid this in future.</p>
           <div class="auth-sent-actions">
             <button type="button" id="magicLinkResendBtn" class="btn btn-ghost btn-sm">Resend link</button>
             <button type="button" id="magicLinkChangeBtn" class="btn btn-ghost btn-sm">Use different email</button>
