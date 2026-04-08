@@ -287,6 +287,7 @@
 
   let _currentPhotoId = null;
   let _currentPhotoB64 = null;
+  let _currentPhotoBarcode = null;
 
   window.viewPhoto = async function (id) {
     let resp = await fetchWithAuth(`${API_BASE}/v1/dashboard/photos/${id}`);
@@ -295,6 +296,7 @@
     const data = await resp.json();
     _currentPhotoId = id;
     _currentPhotoB64 = data.photo_b64 || "";
+    _currentPhotoBarcode = data.barcode || null;
 
     const modal = document.getElementById("photoModal");
     const img = document.getElementById("photoImage");
@@ -359,7 +361,6 @@
         body.ingredients_text = ingredients;
         body.product_name = (document.getElementById("reviewProductName")?.value || "").trim();
         body.brand = (document.getElementById("reviewBrand")?.value || "").trim();
-        body.profile = document.getElementById("reviewProfile")?.value || "jain";
       }
 
       // Disable all buttons during request
@@ -479,9 +480,61 @@
     document.getElementById("photoModal").style.display = "none";
     _currentPhotoId = null;
     _currentPhotoB64 = null;
+    _currentPhotoBarcode = null;
   });
   document.getElementById("refreshPhotos")?.addEventListener("click", loadPhotos);
   document.getElementById("photoStatusFilter")?.addEventListener("change", loadPhotos);
+
+  // ── Open Food Facts auto-fill ──────────────────────────────────────────────
+  document.getElementById("offLookupBtn")?.addEventListener("click", async () => {
+    const barcode = _currentPhotoBarcode;
+    const statusEl = document.getElementById("offLookupStatus");
+    const btn = document.getElementById("offLookupBtn");
+    if (!barcode) {
+      statusEl.textContent = "No barcode associated with this submission.";
+      statusEl.style.display = "block";
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = "Looking up…";
+    statusEl.textContent = "";
+    statusEl.style.display = "none";
+    try {
+      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(barcode)}.json`);
+      const json = await res.json();
+      if (json.status !== 1 || !json.product) {
+        statusEl.textContent = "Not found on Open Food Facts. Try searching manually at world.openfoodfacts.org";
+        statusEl.style.color = "var(--red)";
+        statusEl.style.display = "block";
+        return;
+      }
+      const p = json.product;
+      const name = p.product_name_en || p.product_name || "";
+      const brand = p.brands || "";
+      const ingredients = p.ingredients_text_en || p.ingredients_text || "";
+
+      const nameEl = document.getElementById("reviewProductName");
+      const brandEl = document.getElementById("reviewBrand");
+      const ingredientsEl = document.getElementById("reviewIngredients");
+      if (nameEl && name) nameEl.value = name;
+      if (brandEl && brand) brandEl.value = brand;
+      if (ingredientsEl && ingredients) ingredientsEl.value = ingredients;
+
+      const filled = [name && "name", brand && "brand", ingredients && "ingredients"].filter(Boolean);
+      statusEl.textContent = filled.length
+        ? `✓ Filled: ${filled.join(", ")}. Please verify before approving.`
+        : "Product found but no text data available — fill manually from the photo.";
+      statusEl.style.color = filled.length ? "var(--brand)" : "var(--muted)";
+      statusEl.style.display = "block";
+    } catch {
+      statusEl.textContent = "Network error — could not reach Open Food Facts.";
+      statusEl.style.color = "var(--red)";
+      statusEl.style.display = "block";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "🔍 Auto-fill from Open Food Facts";
+    }
+  });
 
   // ── Email Tab ──────────────────────────────────────────────────────────
   let _emailSubscribers = [];

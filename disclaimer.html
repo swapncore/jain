@@ -8,6 +8,17 @@
   <title>Disclaimer - Jaini</title>
   <meta name="description" content="Jaini disclaimer — important limitations and terms of use for Jain dietary barcode scanning results." />
   <link rel="stylesheet" href="./style.css" />
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('JAIN_THEME');
+        if (!t) t = 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
 </head>
 <body>
 <a href="#main-content" class="skip-link">Skip to content</a>
@@ -15,7 +26,7 @@
   <div class="header-inner">
     <div class="header-brand">
       <a href="./index.html" style="display:flex;align-items:center;gap:0.55rem;text-decoration:none;">
-        <img src="./logo.png" alt="Jaini" class="header-logo-img" style="height:40px;">
+        <img src="./logo-transparent.png" alt="Jaini" class="header-logo-img" style="height:40px;">
       </a>
     </div>
     <nav class="header-nav" aria-label="Site navigation">

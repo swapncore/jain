@@ -4,6 +4,8 @@
  * Uses Google Identity Services rendered button for sign-in.
  * The button handles the entire Google auth flow natively
  * (no Firebase popup/redirect needed).
+ *
+ * Firebase config is loaded from src/env.js (Vite environment variables).
  */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
@@ -15,17 +17,7 @@ import {
   GoogleAuthProvider,
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-// ── Firebase config ──────────────────────────────────────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCQf5eJNQyTQTiUGCpcQeGKNgpS9uI7cYY",
-  authDomain: "jaini-web.firebaseapp.com",
-  projectId: "jaini-web",
-  storageBucket: "jaini-web.firebasestorage.app",
-  messagingSenderId: "1080759339715",
-  appId: "1:1080759339715:web:c7f60d0e4ce7b30173f076",
-};
-
-const GOOGLE_CLIENT_ID = "1080759339715-k0525vrm5n7oflphuapo01vvqlbclivb.apps.googleusercontent.com";
+import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID } from "./src/env.js";
 
 let _auth = null;
 let _user = null;

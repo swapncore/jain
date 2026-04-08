@@ -6,7 +6,7 @@
  * Requires user to be signed in (delegates to auth.js).
  */
 
-import { authFetch, isSignedIn, getUser } from "./auth.js?v=3";
+import { authFetch, isSignedIn, getUser } from "./auth.js";
 
 let _apiBase = "";
 let _getClientId = () => "";

@@ -5,7 +5,7 @@
  * and logs impression/click events for analytics.
  */
 
-import { authFetch } from "./auth.js?v=3";
+import { authFetch } from "./auth.js";
 
 let _apiBase = "";
 let _getClientId = () => "";

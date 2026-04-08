@@ -673,13 +673,18 @@ body {
 /* ── Photo review modal ────────────────────────────────────────── */
 .modal-photo-review {
   max-width: 900px;
+  max-height: 90vh;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .photo-review-layout {
   display: flex;
-  min-height: 400px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .photo-review-image {

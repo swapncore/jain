@@ -3,15 +3,16 @@
  *
  * Strategy:
  *   - App shell (HTML, CSS, JS, images) → cache-first with network update
- *   - API calls → network-first with cached fallback for recent verdicts
+ *   - API calls (/v1/verdict) → network-first with cached fallback
  *   - Everything else → network only
+ *
+ * Cache versioning: bump CACHE_NAME to force full purge of stale assets.
  */
 
-const CACHE_NAME = "jaini-v1";
-// Separate cache for API responses — limited to MAX_API_ENTRIES most recent,
-// so stale verdicts are evicted automatically. Bump version to force full purge.
-const CACHE_API = "jaini-api-v1";
+const CACHE_NAME = "jaini-v2";
+const CACHE_API = "jaini-api-v2";
 const MAX_API_ENTRIES = 100;
+
 const APP_SHELL = [
   "/",
   "/index.html",
@@ -22,6 +23,20 @@ const APP_SHELL = [
   "/monetization.js",
   "/barcode.js",
   "/config/shared-config.js",
+  "/src/config.js",
+  "/src/api.js",
+  "/src/ui.js",
+  "/src/scanner.js",
+  "/src/verdict.js",
+  "/src/history.js",
+  "/src/alternatives.js",
+  "/src/community.js",
+  "/src/missing.js",
+  "/src/profile.js",
+  "/src/sanitize.js",
+  "/src/env.js",
+  "/lib/history.js",
+  "/lib/share.js",
   "/logo.png",
   "/favicon-32.png",
 ];
@@ -75,7 +90,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // App shell & static assets: cache-first.
+  // App shell & static assets: cache-first with background network update.
   // ignoreSearch lets versioned requests (e.g. app.js?v=4) match pre-cached /app.js.
   if (event.request.method === "GET" && url.origin === self.location.origin) {
     event.respondWith(
