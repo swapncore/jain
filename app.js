@@ -8,11 +8,11 @@
 import { initProfileSelector, getActiveProfile, setActiveProfile, PROFILES } from "./src/profile.js";
 import { startScanning, stopScanning, bindTorchEvent, preWarmBarcodeLibs } from "./src/scanner.js";
 import {
-  initVerdict, fetchVerdict, renderError, hideResult, triggerManualBarcode,
+  initVerdict, fetchVerdict, renderError, hideResult,
   updateManualState, isManualValid, clearVerdictCache, displayVerdictData,
   bindShareEvent, FREE_SCAN_KEY,
 } from "./src/verdict.js";
-import { renderHistory, syncServerHistory, clearHistory, historyPush } from "./src/history.js";
+import { renderHistory, syncServerHistory, clearHistory } from "./src/history.js";
 import { bindFeedbackEvents } from "./src/community.js";
 import { bindMissingEvents, stopMissingCameraExport } from "./src/missing.js";
 import { show, hide, setLoading, clearMessage, showMessage, openModal, closeModal } from "./src/ui.js";
@@ -92,9 +92,6 @@ function _clearMagicLinkError() {
 // ── Shared app state ────────────────────────────────────────────────────────
 
 const state = {
-  reader:               null,
-  controls:             null,
-  torchOn:              false,
   inFlight:             false,
   scanLocked:           false,
   requestId:            0,
@@ -104,7 +101,6 @@ const state = {
   pendingBarcode:       "",
   pendingCount:         0,
   currentBarcode:       "",
-  missingPhotoData:     null,
 };
 
 // ── Auth UI helpers ─────────────────────────────────────────────────────────

@@ -67,11 +67,3 @@ export function isValidBarcode(raw) {
   const cleaned = (raw || '').replace(/\D/g, '');
   return cleaned.length === 8 || cleaned.length === 12 || cleaned.length === 13;
 }
-
-export function getSymbologyLabel(raw) {
-  const cleaned = (raw || '').replace(/\D/g, '');
-  if (cleaned.length === 8) return 'UPC-E';
-  if (cleaned.length === 12) return 'UPC-A';
-  if (cleaned.length === 13) return 'EAN-13';
-  return '';
-}
