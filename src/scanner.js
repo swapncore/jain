@@ -126,10 +126,23 @@ function resetTorch() {
 
 // ── Barcode decode callback ─────────────────────────────────────────────────
 
+/**
+ * Map a decoder's format value to a symbology hint string that
+ * normalizeBarcode understands. BarcodeDetector reports a string
+ * ("ean_8", "upc_e", …); ZXing reports a BarcodeFormat enum value.
+ */
+function _symbologyHint(format) {
+  if (format == null) return null;
+  if (typeof format === "string") return format;
+  if (_BarcodeFormat && format === _BarcodeFormat.EAN_8) return "ean_8";
+  return null;
+}
+
 function createOnDecodedText(appState, fetchVerdictFn, renderErrorFn) {
-  return function onDecodedText(text) {
+  return function onDecodedText(text, format) {
     if (appState.scanLocked || appState.inFlight) return;
-    const normalized = normalizeBarcode(text);
+    // Pass the decoder's symbology so a genuine EAN-8 is not mis-expanded as UPC-E.
+    const normalized = normalizeBarcode(text, _symbologyHint(format));
     const digits = normalized.upc12 || normalized.ean13 || normalized.cleaned;
     if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
 
@@ -189,7 +202,7 @@ async function startNativeScanning(stream, onDecodedText) {
     try {
       const barcodes = await detector.detect(video);
       for (const bc of barcodes) {
-        onDecodedText(bc.rawValue);
+        onDecodedText(bc.rawValue, bc.format);
       }
     } catch { /* frame not ready */ }
     if (running) setTimeout(tick, SCAN_INTERVAL_MS);
@@ -269,7 +282,7 @@ function _startZxingCanvasLoop({ stream, video, onDecodedText, scanStatus, isWKW
         if (aCanvas.width !== vw) { aCanvas.width = vw; aCanvas.height = vh; }
         aCtx.drawImage(video, 0, 0, vw, vh);
         const result = scanState.reader.decodeFromCanvas(aCanvas);
-        if (result) onDecodedText(result.getText());
+        if (result) onDecodedText(result.getText(), result.getBarcodeFormat());
       }
     } catch { /* NotFoundException — barcode not in this frame */ }
     if (running) {
@@ -409,7 +422,7 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
                 try {
                   const barcodes = await detector.detect(video);
                   lastDecodeAttempts++;
-                  for (const bc of barcodes) onDecodedText(bc.rawValue);
+                  for (const bc of barcodes) onDecodedText(bc.rawValue, bc.format);
                 } catch { /* frame not ready */ }
                 if (running) setTimeout(tick, 60);
               };
@@ -467,7 +480,7 @@ export async function startScanning(appState, fetchVerdictFn, renderErrorFn, sho
     hints.set(_DecodeHintType.POSSIBLE_FORMATS, SCAN_FORMATS);
     hints.set(_DecodeHintType.TRY_HARDER, true);
     scanState.reader = new _BrowserMultiFormatReader(hints, 50);
-    const onResult = (r) => { if (r) onDecodedText(r.getText()); };
+    const onResult = (r) => { if (r) onDecodedText(r.getText(), r.getBarcodeFormat()); };
     try {
       scanState.controls = await scanState.reader.decodeFromConstraints(
         { audio: false, video: videoConstraints }, video, onResult);

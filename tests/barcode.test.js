@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { normalizeBarcode, isValidBarcode, validateChecksum } from "../barcode.js";
+import { normalizeBarcode, isValidBarcode, validateChecksum, getSymbologyLabel, isEan8Hint } from "../barcode.js";
 
 describe("isValidBarcode", () => {
   it("accepts 8-digit UPC-E barcodes", () => {
@@ -91,6 +91,71 @@ describe("normalizeBarcode", () => {
     const result = normalizeBarcode("012345678905");
     expect(result.lookupCandidates.length).toBeGreaterThan(0);
     expect(result.lookupCandidates).toContain("012345678905");
+  });
+});
+
+describe("normalizeBarcode — EAN-8 vs UPC-E (symbology hint)", () => {
+  // "96385074" is a real, checksum-valid EAN-8.
+  it("treats an 8-digit code as EAN-8 when the scanner hints ean_8 (no UPC-E expansion)", () => {
+    const result = normalizeBarcode("96385074", "ean_8");
+    expect(result.symbology).toBe("EAN-8");
+    expect(result.upc12).toBeNull();                 // must NOT be UPC-E-expanded
+    expect(result.ean13).toBe("0000096385074");       // zero-padded EAN-13 form
+    expect(result.lookupCandidates).toContain("96385074");        // 8-digit as-is
+    expect(result.lookupCandidates).toContain("0000096385074");   // and padded form
+  });
+
+  it("validates the EAN-8 check digit via its zero-padded EAN-13 form", () => {
+    expect(normalizeBarcode("96385074", "ean_8").checksumValid).toBe(true);
+    expect(normalizeBarcode("96385070", "ean_8").checksumValid).toBe(false);
+  });
+
+  it("accepts the ZXing/BarcodeDetector hint spellings EAN_8 and EAN-8", () => {
+    expect(normalizeBarcode("96385074", "EAN_8").symbology).toBe("EAN-8");
+    expect(normalizeBarcode("96385074", "EAN-8").symbology).toBe("EAN-8");
+  });
+
+  it("still defaults an 8-digit code to UPC-E when no hint is given", () => {
+    const result = normalizeBarcode("04900000");
+    expect(result.symbology).toBe("UPC-E");
+    expect(result.upc12).not.toBeNull();
+  });
+
+  it("keeps the raw 8-digit as a fallback candidate for hint-less entry", () => {
+    // So a genuine EAN-8 typed manually can still be matched.
+    expect(normalizeBarcode("04900000").lookupCandidates).toContain("04900000");
+  });
+
+  it("ignores an ean_8 hint for non-8-digit input (length wins)", () => {
+    expect(normalizeBarcode("012345678905", "ean_8").symbology).toBe("UPC-A");
+    expect(normalizeBarcode("4006381333931", "ean_8").symbology).toBe("EAN-13");
+  });
+});
+
+describe("isEan8Hint", () => {
+  it("recognises the forms a scanner can emit", () => {
+    for (const h of ["ean_8", "EAN_8", "EAN-8", "ean8", "ean 8"]) {
+      expect(isEan8Hint(h)).toBe(true);
+    }
+  });
+  it("rejects other symbologies and empty hints", () => {
+    for (const h of ["upc_e", "ean_13", "upc_a", "", null, undefined]) {
+      expect(isEan8Hint(h)).toBe(false);
+    }
+  });
+});
+
+describe("getSymbologyLabel", () => {
+  it("labels an 8-digit code UPC-E by default but EAN-8 when hinted", () => {
+    expect(getSymbologyLabel("96385074")).toBe("UPC-E");
+    expect(getSymbologyLabel("96385074", "ean_8")).toBe("EAN-8");
+  });
+  it("labels 12- and 13-digit codes", () => {
+    expect(getSymbologyLabel("012345678905")).toBe("UPC-A");
+    expect(getSymbologyLabel("4006381333931")).toBe("EAN-13");
+  });
+  it("returns empty string for invalid lengths", () => {
+    expect(getSymbologyLabel("12345")).toBe("");
   });
 });
 

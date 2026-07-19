@@ -1093,6 +1093,29 @@ details[open] .ingredients-raw-summary::before { transform: rotate(90deg); }
   border: 1px solid var(--orange-border);
 }
 
+/* Data source provenance badge (community-submitted vs curated) */
+.data-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border-radius: var(--r-pill);
+  padding: 0.18rem 0.55rem;
+  margin: 0.15rem 0 0.35rem;
+}
+.data-source-badge--verified {
+  color: var(--green);
+  background: var(--green-bg);
+  border: 1px solid var(--green-border);
+}
+.data-source-badge--unverified {
+  color: var(--yellow);
+  background: var(--yellow-bg);
+  border: 1px solid var(--yellow-border);
+}
+
 .feedback-prompt {
   display: flex;
   align-items: center;

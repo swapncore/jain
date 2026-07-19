@@ -105,8 +105,10 @@ export function updateManualState() {
     help = `Too many digits (${result.cleaned.length}). Barcodes are 8, 12, or 13 digits.`;
     isError = true;
   } else if (result.symbology === "UPC-E") {
-    const tag = result.checksumValid === false ? " (invalid check digit)" : "";
-    help = `UPC-E detected. 8 digits \u2713${tag}`;
+    // Manual entry can't disambiguate UPC-E from EAN-8 (both are 8 digits and
+    // no scanner symbology hint is available), so don't assert one over the
+    // other or flag a check digit that only applies to the UPC-E reading.
+    help = "8-digit barcode (UPC-E / EAN-8). 8 digits \u2713";
   } else if (result.cleaned.length > 0 && result.cleaned.length < 8) {
     const need = 8 - result.cleaned.length;
     help = `Enter ${need} more digit${need === 1 ? "" : "s"} (need 8, 12, or 13 total).`;
@@ -237,7 +239,9 @@ function renderIngredientRows(categories) {
     const meta = INGREDIENT_GROUP_META[level];
 
     const seenClean = new Set();
-    const items = rawItems.filter(n => n != null).map(n => String(n).replace(/^[\s,();]+|[\s,();]+$/g, "").trim()).filter(n => {
+    // Strip stray split artifacts (whitespace, commas, semicolons) but KEEP
+    // parentheses — the API returns balanced parens like "colour (caramel e150d)".
+    const items = rawItems.filter(n => n != null).map(n => String(n).replace(/^[\s,;]+|[\s,;]+$/g, "").trim()).filter(n => {
       if (!n || seenClean.has(n)) return false;
       seenClean.add(n);
       return true;
@@ -294,12 +298,15 @@ export function hideResult() {
   const shareBtn = document.getElementById("shareBtn");
   const reasonChips = document.getElementById("reasonChips");
   const savedNote = document.getElementById("savedNote");
+  const dataSourceBadge = document.getElementById("dataSourceBadge");
 
   hide(resultSection);
   hide(notFoundState);
   hide(ingredientSection);
   hide(productDetails);
   hide(shareBtn);
+  hide(dataSourceBadge);
+  if (dataSourceBadge) dataSourceBadge.textContent = "";
   hideCommunitySection();
   hideAlternatives();
   Favorites.hideButton();
@@ -309,6 +316,8 @@ export function hideResult() {
   _state.currentBarcode = "";
 }
 
+// UI cleanup shared by every outcome (success, not-found, error, rate-limit).
+// Must be idempotent-safe: it does NOT touch the free-scan counter.
 function presentOutcome() {
   const cameraArea = document.getElementById("cameraArea");
   const scanTriggerArea = document.getElementById("scanTriggerArea");
@@ -321,19 +330,25 @@ function presentOutcome() {
   hide(scanTriggerArea);
   show(newScanBtn);
   updateManualState();
-  if (!Auth.isSignedIn()) {
-    const count = incrementFreeScanCount();
-    const remaining = Math.max(0, FREE_SCAN_LIMIT - count);
-    if (remaining > 0 && remaining < FREE_SCAN_LIMIT) {
-      showFreeScanBanner(remaining, _openAuthModalFn);
-    }
+}
+
+// Count one scan against the anonymous free-scan allowance. Called ONLY from a
+// successful verdict render \u2014 not-found, network errors and rate-limits must
+// not burn a free scan. Runs exactly once per successful outcome.
+function countFreeScan() {
+  if (Auth.isSignedIn()) return;
+  const count = incrementFreeScanCount();
+  const remaining = Math.max(0, FREE_SCAN_LIMIT - count);
+  if (remaining > 0 && remaining < FREE_SCAN_LIMIT) {
+    showFreeScanBanner(remaining, _openAuthModalFn);
   }
 }
 
 export function displayVerdictData(data, barcode, fromCache = false) {
   _state.currentBarcode = barcode;
+  // renderResult already runs presentOutcome() + countFreeScan() exactly once.
+  // Do NOT call presentOutcome() again here \u2014 that double-counted the scan.
   renderResult(data);
-  presentOutcome();
   if (fromCache) {
     const savedNote = document.getElementById("savedNote");
     if (savedNote) savedNote.textContent = "\u21BB From your recent scan";
@@ -443,6 +458,25 @@ export function renderResult(data) {
     reasonChips.appendChild(chip);
   });
 
+  // Data source provenance badge (community-submitted vs curated).
+  // Curated products show no badge. Built via textContent (never innerHTML).
+  const dataSourceBadge = document.getElementById("dataSourceBadge");
+  if (dataSourceBadge) {
+    if (data.data_source === "community") {
+      if (data.verified === true) {
+        dataSourceBadge.textContent = "Community-verified";
+        dataSourceBadge.className = "data-source-badge data-source-badge--verified";
+      } else {
+        dataSourceBadge.textContent = "Community-submitted · unverified";
+        dataSourceBadge.className = "data-source-badge data-source-badge--unverified";
+      }
+      show(dataSourceBadge);
+    } else {
+      dataSourceBadge.textContent = "";
+      dataSourceBadge.className = "data-source-badge hidden";
+    }
+  }
+
   // Community verification
   showCommunitySection(_state.currentBarcode, data.community || null);
 
@@ -494,6 +528,8 @@ export function renderResult(data) {
   renderIngredientRows(data.ingredient_categories);
 
   presentOutcome();
+  // Successful verdict render — this is the only place a free scan is counted.
+  countFreeScan();
 
   // First-scan celebration
   if (!localStorage.getItem("JAINI_FIRST_SCAN_DONE")) {
@@ -607,6 +643,11 @@ export function triggerManualBarcode(barcode) {
 
 export async function fetchVerdict(rawBarcode) {
   if (!Auth.isSignedIn() && getFreeScanCount() >= FREE_SCAN_LIMIT) {
+    // Free limit hit: the caller (submit handler / scanner) already set the
+    // scan lock. Release it here, otherwise the manual-submit guard swallows
+    // every subsequent Check and the button stays dead until reload.
+    _state.scanLocked = false;
+    _state.inFlight = false;
     _openAuthModalFn("Sign in with Google to keep scanning");
     return;
   }
@@ -614,6 +655,8 @@ export async function fetchVerdict(rawBarcode) {
   const normalized = normalizeBarcode(rawBarcode);
   const barcode = normalized.upc12 || normalized.ean13 || normalized.cleaned;
   if (barcode.length !== 12 && barcode.length !== 13) {
+    _state.scanLocked = false;
+    _state.inFlight = false;
     updateManualState();
     showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
     return;

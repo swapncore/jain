@@ -43,14 +43,31 @@ export function validateChecksum(digits) {
   return parseInt(ean[12], 10) === ean13CheckDigit(ean);
 }
 
-export function normalizeBarcode(raw) {
+// Recognise an EAN-8 hint from any of the forms the scanner can supply:
+// BarcodeDetector strings ("ean_8"), ZXing enum labels ("EAN_8"), or "EAN-8".
+export function isEan8Hint(hint) {
+  return /ean[\s_-]?8/i.test(String(hint == null ? '' : hint));
+}
+
+export function normalizeBarcode(raw, symbologyHint = null) {
   const cleaned = (raw || '').replace(/\D/g, '');
   let symbology = 'unknown', upc12 = null, ean13 = null, checksumValid = null;
   const candidates = [];
   if (cleaned.length === 8 && /^\d+$/.test(cleaned)) {
-    symbology = 'UPC-E';
-    const expanded = expandUPCE(cleaned);
-    if (expanded) { upc12 = expanded; ean13 = '0' + expanded; checksumValid = validateChecksum(cleaned); candidates.push(expanded, ean13); }
+    if (isEan8Hint(symbologyHint)) {
+      // Genuine EAN-8 is its own symbology — NOT a compressed UPC-E. Do not
+      // expand; look it up as the 8-digit code and its zero-padded EAN-13 form.
+      symbology = 'EAN-8';
+      ean13 = cleaned.padStart(13, '0');
+      checksumValid = validateChecksum(ean13);
+      candidates.push(cleaned, ean13);
+    } else {
+      // No hint (e.g. manual entry) — default to UPC-E expansion, but also keep
+      // the raw 8-digit as a fallback candidate in case it was really an EAN-8.
+      symbology = 'UPC-E';
+      const expanded = expandUPCE(cleaned);
+      if (expanded) { upc12 = expanded; ean13 = '0' + expanded; checksumValid = validateChecksum(cleaned); candidates.push(expanded, ean13, cleaned); }
+    }
   } else if (cleaned.length === 12) {
     symbology = 'UPC-A'; upc12 = cleaned; ean13 = '0' + cleaned; checksumValid = validateChecksum(cleaned); candidates.push(cleaned, ean13);
   } else if (cleaned.length === 13) {
@@ -66,4 +83,15 @@ export function normalizeBarcode(raw) {
 export function isValidBarcode(raw) {
   const cleaned = (raw || '').replace(/\D/g, '');
   return cleaned.length === 8 || cleaned.length === 12 || cleaned.length === 13;
+}
+
+// Human-readable symbology label. An 8-digit code is UPC-E by default, but a
+// scanner symbology hint of EAN-8 must be honoured (EAN-8 is a distinct
+// symbology, not a compressed UPC-E).
+export function getSymbologyLabel(raw, symbologyHint = null) {
+  const cleaned = (raw || '').replace(/\D/g, '');
+  if (cleaned.length === 8) return isEan8Hint(symbologyHint) ? 'EAN-8' : 'UPC-E';
+  if (cleaned.length === 12) return 'UPC-A';
+  if (cleaned.length === 13) return 'EAN-13';
+  return '';
 }

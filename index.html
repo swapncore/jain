@@ -22,7 +22,7 @@
     <meta name="twitter:description" content="Check if a product is Jain-friendly by scanning or entering its barcode." />
     <meta name="twitter:image"      content="https://jain.swapncore.com/logo.png" />
 
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://accounts.google.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://web-production-31034.up.railway.app http://localhost:8000 https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://apis.google.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; font-src 'self'; frame-src https://jaini-web.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SrRBcJ8brtPtQU2QuAa4xRuItFgwWkO9jRESd+thpk8=' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://accounts.google.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://web-production-31034.up.railway.app http://localhost:8000 https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://apis.google.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; font-src 'self'; frame-src https://jaini-web.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'" />
     <link rel="stylesheet" href="./style.css" />
     <!-- Early theme resolution: runs before first paint to avoid flash of wrong theme -->
     <script>
@@ -207,6 +207,9 @@
             <p id="barcodeInfo" class="product-barcode-info"></p>
           </div>
         </div>
+
+        <!-- Data source provenance badge (community-submitted vs curated) -->
+        <div id="dataSourceBadge" class="data-source-badge hidden" role="status"></div>
 
         <!-- Reason chips -->
         <div id="reasonChips" class="chips" role="list" aria-label="Flagged reasons"></div>
