@@ -9,7 +9,7 @@
  * Cache versioning: bump CACHE_NAME to force full purge of stale assets.
  */
 
-const CACHE_NAME = "jaini-v2";
+const CACHE_NAME = "jaini-v3";
 const CACHE_API = "jaini-api-v2";
 const MAX_API_ENTRIES = 100;
 
