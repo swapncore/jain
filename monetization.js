@@ -39,6 +39,10 @@ export async function showForVerdict(barcode, status) {
   if (!_section || !_cardsEl) return;
   hide();
 
+  // Commerce alternatives only surface on a rejected scan — never on a
+  // compliant (GREEN) product, where suggesting substitutes makes no sense.
+  if (status !== "RED" && status !== "ORANGE" && status !== "YELLOW") return;
+
   try {
     const url = new URL(`${_apiBase}/v1/placements`);
     url.searchParams.set("status", status);
@@ -84,10 +88,10 @@ function renderCards(placements, contextBarcode) {
   if (!_cardsEl) return;
   _cardsEl.innerHTML = "";
 
-  // Show disclosure from first placement that has one
-  const disc = placements.find((p) => p.disclosure);
+  // Disclosure reinforces the trust wall: monetized alternatives never buy a verdict.
   if (_disclosure) {
-    _disclosure.textContent = disc?.disclosure || "Sponsored";
+    _disclosure.textContent =
+      "Affiliate links — we may earn a commission. This never affects the verdict.";
     _disclosure.classList.remove("hidden");
   }
 
