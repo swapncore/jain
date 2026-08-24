@@ -159,20 +159,29 @@ function createOnDecodedText(appState, fetchVerdictFn, renderErrorFn) {
     // backend's dual 8-digit candidate lookup never ran — every EAN-8 product
     // in the catalog was unreachable from the web scanner.
     const digits = normalized.cleaned;
-    if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
+    if (![8, 12, 13, 14].includes(digits.length)) return;
 
     const now = Date.now();
     if (digits === appState.lastBarcode && now - appState.lastScanAt < 1200) return;
 
-    if (digits !== appState.pendingBarcode) {
-      appState.pendingBarcode = digits;
-      appState.pendingCount = 1;
-      const scanStatus = document.getElementById("scanStatus");
-      if (scanStatus) scanStatus.textContent = `Detected ${digits}... confirming`;
-      return;
+    // Fast path: a read whose CHECK DIGIT validates is overwhelmingly likely to
+    // be correct, so accept it on first sight rather than waiting for a second
+    // matching frame. The old "two consecutive identical reads" rule stalled on
+    // "...confirming" whenever the decoder produced slightly noisy frames (poor
+    // lighting, angle), because a single differing frame reset the counter and
+    // it never reached two. The 2-frame confirmation is now reserved for reads
+    // we CANNOT checksum-verify, which is exactly where the extra caution helps.
+    if (normalized.checksumValid !== true) {
+      if (digits !== appState.pendingBarcode) {
+        appState.pendingBarcode = digits;
+        appState.pendingCount = 1;
+        const scanStatus = document.getElementById("scanStatus");
+        if (scanStatus) scanStatus.textContent = `Detected ${digits}... confirming`;
+        return;
+      }
+      appState.pendingCount++;
+      if (appState.pendingCount < 2) return;
     }
-    appState.pendingCount++;
-    if (appState.pendingCount < 2) return;
 
     appState.pendingBarcode = "";
     appState.pendingCount = 0;

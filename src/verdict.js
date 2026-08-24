@@ -29,6 +29,27 @@ import * as Favorites from "../favorites.js";
 import * as Monetization from "../monetization.js";
 import { handleShare as _handleShare } from "../lib/share.js";
 
+/**
+ * Bring the verdict into view AFTER layout settles.
+ *
+ * The old code scrolled the instant the result was shown -- but on a scan the
+ * tall camera/scan panel ABOVE the result collapses at the same moment, which
+ * shifts the result upward. Scrolling in that same frame targeted the taller
+ * pre-collapse offset and left the user parked BELOW the verdict, looking at the
+ * ingredient table. Two rAFs let the collapse + content population finish, then
+ * we scroll to the verdict CARD itself (not the whole section) so its header
+ * sits at the top of the viewport.
+ */
+function scrollVerdictIntoView() {
+  const target = document.getElementById("verdictCard")
+    || document.getElementById("resultSection");
+  if (!target) return;
+  const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    target.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }));
+}
+
 // ── Verdict session cache ───────────────────────────────────────────────────
 const _verdictCache = new Map();
 
@@ -516,7 +537,7 @@ export function renderResult(data) {
   const ingredientsText = document.getElementById("ingredientsText");
 
   show(resultSection);
-  resultSection.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  scrollVerdictIntoView();
   verdictCard.className = `verdict verdict-${status}`;
   verdictCard.setAttribute("aria-label", `${meta.ariaPrefix} ${data.explain || ""}`);
   verdictIcon.innerHTML = meta.icon;
@@ -586,18 +607,19 @@ export function renderResult(data) {
   // Community verification
   showCommunitySection(_state.currentBarcode, data.community || null, status);
 
-  // Alternatives
-  fetchAndRenderAlternatives(
-    _state.currentBarcode, data.status, _state.requestId,
-    () => _state.requestId,
-    triggerManualBarcode
-  );
+  // Alternatives + commerce placements are DISABLED for launch (2026-08-24).
+  // Both surfaces were actively harming trust: the internal "Jain-friendly
+  // alternatives" list surfaced fake-green seafood (clams/oysters/kipper shown
+  // as Jain-friendly), and the affiliate "Recommended alternatives" fell back to
+  // category-irrelevant staples (chocolate suggested for a rice product) with no
+  // real product link. Showing nothing is strictly better than showing wrong or
+  // irrelevant suggestions on a trust product. Re-enable only once the catalog
+  // is category-matched and every candidate is re-verified by the fixed engine.
+  hideAlternatives();
+  Monetization.hide();
 
   // Favorites
   Favorites.onResultDisplayed(_state.currentBarcode);
-
-  // Monetization
-  Monetization.showForVerdict(_state.currentBarcode, data.status);
 
   // History push
   historyPush({
@@ -688,7 +710,7 @@ export function renderNotFound(barcode) {
   const missingBarcode = document.getElementById("missingBarcode");
 
   show(resultSection);
-  resultSection.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  scrollVerdictIntoView();
   // Not-found and UNKNOWN are different claims and must not look identical.
   // Not-found: this barcode is not in the data set at all.
   // UNKNOWN:   we hold the product but the evidence will not support a verdict.
