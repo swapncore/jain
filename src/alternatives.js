@@ -1,8 +1,12 @@
 /**
  * alternatives.js — Jain-friendly alternatives fetching and display.
  *
- * When a product is RED, ORANGE, or YELLOW, fetches and renders
- * alternative Jain-friendly products.
+ * When a product is RED, ORANGE, or YELLOW, fetches Jain-friendly (GREEN)
+ * alternative products and renders each as a link OUT to that exact product on
+ * Amazon (a verified product page when available, otherwise a precise search
+ * that lands on that specific product). Alternatives never re-scan inside the
+ * app, and every rendered item has a working outbound link — items the backend
+ * could not build a real Amazon link for are dropped, never shown as dead links.
  */
 
 import { show, hide } from "./ui.js";
@@ -11,24 +15,35 @@ import { getActiveProfile } from "./profile.js";
 import { STATUS_META } from "./config.js";
 import { sanitizeText } from "./sanitize.js";
 
+const DISCLOSURE_TEXT =
+  "Affiliate links. We may earn a commission, which never affects the verdict.";
+
+// Tiny external-link glyph (opens on Amazon). Hardcoded path data only.
+const EXTERNAL_ICON =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+
 /**
  * Fetch and render alternatives for the given barcode/status.
+ *
+ * Only fires on a rejected verdict (RED/ORANGE/YELLOW). Each alternative links
+ * out to Amazon in a new tab; nothing is rendered on a GREEN/UNKNOWN verdict.
+ *
  * @param {string} barcode
  * @param {string} status
  * @param {number} requestId - current request ID for stale-check
  * @param {Function} getRequestId - returns current state.requestId
- * @param {Function} triggerManualBarcode - callback to scan a barcode from alternatives
  */
-export async function fetchAndRenderAlternatives(barcode, status, requestId, getRequestId, triggerManualBarcode) {
+export async function fetchAndRenderAlternatives(barcode, status, requestId, getRequestId) {
   const section = document.getElementById("alternativesSection");
   const list = document.getElementById("alternativesList");
   const brandEl = document.getElementById("alternativesBrand");
+  const disclosureEl = document.getElementById("alternativesDisclosure");
 
   if (status !== "RED" && status !== "ORANGE" && status !== "YELLOW") {
     hideAlternatives();
     return;
   }
-  if (!section) return;
+  if (!section || !list) return;
 
   const profile = getActiveProfile();
   const url = new URL(`${getApiBase()}${ENDPOINTS.alternatives}`);
@@ -41,24 +56,31 @@ export async function fetchAndRenderAlternatives(barcode, status, requestId, get
     }, REQUEST_TIMEOUT_MS);
     if (!resp.ok) return;
     const data = await resp.json();
-    const alts = data.alternatives || [];
+
+    // Only alternatives with a real, safe outbound Amazon link are shown. No
+    // dead "#" hrefs, no in-app re-scan links.
+    const alts = (data.alternatives || []).filter(
+      a => typeof a.affiliate_url === "string" && a.affiliate_url.startsWith("https://")
+    );
     if (!alts.length) return;
 
     if (requestId !== getRequestId()) return;
 
     list.replaceChildren();
     alts.forEach(a => {
-      const safeStatus = ["green", "yellow", "orange", "red"].includes((a.status || "").toLowerCase()) ? a.status.toLowerCase() : "unknown";
-      const label = STATUS_META[(a.status || "").toUpperCase()]?.label || a.status;
+      const safeStatus = ["green", "yellow", "orange", "red"].includes((a.status || "").toLowerCase()) ? a.status.toLowerCase() : "green";
+      const label = STATUS_META[(a.status || "").toUpperCase()]?.label || a.status || "Jain-friendly";
 
       const li = document.createElement("li");
       li.className = "alternatives-item";
 
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "alt-scan-btn";
-      btn.dataset.barcode = a.barcode || "";
-      btn.setAttribute("aria-label", `Scan ${sanitizeText(a.product_name)}`);
+      // Anchor OUT to the exact product on Amazon — never an in-app re-scan.
+      const link = document.createElement("a");
+      link.className = "alt-link";
+      link.href = a.affiliate_url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer sponsored";
+      link.setAttribute("aria-label", `Shop ${sanitizeText(a.product_name)} on Amazon (opens in a new tab)`);
 
       const badge = document.createElement("span");
       badge.className = `alt-badge alt-badge--${safeStatus}`;
@@ -68,30 +90,38 @@ export async function fetchAndRenderAlternatives(barcode, status, requestId, get
       name.className = "alt-name";
       name.textContent = sanitizeText(a.product_name);
 
-      btn.appendChild(badge);
-      btn.appendChild(name);
+      link.appendChild(badge);
+      link.appendChild(name);
 
       if (a.brand) {
         const brandSpan = document.createElement("span");
         brandSpan.className = "alt-brand";
         brandSpan.textContent = sanitizeText(a.brand);
-        btn.appendChild(brandSpan);
+        link.appendChild(brandSpan);
       }
 
-      btn.addEventListener("click", () => {
-        const bc = btn.dataset.barcode;
-        if (bc) triggerManualBarcode(bc);
-      });
+      const cta = document.createElement("span");
+      cta.className = "alt-cta";
+      cta.innerHTML = EXTERNAL_ICON; // hardcoded glyph only
+      const ctaText = document.createElement("span");
+      ctaText.className = "alt-cta-text";
+      ctaText.textContent = "Amazon";
+      cta.appendChild(ctaText);
+      link.appendChild(cta);
 
-      li.appendChild(btn);
+      li.appendChild(link);
       list.appendChild(li);
     });
 
-    if (data.based_on === "brand" && alts[0]?.brand) {
-      brandEl.textContent = `from ${sanitizeText(alts[0].brand)}`;
+    if (disclosureEl) disclosureEl.textContent = DISCLOSURE_TEXT;
+
+    if (brandEl) {
+      brandEl.textContent = (data.based_on === "brand" && alts[0]?.brand)
+        ? `from ${sanitizeText(alts[0].brand)}`
+        : "";
     }
     show(section);
-  } catch { /* fire-and-forget */ }
+  } catch { /* fire-and-forget: alternatives are non-critical */ }
 }
 
 export function hideAlternatives() {

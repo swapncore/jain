@@ -1958,7 +1958,13 @@ details[open] > .collapsible-heading::after {
   gap: 0.5rem;
 }
 .alternatives-item { display: flex; }
-.alt-scan-btn {
+.alternatives-disclosure {
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin: 0 0 0.6rem;
+}
+.alt-scan-btn,
+.alt-link {
   display: flex;
   align-items: center;
   gap: 0.65rem;
@@ -1970,15 +1976,28 @@ details[open] > .collapsible-heading::after {
   cursor: pointer;
   font-family: inherit;
   text-align: left;
+  text-decoration: none;
+  color: inherit;
   transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
   box-shadow: var(--shadow-sm);
 }
-.alt-scan-btn:hover {
+.alt-scan-btn:hover,
+.alt-link:hover {
   border-color: var(--green-border);
   background: var(--green-bg);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
+.alt-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  flex-shrink: 0;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--green);
+}
+.alt-cta-text { white-space: nowrap; }
 .alt-badge {
   font-size: 0.72rem;
   font-weight: 600;
@@ -2940,11 +2959,13 @@ body.modal-open {
 
 /* Alternatives */
 [data-theme="dark"] .alternatives-section { border-top-color: var(--border); }
-[data-theme="dark"] .alt-scan-btn {
+[data-theme="dark"] .alt-scan-btn,
+[data-theme="dark"] .alt-link {
   background: var(--surface);
   border-color: var(--border);
 }
-[data-theme="dark"] .alt-scan-btn:hover {
+[data-theme="dark"] .alt-scan-btn:hover,
+[data-theme="dark"] .alt-link:hover {
   background: var(--green-bg);
   border-color: var(--green-border);
 }

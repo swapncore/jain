@@ -607,15 +607,16 @@ export function renderResult(data) {
   // Community verification
   showCommunitySection(_state.currentBarcode, data.community || null, status);
 
-  // Alternatives + commerce placements are DISABLED for launch (2026-08-24).
-  // Both surfaces were actively harming trust: the internal "Jain-friendly
-  // alternatives" list surfaced fake-green seafood (clams/oysters/kipper shown
-  // as Jain-friendly), and the affiliate "Recommended alternatives" fell back to
-  // category-irrelevant staples (chocolate suggested for a rice product) with no
-  // real product link. Showing nothing is strictly better than showing wrong or
-  // irrelevant suggestions on a trust product. Re-enable only once the catalog
-  // is category-matched and every candidate is re-verified by the fixed engine.
-  hideAlternatives();
+  // Alternatives — a SINGLE surface (2026-08-24). Fetches Jain-friendly (GREEN)
+  // products similar to the rejected one and renders each as a link OUT to that
+  // exact product on Amazon (verified /dp page or a precise brand+name search),
+  // never an in-app re-scan. It fires only on a RED/ORANGE/YELLOW reject; on a
+  // GREEN/UNKNOWN verdict it renders nothing. The old separate affiliate
+  // "Recommended alternatives" surface is retired — this is the only one.
+  fetchAndRenderAlternatives(
+    _state.currentBarcode, data.status, _state.requestId,
+    () => _state.requestId
+  );
   Monetization.hide();
 
   // Favorites

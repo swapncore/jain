@@ -307,12 +307,14 @@
           <button type="button" id="reportClassificationBtn" class="btn-link report-classification-link">Report incorrect classification</button>
         </div>
 
-        <!-- Alternatives (shown for RED/ORANGE) -->
-        <div id="alternativesSection" class="alternatives-section hidden" aria-label="Jain-friendly alternatives">
+        <!-- Alternatives (shown only for RED/ORANGE/YELLOW). Each item links out
+             to that exact product on Amazon. This is the single alternatives surface. -->
+        <div id="alternativesSection" class="alternatives-section hidden" aria-label="Shop Jain-friendly alternatives">
           <div class="alternatives-header">
-            <span class="alternatives-title">Jain-friendly alternatives</span>
+            <span class="alternatives-title">Shop Jain-friendly alternatives</span>
             <span id="alternativesBrand" class="alternatives-brand"></span>
           </div>
+          <p id="alternativesDisclosure" class="alternatives-disclosure"></p>
           <ul id="alternativesList" class="alternatives-list"></ul>
         </div>
 
@@ -322,14 +324,9 @@
           Jaini provides informational dietary guidance based on available product data. It is not a certification service and may be incomplete or inaccurate. Always read the product label and use your own judgment.
         </aside>
 
-        <!-- Monetization: sponsored alternatives -->
-        <div id="monetizationSection" class="monetization-section hidden" aria-label="Recommended products">
-          <div class="monetization-header">
-            <span class="monetization-title" id="monetizationTitle">Recommended alternatives</span>
-            <span class="monetization-disclosure" id="monetizationDisclosure"></span>
-          </div>
-          <div id="monetizationCards" class="monetization-cards"></div>
-        </div>
+        <!-- The former separate "Recommended alternatives" (affiliate placements)
+             section was removed: there is now ONE alternatives surface above, whose
+             items each link out to the specific product on Amazon. -->
 
         <!-- Result actions -->
         <div class="result-actions">

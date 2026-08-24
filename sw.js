@@ -21,7 +21,7 @@
 // changed app.js/auth.js/verdict.js, new index.html markup and consent CSS. auth.js
 // now loads Firebase via dynamic import, so a stale v7 auth.js (static gstatic
 // import at first paint) MUST be purged — returning users have to move off v7.
-const CACHE_NAME = "jaini-v9";
+const CACHE_NAME = "jaini-v10";
 const CACHE_API = "jaini-api-v2";
 const MAX_API_ENTRIES = 100;
 
