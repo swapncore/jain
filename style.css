@@ -2016,20 +2016,30 @@ details[open] > .collapsible-heading::after {
   background: var(--yellow-bg);
   border: 1px solid var(--yellow-border);
 }
+.alt-body {
+  flex: 1;
+  min-width: 0;            /* allow children to ellipsize inside the flex row */
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
 .alt-name {
   font-size: 0.88rem;
   color: var(--text);
   font-weight: 600;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
 }
 .alt-brand {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--muted);
-  flex-shrink: 0;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 /* ============================================================

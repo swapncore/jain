@@ -86,19 +86,26 @@ export async function fetchAndRenderAlternatives(barcode, status, requestId, get
       badge.className = `alt-badge alt-badge--${safeStatus}`;
       badge.textContent = label;
 
+      // Name + brand stack vertically in their own column so a long brand
+      // ellipsizes on its own line instead of shoving the "Amazon" CTA off the
+      // right edge. Matches the mobile app's two-line row.
+      const body = document.createElement("span");
+      body.className = "alt-body";
+
       const name = document.createElement("span");
       name.className = "alt-name";
-      name.textContent = sanitizeText(a.product_name);
-
-      link.appendChild(badge);
-      link.appendChild(name);
+      name.textContent = sanitizeText(a.product_name) || "View on Amazon";
+      body.appendChild(name);
 
       if (a.brand) {
         const brandSpan = document.createElement("span");
         brandSpan.className = "alt-brand";
         brandSpan.textContent = sanitizeText(a.brand);
-        link.appendChild(brandSpan);
+        body.appendChild(brandSpan);
       }
+
+      link.appendChild(badge);
+      link.appendChild(body);
 
       const cta = document.createElement("span");
       cta.className = "alt-cta";
