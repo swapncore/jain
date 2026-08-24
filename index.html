@@ -8,21 +8,21 @@
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
     <link rel="manifest" href="./manifest.json" />
     <meta name="theme-color" content="#0b5b6f" />
-    <meta name="description" content="Jaini — Jain dietary barcode scanner. Scan any food barcode to instantly check if it's Jain-friendly. Supports Everyday Jain, Temple, Paryushan and Greens+ modes." />
+    <meta name="description" content="Jaini: Jain dietary barcode scanner. Scan any food barcode to instantly check if it's Jain-friendly. Supports Everyday Jain, Temple, Paryushan and Greens+ modes." />
 
     <!-- Open Graph / WhatsApp / iMessage preview -->
     <meta property="og:type"        content="website" />
     <meta property="og:site_name"   content="Jaini" />
-    <meta property="og:title"       content="Jaini — Jain dietary barcode scanner" />
+    <meta property="og:title"       content="Jaini: Jain dietary barcode scanner" />
     <meta property="og:description" content="Scan or enter a product barcode to check Jain dietary compliance. Flags meat, fish, eggs, onion, garlic, root vegetables, and ambiguous additives." />
     <meta property="og:url"         content="https://jain.swapncore.com/" />
     <meta property="og:image"       content="https://jain.swapncore.com/logo.png" />
     <meta name="twitter:card"       content="summary" />
-    <meta name="twitter:title"      content="Jaini — Jain dietary barcode scanner" />
+    <meta name="twitter:title"      content="Jaini: Jain dietary barcode scanner" />
     <meta name="twitter:description" content="Check if a product is Jain-friendly by scanning or entering its barcode." />
     <meta name="twitter:image"      content="https://jain.swapncore.com/logo.png" />
 
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SrRBcJ8brtPtQU2QuAa4xRuItFgwWkO9jRESd+thpk8=' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://accounts.google.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://web-production-31034.up.railway.app http://localhost:8000 https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://apis.google.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; font-src 'self'; frame-src https://jaini-web.firebaseapp.com https://accounts.google.com; frame-ancestors 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-SrRBcJ8brtPtQU2QuAa4xRuItFgwWkO9jRESd+thpk8=' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://accounts.google.com 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' https://accounts.google.com; img-src 'self' data: blob: https://lh3.googleusercontent.com https://*.googleusercontent.com; connect-src 'self' https://web-production-31034.up.railway.app http://localhost:8000 https://cdn.jsdelivr.net https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://apis.google.com https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com; font-src 'self'; frame-src https://jaini-web.firebaseapp.com https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <link rel="stylesheet" href="./style.css" />
     <!-- Early theme resolution: runs before first paint to avoid flash of wrong theme -->
     <script>
@@ -48,7 +48,7 @@
     <header class="site-header" role="banner">
       <div class="header-inner">
         <div class="header-brand">
-          <img src="./logo-transparent.png" alt="Jaini" class="header-logo-img" />
+          <img src="./logo-transparent.png" alt="Jaini" class="header-logo-img" width="73" height="44" decoding="async" />
         </div>
         <nav class="header-nav" aria-label="Site navigation">
           <a href="./howitworks.html" class="nav-link">How it works</a>
@@ -75,17 +75,22 @@
                   </label>
                 </div>
                 <button type="button" id="dropdownSignOutBtn" class="btn btn-ghost btn-sm user-dropdown-signout">Sign out</button>
+                <button type="button" id="dropdownDeleteAccountBtn" class="btn btn-ghost btn-sm user-dropdown-delete">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  Delete my account
+                </button>
+                <p class="user-dropdown-delete-hint">Permanently deletes your account and all saved data. This cannot be undone.</p>
               </div>
             </span>
           </span>
         </nav>
       </div>
-      <!-- Mode selector — pills rendered by app.js -->
+      <!-- Mode selector: pills rendered by app.js -->
       <div class="header-mode" id="modeBar" role="group" aria-label="Scan strictness mode"></div>
     </header>
 
     <!-- Offline banner (initially hidden) -->
-    <div id="offlineBanner" class="offline-banner hidden" role="alert" aria-live="assertive" aria-atomic="true">No internet connection — scan results unavailable</div>
+    <div id="offlineBanner" class="offline-banner hidden" role="alert" aria-live="assertive" aria-atomic="true">No internet connection: scan results unavailable</div>
 
     <main class="main-content" id="main">
 
@@ -195,12 +200,20 @@
           </div>
           <p id="explainText" class="verdict-explain"></p>
           <div class="verdict-meta-row">
+            <!-- Present in the initial markup so cached history views get the
+                 confidence chip too: restoreVerdictCard() only rebuilds this
+                 row after a skeleton, which cached renders never show. -->
+            <span id="confidenceText" class="confidence-chip"></span>
             <span id="modeChip" class="mode-result-chip" title="Strictness mode used for this scan"></span>
           </div>
         </div>
 
         <!-- Product details -->
-        <div id="productDetails" class="product-details hidden" aria-hidden="true">
+        <!-- NOTE: no aria-hidden here. It used to be hard-coded aria-hidden="true"
+             and never removed when the block was shown, so the product name and
+             brand: the only text that says WHICH product was scanned: were
+             invisible to screen readers on every single result. -->
+        <div id="productDetails" class="product-details hidden">
           <div class="product-meta">
             <p id="productNameText" class="product-name"></p>
             <p id="brandText" class="product-brand"></p>
@@ -214,6 +227,31 @@
         <!-- Reason chips -->
         <div id="reasonChips" class="chips" role="list" aria-label="Flagged reasons"></div>
 
+        <!-- ── UNKNOWN verdict guidance ─────────────────────────────────
+             Shown only for a real UNKNOWN verdict (the product IS in our data,
+             but the evidence will not support a call). This is a first-class
+             outcome, not an error state: it explains what the answer means,
+             why it happened, and what the reader can do about it. -->
+        <div id="unknownGuidance" class="unknown-guidance hidden" aria-labelledby="unknown-guidance-heading">
+          <h3 class="unknown-guidance-heading" id="unknown-guidance-heading">What this means</h3>
+          <p class="unknown-guidance-lead">
+            Jaini could not reach a verdict for this product. This is <strong>not</strong> a pass and
+            <strong>not</strong> a fail: it means the ingredient evidence available is not good enough to
+            say either way, and saying nothing is more honest than guessing.
+          </p>
+          <p class="unknown-guidance-subhead">Why this happens</p>
+          <ul id="unknownCauses" class="unknown-guidance-causes"></ul>
+          <p class="unknown-guidance-next">
+            <strong>What to do:</strong> read the ingredient list printed on the packaging. If you have the
+            pack in your hand, adding the ingredients below gives you a verdict straight away and helps
+            everyone who scans it after you.
+          </p>
+          <div class="unknown-guidance-actions">
+            <button type="button" class="btn btn-primary btn-sm" data-open-missing id="unknownAddIngredientsBtn">Add ingredients from the label</button>
+            <a href="./disclaimer.html" class="btn btn-ghost btn-sm">Read disclaimer</a>
+          </div>
+        </div>
+
         <!-- Not found state -->
         <div id="notFoundState" class="not-found-state hidden">
           <div class="not-found-icon" aria-hidden="true">
@@ -222,7 +260,7 @@
           <p class="not-found-primary">We couldn't find this barcode in the current dataset.</p>
           <p class="not-found-secondary">That does not mean the product is Jain-friendly or not Jain-friendly. Please read the packaging label directly.</p>
           <div class="not-found-actions">
-            <button type="button" class="btn btn-ghost btn-sm" id="reportMissingBtn">Report missing product</button>
+            <button type="button" class="btn btn-ghost btn-sm" id="reportMissingBtn" data-open-missing>Report missing product</button>
             <button type="button" class="btn btn-ghost btn-sm" id="tryAnotherBtn">Try another barcode</button>
             <a href="./disclaimer.html" class="btn btn-ghost btn-sm">Read disclaimer</a>
           </div>
@@ -233,13 +271,22 @@
           <h3 id="ingredients-heading" class="section-heading">Ingredient review</h3>
 
           <!-- Raw ingredient text -->
-          <details class="ingredients-raw-details">
+          <details class="ingredients-raw-details" id="ingredientRawDetails">
             <summary class="ingredients-raw-summary">View full ingredient text</summary>
             <p id="ingredientsText" class="ingredients-raw-text"></p>
           </details>
 
           <!-- Categorised rows -->
           <div id="ingredientRows" class="ingredient-rows" role="list" aria-label="Ingredients by category"></div>
+
+          <!-- Shown INSTEAD of the category rows when there is no ingredient
+               evidence at all. Four category headers each reading "None" look
+               like a completed check that found nothing wrong; in that case
+               nothing was checked, and the difference matters. -->
+          <p id="ingredientEmpty" class="ingredient-empty hidden">
+            No ingredient list was available for this product, so no ingredient-level
+            check could be performed. Read the list printed on the packaging.
+          </p>
         </section>
 
         <!-- Community verification -->
@@ -257,6 +304,7 @@
             </button>
           </div>
           <span id="feedbackThanks" class="feedback-thanks hidden" aria-live="polite"></span>
+          <button type="button" id="reportClassificationBtn" class="btn-link report-classification-link">Report incorrect classification</button>
         </div>
 
         <!-- Alternatives (shown for RED/ORANGE) -->
@@ -299,7 +347,17 @@
       </section>
 
       <!-- ═══════════════════════════════════════════
-           RECENT SCANS (history — rendered by app.js)
+           TRY THESE EXAMPLES (first-run only: shown by app.js
+           when the scan history is empty)
+      ═══════════════════════════════════════════ -->
+      <section id="demoSection" class="card demo-card hidden" aria-labelledby="demo-heading">
+        <h2 class="card-heading" id="demo-heading">Try these examples</h2>
+        <p class="card-sub">Tap a product to see how Jaini works.</p>
+        <div id="demoChips" class="demo-grid"></div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════
+           RECENT SCANS (history: rendered by app.js)
       ═══════════════════════════════════════════ -->
       <section id="historySection" class="card history-card hidden" aria-labelledby="history-heading">
         <div class="history-header">
@@ -336,7 +394,7 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             </span>
             <div class="legend-body">
-              <strong class="legend-label">Jain-Friendly</strong>
+              <strong class="legend-label">Jain-friendly</strong>
               <p class="legend-desc">No obvious meat, egg, onion, garlic, or root-vegetable concern found in available data.</p>
             </div>
           </li>
@@ -345,8 +403,8 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </span>
             <div class="legend-body">
-              <strong class="legend-label">Jain-Restricted</strong>
-              <p class="legend-desc">Contains ingredients restricted in your current mode — root vegetables, onion/garlic, or in stricter modes: honey, fermented ingredients, and leafy greens.</p>
+              <strong class="legend-label">Jain-restricted</strong>
+              <p class="legend-desc">Contains ingredients restricted in your current mode: root vegetables, onion/garlic, or in stricter modes: honey, fermented ingredients, and leafy greens.</p>
             </div>
           </li>
           <li class="legend-item legend-ORANGE" role="listitem">
@@ -354,7 +412,7 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
             </span>
             <div class="legend-body">
-              <strong class="legend-label">Uncertain / Ambiguous</strong>
+              <strong class="legend-label">Uncertain</strong>
               <p class="legend-desc">Contains ingredients like mono- and diglycerides, natural flavors, or enzymes whose source (plant vs. animal) is not declared. Verify with the manufacturer if unsure.</p>
             </div>
           </li>
@@ -363,17 +421,53 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
             </span>
             <div class="legend-body">
-              <strong class="legend-label">Meat Detected</strong>
+              <strong class="legend-label">Animal-derived ingredient</strong>
               <p class="legend-desc">Contains meat, fish, gelatin, carmine (E120), shellac (E904), or other clearly non-Jain animal-derived ingredients.</p>
             </div>
           </li>
           <li class="legend-item legend-UNKNOWN" role="listitem">
             <span class="legend-icon" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25" stroke-dasharray="3.2 3.4"/><line x1="8.5" y1="12" x2="15.5" y2="12"/></svg>
             </span>
             <div class="legend-body">
               <strong class="legend-label">Not enough data</strong>
-              <p class="legend-desc">Product was not found or ingredient data is incomplete. Read the label directly.</p>
+              <p class="legend-desc">We hold this product but the ingredient evidence will not support a verdict either way. It is not a pass and not a fail: read the label directly.</p>
+            </div>
+          </li>
+        </ul>
+
+        <h3 class="legend-subheading" id="confidence-legend-heading">How sure is the verdict?</h3>
+        <p class="card-sub">
+          Every verdict also carries a confidence level. Confidence describes the
+          <em>evidence</em>, not the food: a Jain-friendly verdict can still be low
+          confidence if the ingredient data behind it was thin.
+        </p>
+        <ul class="legend-list legend-list--confidence" role="list" aria-labelledby="confidence-legend-heading">
+          <li class="legend-item" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <span class="confidence-meter confidence-meter--static"><span class="confidence-bar confidence-bar--on"></span><span class="confidence-bar confidence-bar--on"></span><span class="confidence-bar confidence-bar--on"></span></span>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">High confidence</strong>
+              <p class="legend-desc">A full ingredient list was available and every ingredient was recognised.</p>
+            </div>
+          </li>
+          <li class="legend-item" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <span class="confidence-meter confidence-meter--static"><span class="confidence-bar confidence-bar--on"></span><span class="confidence-bar confidence-bar--on"></span><span class="confidence-bar"></span></span>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Medium confidence</strong>
+              <p class="legend-desc">An ingredient list was available, but some entries could not be matched exactly.</p>
+            </div>
+          </li>
+          <li class="legend-item" role="listitem">
+            <span class="legend-icon" aria-hidden="true">
+              <span class="confidence-meter confidence-meter--static"><span class="confidence-bar confidence-bar--on"></span><span class="confidence-bar"></span><span class="confidence-bar"></span></span>
+            </span>
+            <div class="legend-body">
+              <strong class="legend-label">Low confidence</strong>
+              <p class="legend-desc">Little usable ingredient data was available. Treat the verdict as a starting point and read the label.</p>
             </div>
           </li>
         </ul>
@@ -389,7 +483,7 @@
           <li>Flags ingredients commonly avoided in Jain diets (meat, fish, eggs, onion, garlic, root vegetables)</li>
           <li>Marks unclear or ambiguous ingredients for manual verification</li>
           <li>Cannot guarantee manufacturer accuracy. Formulations can change at any time.</li>
-          <li>The verdict depends on your selected mode — tap the mode pills above to switch between Everyday Jain, Temple, Paryushan, and Greens+ standards. <a href="./modes.html">Learn what each mode means →</a></li>
+          <li>The verdict depends on your selected mode: tap the mode pills above to switch between Everyday Jain, Temple, Paryushan, and Greens+ standards. <a href="./modes.html">Learn what each mode means →</a></li>
         </ul>
       </details>
 
@@ -415,6 +509,7 @@
           <a href="./disclaimer.html" class="footer-link">Disclaimer</a>
           <a href="./terms.html" class="footer-link">Terms of Use</a>
           <a href="./howitworks.html" class="footer-link">How it works</a>
+          <button type="button" class="footer-link footer-link--btn" data-consent-manage>Privacy choices</button>
           <a href="mailto:hello@swapncore.com?subject=Jaini%20feedback" class="footer-link">Contact / Report issue</a>
         </nav>
         <p class="footer-legal">
@@ -430,7 +525,7 @@
     <div id="missingModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="missingModalTitle">
       <div class="modal-box">
         <div class="modal-header">
-          <h2 id="missingModalTitle" class="modal-title">Submit Product Photo</h2>
+          <h2 id="missingModalTitle" class="modal-title">Add this product</h2>
           <button type="button" class="modal-close" id="missingCloseBtn" aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -445,7 +540,42 @@
           <!-- Hidden input keeps value for form submission -->
           <input type="hidden" id="missingBarcode" />
 
-          <p class="missing-intro">Photograph the <strong>ingredient list</strong> on the back of the package.</p>
+          <!-- Path switcher: typed ingredients (instant verdict) vs photo (reviewed later) -->
+          <div class="missing-tabs" role="tablist" aria-label="How to add this product">
+            <button type="button" id="missingTabText" class="missing-tab missing-tab--active" role="tab" aria-selected="true" aria-controls="missingTextPane">Type ingredients</button>
+            <button type="button" id="missingTabPhoto" class="missing-tab" role="tab" aria-selected="false" aria-controls="missingPhotoPane">Photograph label</button>
+          </div>
+
+          <!-- ── Typed-ingredients path: instant verdict ─────────────── -->
+          <div id="missingTextPane" class="missing-pane" role="tabpanel" aria-labelledby="missingTabText">
+            <p class="missing-intro">Type or paste the <strong>ingredient list</strong> from the back of the package: you'll get a verdict straight away.</p>
+            <label for="missingIngredients" class="sr-only">Ingredient list</label>
+            <textarea
+              id="missingIngredients"
+              class="form-input missing-textarea"
+              rows="6"
+              maxlength="20000"
+              placeholder="e.g. Wheat flour, sugar, palm oil, milk solids, salt, raising agent (500ii), natural flavour"
+              aria-describedby="missingIngredientsHelp"
+              spellcheck="false"
+            ></textarea>
+            <p id="missingIngredientsHelp" class="field-help" aria-live="polite">Copy the list exactly as printed, including anything in brackets.</p>
+
+            <p class="missing-unverified-note">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span>A verdict from ingredients you typed is <strong>Community-submitted · unverified</strong>: it has not been checked against the packaging by our reviewers. Always read the label.</span>
+            </p>
+
+            <div class="missing-actions missing-actions--text">
+              <button type="button" id="missingTextSubmitBtn" class="btn btn-primary" disabled>
+                <span id="missingTextSubmitLabel">Get verdict</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- ── Photo path: reviewed by the team ────────────────────── -->
+          <div id="missingPhotoPane" class="missing-pane hidden" role="tabpanel" aria-labelledby="missingTabPhoto">
+          <p class="missing-intro">Photograph the <strong>ingredient list</strong> on the back of the package. Our team reviews photo submissions: no instant verdict.</p>
 
           <!-- Camera / preview area -->
           <div id="missingCameraArea" class="missing-camera-area">
@@ -468,7 +598,7 @@
             </div>
           </div>
 
-          <!-- Controls below camera — two states -->
+          <!-- Controls below camera: two states -->
           <div id="missingCaptureControls" class="missing-actions">
             <button type="button" id="missingCaptureBtn" class="btn-capture-round" aria-label="Take photo">
               <span class="capture-ring"><span class="capture-dot"></span></span>
@@ -485,11 +615,12 @@
               <span id="missingSubmitLabel">Submit Photo</span>
             </button>
           </div>
+          </div>
 
-          <!-- Optional product name -->
+          <!-- Optional product name: shared by both paths -->
           <div class="missing-meta">
             <label for="missingName" class="sr-only">Product name</label>
-            <input type="text" id="missingName" class="form-input" placeholder="Product name (optional)" maxlength="300" autocomplete="off" aria-label="Product name" />
+            <input type="text" id="missingName" class="form-input" placeholder="Product name (optional, helps accuracy)" maxlength="300" autocomplete="off" aria-label="Product name" />
           </div>
 
           <div id="missingFormMsg" class="form-msg hidden" aria-live="polite"></div>
@@ -507,7 +638,7 @@
         <!-- ── Default state: enter email ─────────────────── -->
         <div id="authEmailStep">
           <h2 class="modal-title" id="auth-modal-title">Sign in to Jaini</h2>
-          <p class="auth-modal-sub" id="authModalSub">Enter your email — we'll send you a one-tap sign-in link. No password needed.</p>
+          <p class="auth-modal-sub" id="authModalSub">Enter your email: we'll send you a one-tap sign-in link. No password needed.</p>
 
           <form id="magicLinkForm" class="magic-link-form" novalidate>
             <label class="magic-link-label" for="magicLinkEmail">Email address</label>
@@ -550,14 +681,92 @@
               Open Outlook
             </a>
           </div>
-          <p class="auth-sent-hint">Tap the link in the email — this page will sign you in automatically.<br>
-          <strong>Not seeing it?</strong> Check your <em>Spam</em> or <em>Junk</em> folder. The email comes from <code>noreply@jaini-web.firebaseapp.com</code> — mark it as "Not Spam" to avoid this in future.</p>
+          <p class="auth-sent-hint">Tap the link in the email: this page will sign you in automatically.<br>
+          <strong>Not seeing it?</strong> Check your <em>Spam</em> or <em>Junk</em> folder. The email comes from <code>noreply@jaini-web.firebaseapp.com</code>: mark it as "Not Spam" to avoid this in future.</p>
           <div class="auth-sent-actions">
             <button type="button" id="magicLinkResendBtn" class="btn btn-ghost btn-sm">Resend link</button>
             <button type="button" id="magicLinkChangeBtn" class="btn btn-ghost btn-sm">Use different email</button>
           </div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         REPORT INCORRECT CLASSIFICATION MODAL
+    ═══════════════════════════════════════════ -->
+    <div id="reportModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="reportModalTitle">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 id="reportModalTitle" class="modal-title">Report incorrect classification</h2>
+          <button type="button" class="modal-close" id="reportCloseBtn" aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div id="reportFormBody">
+          <label class="field-label" for="reportBarcodeDisplay">Barcode</label>
+          <input type="text" id="reportBarcodeDisplay" class="form-input form-input--readonly" readonly aria-readonly="true" />
+
+          <label class="field-label" for="reportWhatWrong">What seems wrong? <span class="field-required" aria-hidden="true">*</span></label>
+          <textarea id="reportWhatWrong" class="form-input report-textarea" rows="3" maxlength="2000" placeholder="Describe the issue..." required aria-required="true"></textarea>
+
+          <label class="field-label" for="reportCorrected">Corrected ingredients (optional)</label>
+          <textarea id="reportCorrected" class="form-input report-textarea" rows="3" maxlength="20000" placeholder="Paste the correct ingredient text from the label..."></textarea>
+
+          <label class="field-label" for="reportEmail">Your email (optional)</label>
+          <input type="email" id="reportEmail" class="form-input" maxlength="254" placeholder="you@example.com" autocomplete="email" inputmode="email" spellcheck="false" />
+          <p class="field-help">Only used to follow up on your report. Not stored beyond this request.</p>
+
+          <div class="missing-actions missing-actions--text">
+            <button type="button" id="reportCancelBtn" class="btn btn-secondary">Cancel</button>
+            <button type="button" id="reportSubmitBtn" class="btn btn-primary">
+              <span id="reportSubmitLabel">Submit report</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="reportSuccessBody" class="report-success hidden" role="status">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <p>Thanks. Your report helps improve Jaini. You can close this window.</p>
+        </div>
+
+        <div id="reportFormMsg" class="form-msg hidden" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════
+         DELETE ACCOUNT MODAL
+    ═══════════════════════════════════════════ -->
+    <div id="deleteAccountModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="deleteAccountTitle">
+      <div class="modal-box modal-box--sm">
+        <div class="modal-header">
+          <h2 id="deleteAccountTitle" class="modal-title">Delete your account?</h2>
+          <button type="button" class="modal-close" id="deleteAccountCloseBtn" aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <p class="delete-account-intro">This permanently deletes your Jaini account and all associated data:</p>
+        <ul class="delete-account-list">
+          <li>Saved / favorite products</li>
+          <li>Email &amp; weekly-digest preferences</li>
+          <li>Scan history stored on this device</li>
+        </ul>
+        <p class="delete-account-warning"><strong>This cannot be undone.</strong></p>
+
+        <label class="field-label" for="deleteAccountConfirm">Type <code>DELETE</code> to confirm</label>
+        <input type="text" id="deleteAccountConfirm" class="form-input" placeholder="DELETE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="deleteAccountHelp" />
+        <p id="deleteAccountHelp" class="field-help">Case-sensitive.</p>
+
+        <div class="missing-actions missing-actions--text">
+          <button type="button" id="deleteAccountCancelBtn" class="btn btn-secondary">Cancel</button>
+          <button type="button" id="deleteAccountConfirmBtn" class="btn btn-danger" disabled>
+            <span id="deleteAccountConfirmLabel">Delete account</span>
+          </button>
+        </div>
+
+        <div id="deleteAccountFormMsg" class="form-msg hidden" aria-live="polite"></div>
       </div>
     </div>
 

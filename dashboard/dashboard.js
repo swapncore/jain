@@ -344,6 +344,8 @@
 
     // Reset review form
     noteField.value = data.reviewer_note || "";
+    const rejectionCodeField = document.getElementById("reviewRejectionCode");
+    if (rejectionCodeField) rejectionCodeField.value = "";
     reviewResult.style.display = "none";
     const verdictResultEl = document.getElementById("verdictResult");
     if (verdictResultEl) verdictResultEl.style.display = "none";
@@ -372,6 +374,7 @@
       if (!_currentPhotoId) return;
       const status = btn.dataset.status;
       const note = document.getElementById("reviewNote").value.trim();
+      const rejectionCode = document.getElementById("reviewRejectionCode")?.value || "";
       const resultEl = document.getElementById("reviewResult");
       const verdictResultEl = document.getElementById("verdictResult");
 
@@ -381,6 +384,10 @@
       // The /confirm_ai backend handler also falls back to ai_extracted_ingredients
       // if the field is empty, so the only blocker is a fully-empty + non-AI item.
       const body = { status, note };
+      // Only attach the rejection code on rejection — backend ignores it otherwise.
+      if (status === "rejected" && rejectionCode) {
+        body.rejection_reason_code = rejectionCode;
+      }
       if (status === "added") {
         const ingredients = (document.getElementById("reviewIngredients")?.value || "").trim();
         if (!ingredients && !_currentPhotoIsAiQueued) {
@@ -642,33 +649,65 @@
       const sources = p.ai_sources ? safeParseSources(p.ai_sources) : [];
       const ingredientsPreview = (p.ai_extracted_ingredients || "").slice(0, 200);
       const reasoning = (p.ai_reasoning || "").slice(0, 300);
+      const photoId = `ai-photo-${esc(p.id)}`;
       return `
         <div class="ai-review-card">
-          <div class="ai-card-head">
-            <div>
-              <strong>${esc(p.ai_extracted_brand || p.product_name || "Unknown")}</strong>
-              <div class="muted-text" style="font-size:0.85em;">
-                <span style="font-family:monospace;">${esc(p.barcode)}</span>
-                &middot; ${new Date(p.submitted_at).toLocaleString()}
-                ${p.submitter_email ? '&middot; ' + esc(p.submitter_email) : ''}
+          <div class="ai-card-grid">
+            <div class="ai-card-photo-wrap">
+              <img id="${photoId}" class="ai-card-photo" alt="Submitted ingredient label" loading="lazy" onclick="openAiOverride('${esc(p.id)}')">
+              <div class="ai-card-photo-placeholder" id="${photoId}-loading">Loading photo…</div>
+            </div>
+            <div class="ai-card-body">
+              <div class="ai-card-head">
+                <div>
+                  <strong>${esc(p.ai_extracted_brand || p.product_name || "Unknown")}</strong>
+                  <div class="muted-text" style="font-size:0.85em;">
+                    <span style="font-family:monospace;">${esc(p.barcode)}</span>
+                    &middot; ${new Date(p.submitted_at).toLocaleString()}
+                    ${p.submitter_email ? '&middot; ' + esc(p.submitter_email) : ''}
+                  </div>
+                </div>
+                <div class="ai-card-badges">
+                  <span class="ai-conf-chip ai-conf-${confClass}">${esc(conf || "?")}</span>
+                  <span class="ai-reviewer-chip">${esc(p.reviewer_type || "unknown")}</span>
+                </div>
+              </div>
+              ${reasoning ? `<div class="ai-reasoning">${esc(reasoning)}${(p.ai_reasoning || "").length > 300 ? "…" : ""}</div>` : ""}
+              ${sources.length ? `<div class="ai-sources">Cross-checked: ${sources.map(s => `<span class="ai-source-pill">${esc(s)}</span>`).join("")}</div>` : ""}
+              ${ingredientsPreview ? `<details class="ai-draft-ingredients" open><summary>Draft ingredients (click to collapse)</summary><div class="ai-ingredients-text">${esc(p.ai_extracted_ingredients || "")}</div></details>` : '<div class="ai-no-draft">No draft ingredients extracted — open the photo to review.</div>'}
+              <div class="ai-card-actions">
+                <button class="btn-primary btn-sm" onclick="confirmAiSubmission('${esc(p.id)}', 'added')">✓ Confirm &amp; Add</button>
+                <button class="btn-secondary btn-sm" onclick="confirmAiSubmission('${esc(p.id)}', 'rejected')">✗ Reject</button>
+                <button class="btn-view btn-sm" onclick="openAiOverride('${esc(p.id)}')">Override &amp; Edit</button>
               </div>
             </div>
-            <div class="ai-card-badges">
-              <span class="ai-conf-chip ai-conf-${confClass}">${esc(conf || "?")}</span>
-              <span class="ai-reviewer-chip">${esc(p.reviewer_type || "unknown")}</span>
-            </div>
-          </div>
-          ${reasoning ? `<div class="ai-reasoning">${esc(reasoning)}${(p.ai_reasoning || "").length > 300 ? "…" : ""}</div>` : ""}
-          ${sources.length ? `<div class="ai-sources">Cross-checked: ${sources.map(s => `<span class="ai-source-pill">${esc(s)}</span>`).join("")}</div>` : ""}
-          ${ingredientsPreview ? `<details class="ai-draft-ingredients"><summary>Draft ingredients (click to expand)</summary><div class="ai-ingredients-text">${esc(p.ai_extracted_ingredients || "")}</div></details>` : ""}
-          <div class="ai-card-actions">
-            <button class="btn-primary btn-sm" onclick="confirmAiSubmission('${esc(p.id)}', 'added')">✓ Confirm &amp; Add</button>
-            <button class="btn-secondary btn-sm" onclick="confirmAiSubmission('${esc(p.id)}', 'rejected')">✗ Reject</button>
-            <button class="btn-view btn-sm" onclick="openAiOverride('${esc(p.id)}')">Override &amp; Edit</button>
           </div>
         </div>
       `;
     }).join("");
+
+    // Lazy-load each card's photo. The list endpoint only returns metadata
+    // (no photo_b64) so we issue one fetch per card. The queue is bounded by
+    // AI_REVIEW_MAX_PER_RUN, so the per-render cost is O(queue size).
+    for (const p of items) {
+      const imgEl = document.getElementById(`ai-photo-${p.id}`);
+      const loadingEl = document.getElementById(`ai-photo-${p.id}-loading`);
+      if (!imgEl) continue;
+      fetchWithAuth(`${API_BASE}/v1/admin/photos/${p.id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.photo_b64) {
+            imgEl.src = `data:image/jpeg;base64,${data.photo_b64}`;
+            imgEl.style.display = "block";
+            if (loadingEl) loadingEl.style.display = "none";
+          } else if (loadingEl) {
+            loadingEl.textContent = "No photo";
+          }
+        })
+        .catch(() => {
+          if (loadingEl) loadingEl.textContent = "Failed to load";
+        });
+    }
   }
 
   function safeParseSources(raw) {

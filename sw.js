@@ -9,9 +9,29 @@
  * Cache versioning: bump CACHE_NAME to force full purge of stale assets.
  */
 
-const CACHE_NAME = "jaini-v4";
+// Bumped for the app-shell changes (new modules + markup). CACHE_API is
+// deliberately NOT bumped: a wholesale purge would throw away every user's
+// offline verdict history at once. Staleness is handled per-entry by the TTL
+// below instead, which is both safer and more precise.
+// v7: UNKNOWN is now a first-class rendered verdict (new src/confidence.js
+// module, new markup in index.html, new styles). Every one of those is a cached
+// app-shell asset, so returning users must be forced off v6 or they get the old
+// JS against the new markup.
+// v8: Article 9 consent gate. New modules (src/consent.js, src/consentBanner.js),
+// changed app.js/auth.js/verdict.js, new index.html markup and consent CSS. auth.js
+// now loads Firebase via dynamic import, so a stale v7 auth.js (static gstatic
+// import at first paint) MUST be purged — returning users have to move off v7.
+const CACHE_NAME = "jaini-v8";
 const CACHE_API = "jaini-api-v2";
 const MAX_API_ENTRIES = 100;
+
+// A verdict can be corrected by moderation at any time, and this is a dietary
+// tool — serving a day-old cached verdict as if it were current is a
+// correctness bug, not a performance win. Entries older than this (and entries
+// with no recorded age, i.e. written by an earlier version of this worker) are
+// dropped rather than served.
+const API_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CACHED_AT_HEADER = "X-Jaini-Cached-At";
 
 const APP_SHELL = [
   "/",
@@ -24,6 +44,10 @@ const APP_SHELL = [
   "/barcode.js",
   "/config/shared-config.js",
   "/src/config.js",
+  "/src/consent.js",
+  "/src/consentBanner.js",
+  "/src/confidence.js",
+  "/src/privacy.js",
   "/src/api.js",
   "/src/ui.js",
   "/src/scanner.js",
@@ -35,9 +59,13 @@ const APP_SHELL = [
   "/src/profile.js",
   "/src/sanitize.js",
   "/src/env.js",
+  "/src/report.js",
+  "/src/account.js",
+  "/src/submission.js",
+  "/src/freescan.js",
   "/lib/history.js",
   "/lib/share.js",
-  "/logo.png",
+  "/logo-transparent.png",
   "/favicon-32.png",
 ];
 
@@ -60,12 +88,52 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+// Store a verdict response stamped with the time it was cached. Response
+// headers from the network are immutable, so a fresh Response is rebuilt.
+async function putStampedApiResponse(request, response) {
+  const cache = await caches.open(CACHE_API);
+  const body = await response.blob();
+  const headers = new Headers(response.headers);
+  headers.set(CACHED_AT_HEADER, String(Date.now()));
+  await cache.put(request, new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  }));
+  // Evict oldest entries when over limit
+  const keys = await cache.keys();
+  if (keys.length > MAX_API_ENTRIES) {
+    await Promise.all(
+      keys.slice(0, keys.length - MAX_API_ENTRIES).map((k) => cache.delete(k))
+    );
+  }
+}
+
+// Only serve a cached verdict that is provably fresh. Anything older than
+// API_MAX_AGE_MS — or with no age recorded at all — is deleted and reported as
+// a network failure, which the app already surfaces as "couldn't reach the
+// server" rather than as a verdict.
+async function matchFreshApiResponse(request) {
+  const cache = await caches.open(CACHE_API);
+  const cached = await cache.match(request);
+  if (!cached) return null;
+  const ts = Number(cached.headers.get(CACHED_AT_HEADER) || 0);
+  if (!ts || (Date.now() - ts) > API_MAX_AGE_MS) {
+    // Undated entries were written by an earlier worker: their age is unknown,
+    // and "unknown age" is not good enough for a dietary verdict.
+    try { await cache.delete(request); } catch { /* best effort */ }
+    return null;
+  }
+  return cached;
+}
+
 // Fetch: cache-first for app shell, network-first for API
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
   // API calls: network-first, cache verdict responses for offline.
-  // Cached entries are evicted LRU-style once MAX_API_ENTRIES is exceeded.
+  // Cached entries are evicted LRU-style once MAX_API_ENTRIES is exceeded, and
+  // expire after API_MAX_AGE_MS.
   if (url.pathname.startsWith("/v1/")) {
     event.respondWith(
       fetch(event.request)
@@ -73,19 +141,11 @@ self.addEventListener("fetch", (event) => {
           // Cache successful verdict responses in the dedicated API cache
           if (response.ok && url.pathname.includes("/verdict")) {
             const clone = response.clone();
-            caches.open(CACHE_API).then((cache) => {
-              cache.put(event.request, clone);
-              // Evict oldest entries when over limit
-              cache.keys().then((keys) => {
-                if (keys.length > MAX_API_ENTRIES) {
-                  keys.slice(0, keys.length - MAX_API_ENTRIES).forEach((k) => cache.delete(k));
-                }
-              });
-            });
+            putStampedApiResponse(event.request, clone).catch(() => {});
           }
           return response;
         })
-        .catch(() => caches.match(event.request))
+        .catch(async () => (await matchFreshApiResponse(event.request)) || Response.error())
     );
     return;
   }

@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Static page: no GSI, no external scripts, no fetches. Hashes cover the two inline scripts (theme bootstrap + store-link picker). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-c7aQS14PeIvy/Yh32no6nfo2z4Tp2rqgfdd9XSiAU0A=' 'sha256-cTz+XKb5YLx60twvCaHXsrSP16NzBl4JkB6SkaIigPE='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" />
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy - Jaini</title>
-  <meta name="description" content="Jaini privacy policy — how we handle data from barcode scans, what we collect, and your privacy rights." />
+  <meta name="description" content="Jaini privacy policy: how we handle data from barcode scans, what we collect, and your privacy rights." />
   <link rel="stylesheet" href="./style.css" />
   <script>
     (function(){
@@ -38,57 +40,78 @@
 </header>
 <main id="main-content" class="legal-page">
   <h1>Privacy Policy</h1>
-  <p class="last-updated">Last updated: March 29, 2026</p>
+  <p class="last-updated">Last updated: August 24, 2026</p>
 
-  <p>Jaini is a lightweight, privacy-respecting tool. This page explains what data is collected when you use the app, how it is used, and your rights.</p>
+  <p>This policy explains, plainly and accurately, what Jaini ("we", "us") collects when you use the app or website, why, how long we keep it, who else processes it, and the rights you have. It is written to describe what the software actually does. The data controller is the operator of Jaini; contact <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>.</p>
+
+  <div class="info-callout" role="note">
+    <p><strong>The most important thing to know.</strong> Your selected dietary mode (for example Everyday, Temple, or Paryushan) reflects religious dietary observance. Under the EU/UK GDPR this is <strong>special-category data</strong> (Article 9). We ask for your explicit consent before processing it, and you can withdraw that consent at any time. If you do not consent, you can still browse the site, but the scan-to-verdict feature will not run, because judging a product against your dietary mode is the whole purpose of that feature.</p>
+  </div>
 
   <h2>Camera access and video frames</h2>
-  <p><strong>Camera frames are processed entirely on your device.</strong> When you use the camera scanner, the video stream from your camera is decoded locally in your browser using the ZXing barcode library. No camera images, video frames, or screenshots are ever sent to our servers. The camera feed is used only to detect barcode numbers, and is never stored or transmitted.</p>
-  <p>Camera access is only requested after you explicitly tap "Scan with camera." If you deny camera permission or stop the camera, no camera data is accessed at any point.</p>
+  <p><strong>Camera frames are processed entirely on your device.</strong> When you use the camera scanner, the video stream is decoded locally in your browser using the ZXing barcode library. No camera images, video frames, or screenshots are ever sent to our servers. The camera feed is used only to detect barcode numbers, and is never stored or transmitted. Camera access is only requested after you tap "Scan with camera."</p>
 
-  <h2>What happens when you scan a barcode</h2>
-  <p>When a barcode is detected or you enter one manually, Jaini sends the following to our API server:</p>
+  <h2>What we collect when you scan or look up a product</h2>
+  <p>When a barcode is detected or entered, we send the barcode number, your selected dietary mode, and an anonymous device ID (below) to our API to return a verdict. Our server then records a <strong>scan event</strong> that includes:</p>
   <ul>
-    <li>The barcode number (digits only)</li>
-    <li>Your selected profile mode (e.g. "everyday_jain", "temple_mode", "paryushan_mode", or "greens_sensitive_mode")</li>
-    <li>A randomly generated anonymous client ID stored in your browser's localStorage, used only to apply per-device rate limits. It is not linked to your identity.</li>
+    <li>the barcode, the dietary mode, and the verdict returned;</li>
+    <li>your <strong>IP address</strong>, and the coarse <strong>country and city</strong> derived from it;</li>
+    <li>your browser's user-agent string and the response time;</li>
+    <li>the anonymous device ID; and</li>
+    <li><strong>if you are signed in, your account ID</strong>, which links that scan to your identity.</li>
   </ul>
+  <p>We use scan events to operate and protect the service (rate-limiting and abuse prevention) and to understand aggregate usage. Search queries you type are recorded the same way. <strong>These records are retained for 90 days</strong> and then deleted automatically. This is a correction to earlier versions of this policy, which incorrectly stated that IP addresses were not stored and that scans were never linked to an identified person.</p>
+
   <h2>Account and sign-in</h2>
-  <p>Jaini uses Google Sign-In (via Firebase Authentication) to provide personalized features like saved favorites and scan history. When you sign in, we collect your <strong>name, email address, and profile photo URL</strong> from your Google account. This information is stored in our database and used to:</p>
-  <ul>
-    <li>Identify your account across sessions and devices</li>
-    <li>Display your name and photo within the app</li>
-    <li>Send optional email communications (weekly digest), if you opt in</li>
-  </ul>
-  <p>You can sign out at any time. Email preferences can be changed from within the app. You may request account deletion by contacting <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>.</p>
+  <p>Sign-in is optional and unlocks saved favorites and scan history. We offer sign-in with Google, with Apple, and by email link, using Google Firebase Authentication. When you sign in we store your <strong>name, email address, and (for Google) profile photo URL</strong>, and we use them to identify your account across devices and to display your name in the app. While you are signed in, the scans and searches you make are associated with your account, as described above. You can sign out at any time and delete your account at any time (see "Your rights").</p>
 
-  <h2>Anonymous client ID</h2>
-  <p>A random UUID is generated the first time you use Jaini and stored in your browser's localStorage under the key <code>JAIN_CLIENT_ID</code>. This ID has no personal information attached to it. It is used solely for rate-limiting repeated requests. You can clear it at any time by clearing your browser's site data for this domain.</p>
+  <h2>Cookies and on-device storage</h2>
+  <p>The core app stores small values in your browser's <code>localStorage</code>, not in cookies: an anonymous device ID (<code>JAIN_CLIENT_ID</code>, a random UUID used only for rate-limiting), your selected dietary mode, a short cache of recent verdicts, and free-scan counters. You can clear these by clearing site data for this domain.</p>
+  <p><strong>Cookies are set by Google</strong> when you use Google Sign-In (Google Identity Services), and Firebase Authentication stores your sign-in session in browser storage. These load only after you have accepted our consent prompt or chosen a sign-in method; they are not loaded on your first visit.</p>
 
-  <h2>Server-side logging</h2>
-  <p>Our API server may log standard request information including the barcode queried, the timestamp, and your IP address. This is standard practice for operating a web service. Logs are used for debugging and abuse prevention and are not shared with third parties.</p>
+  <h2>Third parties that process your data</h2>
+  <table class="legal-table">
+    <thead><tr><th>Provider</th><th>What they receive</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Google (Firebase Authentication &amp; Identity Services)</td><td>Your email, name, photo URL; your IP when their scripts load</td><td>Account sign-in</td></tr>
+      <tr><td>ipwho.is</td><td>Your IP address, per scan</td><td>Resolve coarse country/city; the full IP is not retained by the provider on our behalf beyond the lookup</td></tr>
+      <tr><td>Resend</td><td>Your email address and message content</td><td>Send sign-in links and, if you opt in, a weekly digest</td></tr>
+      <tr><td>Sentry</td><td>Error diagnostics, which may include a barcode or dietary mode</td><td>Diagnose crashes and errors (enabled only if configured)</td></tr>
+      <tr><td>Amazon</td><td>A click, if you choose to open an affiliate link</td><td>Suggested alternatives on non-compliant products (see below)</td></tr>
+    </tbody>
+  </table>
+  <p>Product ingredient data is retrieved from third-party food databases; we display their data and do not control how those databases collect it. Several processors above are located in the United States, so using Jaini involves an international transfer of your data.</p>
 
-  <h2>Analytics</h2>
-  <p>Jaini does not currently use third-party analytics services (e.g. Google Analytics). If this changes, this policy will be updated before any analytics are deployed.</p>
-  <p>For aggregate analytics purposes (country and city-level usage statistics), your IP address may be sent to a third-party geolocation service (<a href="https://ipwho.is" rel="noopener noreferrer">ipwho.is</a>) to resolve approximate geographic location. Only coarse location data (country, city) is retained; your full IP address is not stored by Jaini after the lookup.</p>
-
-  <h2>Cookies</h2>
-  <p>Jaini does not use cookies. The anonymous client ID described above is stored in localStorage, not in a cookie.</p>
+  <h2>Suggested alternatives and affiliate links</h2>
+  <p>When a product is <em>not</em> compliant with your dietary mode, we may show links to compliant alternatives, some of which are Amazon affiliate links from which we may earn a commission. Commerce never appears on a compliant or "unknown" verdict, and <strong>a product's verdict is never influenced by whether we can earn from it.</strong> Affiliate links do not send your barcode or personal data to the retailer.</p>
 
   <h2>Voluntary reports and submissions</h2>
-  <p>If a product is not found in our database, you may photograph the ingredient list and submit it for review. Submitted photos and associated barcode data are stored on our servers for the purpose of expanding our product database. Photos are reviewed by administrators and may be deleted after processing. Your user ID is associated with submissions to prevent abuse.</p>
+  <p>If a product is missing, you may submit a photo of its ingredient list and, optionally, an email address to be notified. Submissions are stored to expand our database, reviewed by administrators, and associated with your account (or the email you provide) to prevent abuse.</p>
+
+  <h2>Legal bases (EU/UK GDPR)</h2>
+  <ul>
+    <li><strong>Explicit consent (Art. 9(2)(a))</strong> for processing your dietary mode, which reflects religious observance. You give it through our consent prompt and can withdraw it at any time.</li>
+    <li><strong>Contract / your request</strong> for delivering a verdict and operating your account.</li>
+    <li><strong>Legitimate interests</strong> for security, rate-limiting, abuse prevention, and aggregate analytics, balanced against your rights and limited by the 90-day retention above.</li>
+    <li><strong>Consent</strong> for optional email (the weekly digest), which is off by default and which you can turn off at any time.</li>
+  </ul>
+
+  <h2>How long we keep data</h2>
+  <ul>
+    <li>Scan and search events (including IP, country/city, and any linked account ID): <strong>90 days</strong>.</li>
+    <li>Ad/commerce and app-diagnostic events: <strong>7 days</strong>.</li>
+    <li>Account data (name, email, favorites, history): until you delete your account.</li>
+    <li>Photo submissions: until reviewed and processed.</li>
+  </ul>
+
+  <h2>Your rights</h2>
+  <p>Depending on where you live (EU/UK GDPR, California CCPA/CPRA, and similar laws) you have the right to access, correct, delete, and export your data, to object to or restrict processing, and to withdraw consent. Account deletion is built into the app and also available by email; it removes your account and de-links your event history. To exercise any right, or to complain, contact <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>; we respond within 30 days. EU/UK users may also complain to their local data protection authority.</p>
 
   <h2>Children</h2>
-  <p>Jaini is not directed at children under 13. We do not knowingly collect any information from children.</p>
-
-  <h2>Your rights (EU / UK / California users)</h2>
-  <p>Because Jaini collects minimal data and does not link barcodes to any identified person, most data protection rights (access, erasure, portability) have limited practical application. However, if you wish to request deletion of any logs associated with your IP address, or have any other privacy concern, please contact us at <a href="mailto:hello@swapncore.com">hello@swapncore.com</a>. We will respond within 30 days.</p>
-
-  <h2>Third-party data sources</h2>
-  <p>Jaini retrieves product ingredient data from third-party food databases. Jaini does not control how those databases collect or manage their data. When we display product data, we are displaying data from those sources.</p>
+  <p>Jaini is not directed at children under 13 (or under 16 where that is the local age of consent), and we do not knowingly collect their data.</p>
 
   <h2>Changes to this policy</h2>
-  <p>If we make material changes to this privacy policy, we will update the "Last updated" date at the top of this page. Continued use of Jaini after changes constitutes acceptance of the updated policy.</p>
+  <p>If we make material changes, we will update the "Last updated" date above and, where the change concerns special-category data, ask for your consent again.</p>
 
   <h2>Contact</h2>
   <p>For privacy questions or data requests: <a href="mailto:hello@swapncore.com">hello@swapncore.com</a></p>

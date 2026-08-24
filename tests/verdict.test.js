@@ -22,12 +22,15 @@ describe("STATUS_META", () => {
     }
   });
 
-  it("GREEN status is labeled Jain-Friendly", () => {
-    expect(STATUS_META.GREEN.label).toBe("Jain-Friendly");
+  it("GREEN status is labeled Jain-friendly", () => {
+    expect(STATUS_META.GREEN.label).toBe("Jain-friendly");
   });
 
-  it("RED status is labeled Meat Detected", () => {
-    expect(STATUS_META.RED.label).toBe("Meat Detected");
+  // RED covers every clearly animal-derived ingredient (gelatin, rennet,
+  // carmine E120, shellac E904 …), not just meat — the label must not claim
+  // meat was detected when it was, say, shellac.
+  it("RED status is labeled Animal-derived ingredient", () => {
+    expect(STATUS_META.RED.label).toBe("Animal-derived ingredient");
   });
 
   it("UNKNOWN status is labeled Not enough data", () => {
@@ -47,7 +50,7 @@ describe("REASON_LABELS", () => {
   it("has labels for ambiguous categories", () => {
     expect(REASON_LABELS.AMBIGUOUS_ADDITIVE).toBe("Ambiguous Additive");
     expect(REASON_LABELS.AMBIGUOUS_ENZYME).toBe("Ambiguous Enzyme");
-    expect(REASON_LABELS.AMBIGUOUS_FLAVOR).toBe("Ambiguous Flavour");
+    expect(REASON_LABELS.AMBIGUOUS_FLAVOR).toBe("Ambiguous Flavor");
   });
 });
 

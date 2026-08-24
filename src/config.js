@@ -34,9 +34,37 @@ const STATUS_ICONS = {
   YELLOW:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   ORANGE:  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
   RED:     `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
-  UNKNOWN: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`,
+  // A magnifying glass reads as "we looked and found nothing" — that is the
+  // NOT FOUND story, and the not-found panel still uses it. A real UNKNOWN
+  // verdict is a different claim: the product IS known, the evidence is not
+  // good enough to rule either way. It gets its own mark.
+  // The dashed ring says "the answer is open", the centred dash says "nothing
+  // recorded". Deliberately NOT the ORANGE question-mark (that means "we read
+  // the ingredients and some are ambiguous") and NOT the magnifier (that is the
+  // not-found panel's mark, "we searched and this product is not in the set").
+  UNKNOWN: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25" stroke-dasharray="3.2 3.4"/><line x1="8.5" y1="12" x2="15.5" y2="12"/></svg>`,
 };
 
 export const STATUS_META = Object.fromEntries(
   Object.entries(_STATUS_META_BASE).map(([k, v]) => [k, { ...v, icon: STATUS_ICONS[k] }])
 );
+
+// ── Endpoints missing from the generated shared config ───────────────────────
+// config/shared-config.js is AUTO-GENERATED from shared/*.json and must not be
+// hand-edited, but the web surface calls two live endpoints it does not list.
+// The mobile app hardcodes these paths for the same reason.
+export const WEB_ENDPOINTS = {
+  report_classification: "/v1/report-classification",
+  account: "/v1/account",
+};
+
+// ── Demo barcodes ────────────────────────────────────────────────────────────
+// Shown on first run (empty history) so a new user has something to tap.
+// Kept byte-identical to JainiApp/src/screens/ScanScreen.tsx DEMO_BARCODES.
+export const DEMO_BARCODES = [
+  { barcode: "0049000006346", label: "Coca-Cola" },
+  { barcode: "0012000171079", label: "Starbucks Cold Brew" },
+  { barcode: "5000159459228", label: "Twix" },
+  { barcode: "7622201747107", label: "Oreo" },
+  { barcode: "8901058001181", label: "Maggi" },
+];

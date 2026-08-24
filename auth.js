@@ -8,19 +8,26 @@
  * Firebase config is loaded from src/env.js (Vite environment variables).
  */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import {
-  getAuth,
-  onAuthStateChanged,
-  signInWithCredential,
-  signOut as _firebaseSignOut,
-  GoogleAuthProvider,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-
+// NOTE: The Firebase SDK is loaded LAZILY via dynamic import() inside init(),
+// NOT statically at module top. A static `import ... from "https://www.gstatic.com/..."`
+// would contact Google's CDN the moment app.js imports this module — i.e. on
+// first paint, before the user has consented to third-party scripts (GDPR).
+// These holders are populated by init() once the user has opted in (or is
+// completing a sign-in link). Every function below runs only after init().
 import { FIREBASE_CONFIG, GOOGLE_CLIENT_ID } from "./src/env.js";
+
+let initializeApp = null;
+let getAuth = null;
+let onAuthStateChanged = null;
+let signInWithCredential = null;
+let _firebaseSignOut = null;
+let GoogleAuthProvider = null;
+let sendSignInLinkToEmail = null;
+let isSignInWithEmailLink = null;
+let signInWithEmailLink = null;
+
+// Memoises the one-time SDK load + wiring so repeated init() calls are no-ops.
+let _initPromise = null;
 
 let _auth = null;
 let _user = null;
@@ -50,7 +57,34 @@ function _loadGoogleScript() {
 }
 
 export async function init() {
+  if (_initPromise) return _initPromise;
+  _initPromise = _doInit();
+  return _initPromise;
+}
+
+/** True once the Firebase SDK has been loaded and wired up. */
+export function isInitialized() {
+  return _auth !== null;
+}
+
+async function _doInit() {
   if (!FIREBASE_CONFIG.apiKey) return;
+
+  // Dynamically pull the Firebase SDK from Google's CDN. This is the ONLY place
+  // the third-party scripts are fetched, and it runs only after consent/intent.
+  const [appMod, authMod] = await Promise.all([
+    import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"),
+    import("https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"),
+  ]);
+  initializeApp        = appMod.initializeApp;
+  getAuth              = authMod.getAuth;
+  onAuthStateChanged   = authMod.onAuthStateChanged;
+  signInWithCredential = authMod.signInWithCredential;
+  _firebaseSignOut     = authMod.signOut;
+  GoogleAuthProvider   = authMod.GoogleAuthProvider;
+  sendSignInLinkToEmail = authMod.sendSignInLinkToEmail;
+  isSignInWithEmailLink = authMod.isSignInWithEmailLink;
+  signInWithEmailLink  = authMod.signInWithEmailLink;
 
   const app = initializeApp(FIREBASE_CONFIG);
   _auth = getAuth(app);

@@ -15,9 +15,14 @@ import {
 import { renderHistory, syncServerHistory, clearHistory } from "./src/history.js";
 import { bindFeedbackEvents } from "./src/community.js";
 import { bindMissingEvents, stopMissingCameraExport } from "./src/missing.js";
+import { bindReportEvents } from "./src/report.js";
+import { bindAccountEvents } from "./src/account.js";
 import { show, hide, setLoading, clearMessage, showMessage, openModal, closeModal } from "./src/ui.js";
 import { getApiBase, getClientId, reportClientEvent } from "./src/api.js";
-import { MESSAGES } from "./src/config.js";
+import { MESSAGES, DEMO_BARCODES } from "./src/config.js";
+import { historyLoad } from "./lib/history.js";
+import { canScan, canLoadThirdParty } from "./src/consent.js";
+import { initConsentBanner, openConsentPrompt } from "./src/consentBanner.js";
 
 import * as Auth from "./auth.js";
 import * as Favorites from "./favorites.js";
@@ -73,7 +78,7 @@ function _exitConfirmMagicLinkMode() {
   const sub = document.getElementById("authModalSub");
   const btn = document.getElementById("magicLinkBtnText");
   if (title) title.textContent = "Sign in to Jaini";
-  if (sub) sub.textContent = "Enter your email — we'll send you a one-tap sign-in link. No password needed.";
+  if (sub) sub.textContent = "Enter your email: we'll send you a one-tap sign-in link. No password needed.";
   if (btn) btn.textContent = "Send me a sign-in link";
 }
 
@@ -103,6 +108,29 @@ const state = {
   currentBarcode:       "",
 };
 
+// ── Consent gate ──────────────────────────────────────────────────────────────
+
+// A scan (camera, manual, demo, favourite, shared link) processes the user's
+// dietary mode = Article 9 special-category data. It may run ONLY with essential
+// consent. This is the UI-side guard that stops the camera from even powering on;
+// fetchVerdict() in verdict.js is the network-side backstop.
+function ensureScanConsent() {
+  if (canScan()) return true;
+  openConsentPrompt();
+  return false;
+}
+
+// ── Auth (third-party) lazy loader ────────────────────────────────────────────
+
+// Firebase / Google Identity Services are third-party scripts. They must not
+// load before the user opts in (Accept) or actively chooses to sign in (intent).
+// This memoises the one-time load so both triggers converge on a single init().
+let _authReadyPromise = null;
+function ensureAuthReady() {
+  if (!_authReadyPromise) _authReadyPromise = Auth.init();
+  return _authReadyPromise;
+}
+
 // ── Auth UI helpers ─────────────────────────────────────────────────────────
 
 function openAuthModal(subtitle) {
@@ -112,6 +140,9 @@ function openAuthModal(subtitle) {
   const sub = document.getElementById("authModalSub");
   if (sub && subtitle) sub.textContent = subtitle;
   openModal(authModal);
+  // Opening the sign-in modal is an explicit intent to authenticate, so this is
+  // the moment we're permitted to load Firebase + render Google's button.
+  ensureAuthReady().catch(() => {});
   setTimeout(() => document.getElementById("magicLinkEmail")?.focus(), 80);
 }
 
@@ -140,7 +171,13 @@ async function _loadEmailPref() {
     const resp = await Auth.authFetch(`${getApiBase()}/v1/email/preferences`);
     if (resp.ok) {
       const prefs = await resp.json();
-      emailPrefCheckbox.checked = prefs.weekly_digest !== false;
+      // Opt-in must be affirmative. `!== false` rendered the box ALREADY TICKED
+      // whenever the server returned null/undefined (i.e. the user has never
+      // expressed a preference) — a pre-ticked consent box, which is invalid
+      // consent under GDPR (Planet49, C-673/17) and contradicts our own policy
+      // wording. auth.js:143 already got this right; the two paths disagreed
+      // about the same checkbox.
+      emailPrefCheckbox.checked = prefs.weekly_digest === true;
     }
   } catch { /* keep default checked state */ }
 }
@@ -181,12 +218,71 @@ function updateAuthNav(user) {
   }
 }
 
+// ── First-run experience ────────────────────────────────────────────────────
+
+/** True once the user has at least one scan on this device. */
+function hasAnyScans() {
+  try { return historyLoad().length > 0; } catch { return false; }
+}
+
+// "Try these examples" chips — first run only, so a new user has something to
+// tap instead of a bare form. Ported from the mobile ScanScreen.
+function renderDemoChips() {
+  const section = document.getElementById("demoSection");
+  const grid = document.getElementById("demoChips");
+  if (!section || !grid) return;
+
+  if (hasAnyScans()) {
+    hide(section);
+    return;
+  }
+
+  if (!grid.childElementCount) {
+    DEMO_BARCODES.forEach(d => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "demo-chip";
+      btn.dataset.barcode = d.barcode;
+      btn.setAttribute("aria-label", `Check example product ${d.label}`);
+
+      const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      icon.setAttribute("width", "14");
+      icon.setAttribute("height", "14");
+      icon.setAttribute("viewBox", "0 0 24 24");
+      icon.setAttribute("fill", "none");
+      icon.setAttribute("stroke", "currentColor");
+      icon.setAttribute("stroke-width", "2");
+      icon.setAttribute("aria-hidden", "true");
+      icon.innerHTML = '<rect x="3" y="3" width="2" height="18"/><rect x="7" y="3" width="1" height="18"/><rect x="10" y="3" width="3" height="18"/><rect x="15" y="3" width="1" height="18"/><rect x="18" y="3" width="3" height="18"/>';
+
+      const label = document.createElement("span");
+      label.className = "demo-chip-text";
+      label.textContent = d.label;
+
+      btn.appendChild(icon);
+      btn.appendChild(label);
+      btn.addEventListener("click", () => {
+        if (state.inFlight || state.scanLocked) return;
+        if (!ensureScanConsent()) return;
+        const manualInput = document.getElementById("manualBarcode");
+        if (manualInput) { manualInput.value = d.barcode; updateManualState(); }
+        fetchVerdict(d.barcode).catch(() => renderError(MESSAGES.genericError));
+      });
+      grid.appendChild(btn);
+    });
+  }
+  show(section);
+}
+
 // ── Render history wrapper ──────────────────────────────────────────────────
 
 function doRenderHistory() {
   renderHistory({
     state,
     onRescan: (barcode, verdictData, entryProfile) => {
+      // Re-displaying a stored verdict is still processing the dietary mode, so
+      // it is gated too. (fetchVerdict has its own backstop for the else-branch.)
+      if (!ensureScanConsent()) return;
       if (verdictData && entryProfile === getActiveProfile()) {
         clearMessage();
         hideResult();
@@ -197,6 +293,9 @@ function doRenderHistory() {
       }
     },
   });
+  // Examples and history are mutually exclusive: the chips are the empty state.
+  renderDemoChips();
+  Favorites.onFirstRunStateChange();
 }
 
 // ── Event binding ───────────────────────────────────────────────────────────
@@ -223,6 +322,7 @@ function bindEvents() {
   manualForm.addEventListener("submit", e => {
     e.preventDefault();
     if (state.inFlight || state.scanLocked) return;
+    if (!ensureScanConsent()) return;
     if (!updateManualState()) {
       showMessage({ variant: "error", message: MESSAGES.invalidBarcode });
       return;
@@ -235,6 +335,7 @@ function bindEvents() {
 
   // Camera start
   startCameraBtn.addEventListener("click", () => {
+    if (!ensureScanConsent()) return;
     hideResult();
     clearMessage();
     setLoading(false, "Looking up product\u2026", isManualValid);
@@ -251,6 +352,7 @@ function bindEvents() {
 
   // New scan
   newScanBtn.addEventListener("click", () => {
+    if (!ensureScanConsent()) return;
     clearMessage();
     hideResult();
     setLoading(false, "Looking up product\u2026", isManualValid);
@@ -262,6 +364,7 @@ function bindEvents() {
 
   // Try another barcode (from not-found state)
   document.getElementById("tryAnotherBtn")?.addEventListener("click", () => {
+    if (!ensureScanConsent()) return;
     clearMessage();
     hideResult();
     hide(newScanBtn);
@@ -283,6 +386,28 @@ function bindEvents() {
 
   // Missing product
   bindMissingEvents(() => state.currentBarcode);
+
+  // Detailed misclassification report
+  bindReportEvents(() => state.currentBarcode);
+
+  // Account deletion
+  bindAccountEvents({
+    onDeleted: () => {
+      closeUserDropdown();
+      hideResult();
+      clearMessage();
+      doRenderHistory();
+      hide(document.getElementById("newScanBtn"));
+      show(document.getElementById("scanTriggerArea"));
+      const mi = document.getElementById("manualBarcode");
+      if (mi) mi.value = "";
+      updateManualState();
+      showMessage({
+        variant: "info",
+        message: "Your account and associated data have been permanently removed.",
+      });
+    },
+  });
 
   // Share
   bindShareEvent();
@@ -357,6 +482,16 @@ function bindAuthEvents() {
     }
     _setMagicLinkLoading(true);
 
+    // The sign-in modal loads Firebase lazily; make sure it's ready before we
+    // call into it (the user may submit faster than the CDN import resolves).
+    try {
+      await ensureAuthReady();
+    } catch {
+      _setMagicLinkLoading(false);
+      _showMagicLinkError("Couldn't load sign-in. Please check your connection and try again.");
+      return;
+    }
+
     if (_confirmingMagicLink) {
       // Cross-device: user confirmed their email, complete sign-in now
       try {
@@ -396,6 +531,7 @@ function bindAuthEvents() {
       || localStorage.getItem("JAINI_MAGIC_EMAIL");
     if (!email) { _showEmailStep(); return; }
     try {
+      await ensureAuthReady();
       await Auth.sendMagicLink(email);
       // Brief confirmation
       const btn = document.getElementById("magicLinkResendBtn");
@@ -432,6 +568,14 @@ function bindAuthEvents() {
   // Close modals on Escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
+      const deleteModal = document.getElementById("deleteAccountModal");
+      const reportModal = document.getElementById("reportModal");
+      if (deleteModal && !deleteModal.classList.contains("hidden")) {
+        closeModal(deleteModal); return;
+      }
+      if (reportModal && !reportModal.classList.contains("hidden")) {
+        closeModal(reportModal); return;
+      }
       if (missingModal && !missingModal.classList.contains("hidden")) {
         stopMissingCameraExport(); closeModal(missingModal); return;
       }
@@ -453,6 +597,7 @@ async function init() {
     state,
     openAuthModal,
     renderHistory: doRenderHistory,
+    onNeedConsent: openConsentPrompt,
   });
 
   // URL params for shared links
@@ -476,6 +621,16 @@ async function init() {
   bindEvents();
   bindAuthEvents();
   bindThemeToggle();
+
+  // First-visit Article 9 consent prompt + footer "Privacy choices" control.
+  // When the user opts into third-party sign-in, warm up Firebase so Google's
+  // button is ready by the time they open the sign-in modal.
+  initConsentBanner({
+    onDecision: (rec) => {
+      if (rec?.thirdParty === true) ensureAuthReady().catch(() => {});
+    },
+  });
+
   doRenderHistory();
   hideResult();
   clearMessage();
@@ -502,10 +657,18 @@ async function init() {
     }
     if (user) syncServerHistory(doRenderHistory);
   });
-  await Auth.init();
 
-  // Magic link completion — MUST run after Auth.init() so _auth is set
-  if (Auth.isMagicLinkUrl()) {
+  // Third-party sign-in scripts (Firebase + Google) must NOT load on first paint
+  // without consent. Load them only when the user has opted in, OR when they've
+  // arrived via a magic sign-in link (that click IS the intent to authenticate).
+  const _arrivedViaMagicLink = Auth.isMagicLinkUrl();
+  if (canLoadThirdParty() || _arrivedViaMagicLink) {
+    await ensureAuthReady();
+  }
+
+  // Magic link completion — MUST run after Auth.init() so _auth is set. Guarded
+  // by _arrivedViaMagicLink, so it only runs when we actually loaded Firebase.
+  if (_arrivedViaMagicLink) {
     const mlResult = await Auth.completeMagicLinkIfPresent();
     if (mlResult === "done") {
       // onAuthStateChange will update the UI and close any open modal
@@ -524,6 +687,7 @@ async function init() {
     apiBase,
     getClientId,
     getProfile: getActiveProfile,
+    hasAnyScans,
     onProductSelect: (barcode) => {
       fetchVerdict(barcode).catch(() => renderError(MESSAGES.genericError));
     },
@@ -546,8 +710,10 @@ async function init() {
     fetchVerdict(_urlBarcode).catch(() => renderError(MESSAGES.genericError));
   }
 
-  // Pre-warm barcode libs
-  preWarmBarcodeLibs();
+  // Pre-warm barcode libs — these are third-party scripts (ZXing on a CDN), so
+  // only fetch them once scanning is actually permitted. The on-demand scan path
+  // still loads them behind the same consent gate.
+  if (canScan()) preWarmBarcodeLibs();
 }
 
 init();

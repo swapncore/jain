@@ -748,43 +748,179 @@ ul, ol { list-style: none; }
   align-items: center;
 }
 
-/* Confidence chip */
+/* Confidence chip.
+   Deliberately NEUTRAL. Confidence describes the evidence, not the food, so it
+   must not borrow the verdict's red/amber/green language — a green
+   "Jain-friendly" card wearing a red chip reads as a contradiction rather than
+   as "friendly, thinly evidenced". The level is carried by the 3-segment meter
+   and by the words, not by hue. */
 .confidence-chip {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.72rem;
   font-weight: 600;
   border-radius: var(--r-pill);
-  padding: 0.15rem 0.55rem;
+  padding: 0.18rem 0.6rem;
   white-space: nowrap;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
 }
 .confidence-chip:empty { display: none; }
 
-.conf-high {
-  background: var(--green-bg);
-  color: var(--green);
-  border: 1px solid var(--green-border);
+/* Strength meter: filled segments = confidence level. */
+.confidence-meter {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
 }
-.conf-medium {
-  background: var(--yellow-bg);
-  color: var(--yellow);
-  border: 1px solid var(--yellow-border);
+.confidence-bar {
+  display: block;
+  width: 3px;
+  border-radius: 1px;
+  background: var(--border);
+  height: 4px;
 }
-.conf-low {
-  background: var(--red-bg);
-  color: var(--red);
-  border: 1px solid var(--red-border);
-}
+.confidence-bar:nth-child(2) { height: 7px; }
+.confidence-bar:nth-child(3) { height: 10px; }
+.confidence-bar--on { background: currentColor; }
 
-/* Low-confidence warning banner */
-.confidence-warning-banner {
+/* Only the meter shifts tone, and only far enough to be readable at a glance —
+   the chip body stays neutral. */
+.confidence-chip--high   { color: var(--text-2); }
+.confidence-chip--medium { color: var(--text-2); }
+.confidence-chip--low    { color: var(--muted); }
+.confidence-chip--low .confidence-chip-label { font-weight: 700; }
+
+/* Static meters used in the legend. */
+.confidence-meter--static { color: var(--text-2); }
+
+/* Evidence caveat under the verdict badge (replaces the old
+   .confidence-warning-banner, which only fired for LOW + no ingredient text). */
+.verdict-caveat {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
   margin-top: 0.75rem;
   padding: 0.6rem 0.75rem;
   font-size: 0.82rem;
   line-height: 1.45;
+  border-radius: var(--r-sm);
+  font-weight: 500;
+}
+.verdict-caveat svg { flex-shrink: 0; margin-top: 0.15em; }
+.verdict-caveat--warn {
   color: var(--warn-text);
   background: var(--warn-bg);
   border: 1px solid var(--warn-border);
-  border-radius: var(--r-sm, 6px);
+}
+.verdict-caveat--info {
+  color: var(--info-text);
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+}
+
+/* ── UNKNOWN guidance panel ───────────────────────────────────────────────
+   UNKNOWN is a first-class outcome, not an error. It gets the calm neutral
+   surface of an explanation, never the red of a failure. */
+.unknown-guidance {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--muted);
+  background: var(--surface-2);
+  border-radius: var(--r-md);
+  padding: 1rem;
+}
+
+.unknown-guidance-heading {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 0.45rem;
+}
+
+.unknown-guidance-lead {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  margin-bottom: 0.85rem;
+}
+
+.unknown-guidance-subhead {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.unknown-guidance-causes {
+  list-style: none;
+  margin: 0 0 0.85rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.unknown-guidance-causes li {
+  position: relative;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.unknown-guidance-causes li::before {
+  content: "";
+  position: absolute;
+  left: 0.15rem;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--muted-2);
+}
+
+.unknown-guidance-next {
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  margin-bottom: 0.85rem;
+}
+
+.unknown-guidance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Shown instead of the four-row ingredient breakdown when there is no
+   ingredient evidence at all. */
+.ingredient-empty {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--r-sm);
+  padding: 0.7rem 0.8rem;
+}
+
+/* Legend sub-heading for the confidence key. */
+.legend-subheading {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 1.25rem 0 0.35rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-light);
+}
+.legend-list--confidence .legend-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .data-source-text {
@@ -1696,10 +1832,42 @@ details[open] > .collapsible-heading::after {
     height: 24px;
   }
 
+  /* NOTE: `.mode-bar` does not exist in the markup -- the element is
+     `.header-mode`. This rule has been dead since the BEM/legacy rename.
+     Kept only so a stale cached stylesheet can't fight the real rule below. */
   .mode-bar {
     gap: 0.35rem;
   }
-  .mode-pill {
+
+  /* The mode pills are the first thing on the page and they were wrapping
+     into a ragged second row ("Greens+" alone beside an orphaned "?"), which
+     reads as broken layout rather than a deliberate choice. Four modes plus a
+     label and a help button cannot fit 375px at any sane font size, so make it
+     one scrolling row -- the standard mobile pattern -- instead of pretending
+     it fits. overflow-x lives on this element, never on body, so the page
+     itself never scrolls sideways. */
+  .header-mode {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;          /* Firefox */
+    gap: 0.35rem;
+    /* Let the row bleed to the screen edge so a half-visible pill signals
+       "more this way", then restore the inset with padding. */
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    padding-bottom: 0.6rem;
+  }
+  .header-mode::-webkit-scrollbar {
+    display: none;                  /* Safari / Chrome */
+  }
+  .header-mode > * {
+    flex: 0 0 auto;                 /* pills keep their natural width */
+  }
+
+  .mode-pill,
+  .profile-selector__pill {
     font-size: 0.75rem;
     padding: 0.3rem 0.65rem;
   }
@@ -2731,7 +2899,19 @@ body.modal-open {
 }
 [data-theme="dark"] .verdict-explain { color: var(--text-2); }
 [data-theme="dark"] .verdict-label { color: inherit; }
-[data-theme="dark"] .confidence-chip { color: inherit; }
+/* NOTE: the confidence chip must NOT inherit here. `.verdict` sets `color` to
+   the status hue, so `color: inherit` painted the chip and its meter green on a
+   GREEN card — making a LOW-confidence GREEN look indistinguishable from a
+   HIGH-confidence one, which is the exact distinction the chip exists to draw.
+   It keeps its own neutral surface in dark mode too. */
+[data-theme="dark"] .confidence-chip {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--text-2);
+}
+[data-theme="dark"] .confidence-chip--low { color: var(--muted); }
+[data-theme="dark"] .confidence-bar { background: var(--border); }
+[data-theme="dark"] .confidence-bar--on { background: currentColor; }
 
 /* Ingredient rows */
 [data-theme="dark"] .ingredient-rows { border-color: var(--border); }
@@ -3061,9 +3241,9 @@ body.modal-open {
    ============================================================ */
 .free-scan-banner {
   margin: 0.75rem auto;
-  max-width: var(--max-w);
+  max-width: 720px;
   padding: 0.7rem 1rem;
-  background: var(--bg-1);
+  background: var(--surface-2);
   border: 1px solid var(--brand-light, #d4e6f1);
   border-radius: var(--r-md);
   font-size: 0.85rem;
@@ -3102,7 +3282,334 @@ body.modal-open {
   .verdict-card--red .verdict-card__icon    { filter: drop-shadow(0 0 8px rgba(239,68,68,0.4)); }
 
   .free-scan-banner {
-    background: var(--bg-2);
+    background: var(--surface-2);
     border-color: var(--border);
   }
+}
+
+/* ============================================================
+   MISSING-PRODUCT MODAL — TEXT / PHOTO PATHS
+   ============================================================ */
+.missing-tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0.9rem;
+  padding: 0.25rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: var(--r-md);
+}
+.missing-tab {
+  flex: 1 1 0;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.missing-tab:hover { color: var(--text-2); }
+.missing-tab--active {
+  background: var(--surface);
+  color: var(--brand);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.missing-tab:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+.missing-textarea {
+  min-height: 7.5rem;
+  resize: vertical;
+  line-height: 1.5;
+  font-size: 0.92rem;
+}
+
+.missing-unverified-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: var(--r-sm);
+}
+.missing-unverified-note svg { flex-shrink: 0; margin-top: 0.12rem; }
+
+/* Overrides the column layout .missing-actions uses for the camera controls. */
+.missing-actions--text {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+.missing-actions--text .btn { min-width: 120px; }
+
+/* ============================================================
+   DEMO / EXAMPLE BARCODE CHIPS (first run only)
+   ============================================================ */
+.demo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.demo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--brand);
+  background: var(--brand-light);
+  border: 1px solid var(--brand);
+  border-radius: var(--r-pill);
+  padding: 0.5rem 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.demo-chip:hover { background: var(--surface); }
+.demo-chip:active { transform: scale(0.97); }
+.demo-chip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.demo-chip svg { flex-shrink: 0; }
+
+/* ============================================================
+   REPORT INCORRECT CLASSIFICATION
+   ============================================================ */
+.report-classification-link {
+  display: inline-block;
+  margin-top: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.report-classification-link:hover { color: var(--brand); }
+
+.report-textarea {
+  min-height: 4.5rem;
+  resize: vertical;
+  line-height: 1.5;
+  font-size: 0.92rem;
+  margin-bottom: 0.25rem;
+}
+#reportFormBody .form-input { margin-bottom: 0.5rem; }
+#reportFormBody .field-label { margin-top: 0.6rem; }
+.form-input--readonly {
+  background: var(--surface-2);
+  color: var(--muted);
+  cursor: default;
+}
+.field-required { color: var(--error-text); }
+
+.report-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  padding: 1.5rem 0.5rem;
+  color: var(--green);
+}
+.report-success p { color: var(--text-2); font-size: 0.92rem; margin: 0; }
+
+/* ============================================================
+   ACCOUNT DELETION
+   ============================================================ */
+.user-dropdown-delete {
+  width: 100%;
+  justify-content: center;
+  color: var(--error-text);
+  border-top: 1px solid var(--border-light);
+  padding-top: 0.55rem;
+  margin-top: 0.1rem;
+}
+.user-dropdown-delete:hover { background: var(--error-bg); }
+.user-dropdown-delete-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--muted-2);
+  margin: 0;
+}
+
+.delete-account-intro { font-size: 0.9rem; color: var(--text-2); margin: 0 0 0.5rem; }
+.delete-account-list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.15rem;
+  font-size: 0.88rem;
+  color: var(--text-2);
+  line-height: 1.7;
+}
+.delete-account-warning {
+  font-size: 0.88rem;
+  color: var(--error-text);
+  margin: 0 0 1rem;
+}
+#deleteAccountModal .field-label { margin-top: 0.5rem; }
+#deleteAccountModal code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+}
+
+.btn-danger {
+  background: var(--error-text);
+  color: #fff;
+  border: 1px solid var(--error-text);
+}
+.btn-danger:hover:not(:disabled) { background: #9f0f31; border-color: #9f0f31; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ============================================================
+   DARK THEME OVERRIDES FOR THE ABOVE
+   ============================================================ */
+/* NOTE: .demo-chip and .missing-tab--active need no colour overrides — they are
+   built from --brand / --brand-light, and the dark palette already flips those
+   (brand becomes the bright teal, brand-light the dark teal ground). */
+[data-theme="dark"] .missing-tabs {
+  background: var(--surface-2);
+  border-color: var(--border);
+}
+[data-theme="dark"] .demo-chip:hover { background: var(--surface-2); }
+[data-theme="dark"] .form-input--readonly { background: var(--surface-2); }
+[data-theme="dark"] .user-dropdown-delete:hover { background: rgba(190,18,60,0.15); }
+
+/* ============================================================
+   PRIVACY / LEGAL: info callout + legal table
+   (classes used by privacy.html; theme-aware via tokens)
+   ============================================================ */
+.info-callout {
+  background: var(--brand-light);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--brand);
+  border-radius: var(--r-md);
+  padding: 1rem 1.15rem;
+  margin: 1.5rem 0;
+  color: var(--text-2);
+}
+.info-callout p { margin: 0; line-height: 1.6; }
+.info-callout p + p { margin-top: 0.75rem; }
+.info-callout strong { color: var(--text); }
+
+.legal-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.25rem 0 1.75rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.legal-table thead th {
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  font-weight: 700;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 2px solid var(--border);
+}
+.legal-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-2);
+  line-height: 1.5;
+  vertical-align: top;
+}
+.legal-table tbody tr:last-child td { border-bottom: none; }
+.legal-table tbody tr:nth-child(even) { background: var(--surface-2); }
+/* Narrow screens: let a wide table scroll rather than break the page. */
+@media (max-width: 560px) {
+  .legal-table { display: block; overflow-x: auto; white-space: nowrap; }
+}
+
+/* ============================================================
+   CONSENT MODAL (Article 9 first-visit prompt)
+   Built by src/consentBanner.js; reuses .modal-backdrop / .modal-box.
+   ============================================================ */
+.consent-modal { z-index: 1100; } /* sit above other modals if both ever open */
+
+.consent-box {
+  max-width: 460px;
+  padding-top: 1.75rem;
+}
+
+.consent-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--brand-light);
+  color: var(--brand);
+  margin: 0 auto 0.9rem;
+}
+
+.consent-title {
+  text-align: center;
+  padding-right: 0; /* no close button to clear */
+  margin-bottom: 0.9rem;
+}
+
+.consent-body p {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--text-2);
+  margin: 0 0 0.75rem;
+}
+.consent-body strong { color: var(--text); }
+.consent-links { font-size: 0.88rem !important; }
+.consent-link { color: var(--brand); font-weight: 600; text-decoration: underline; }
+.consent-link:hover { color: var(--brand-dark); }
+
+.consent-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}
+.consent-btn { width: 100%; justify-content: center; }
+.consent-btn--decline { color: var(--muted); }
+.consent-btn--decline:hover:not(:disabled) { color: var(--text); }
+
+.consent-foot {
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted-2);
+}
+
+/* Footer "Privacy choices" button styled to match the footer links exactly. */
+.footer-link--btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.footer-link--btn:hover { color: var(--brand); text-decoration: underline; }
+.footer-link--btn:focus-visible { color: var(--brand); text-decoration: underline; }
+
+/* Side-by-side action buttons once there's room. */
+@media (min-width: 480px) {
+  .consent-actions { flex-direction: row; flex-wrap: wrap; }
+  .consent-btn { flex: 1 1 auto; }
+  .consent-btn[data-consent="accept"] { flex-basis: 100%; }
 }

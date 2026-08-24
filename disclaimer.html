@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Static page: no GSI, no external scripts, no fetches. Hashes cover the two inline scripts (theme bootstrap + store-link picker). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-c7aQS14PeIvy/Yh32no6nfo2z4Tp2rqgfdd9XSiAU0A=' 'sha256-cTz+XKb5YLx60twvCaHXsrSP16NzBl4JkB6SkaIigPE='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" />
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />

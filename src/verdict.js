@@ -3,16 +3,27 @@
  * and reason chips rendering.
  */
 
-import { show, hide, setLoading, clearMessage, showMessage, showFirstScanCelebration, showFreeScanBanner } from "./ui.js";
+import { show, hide, toggle, setLoading, clearMessage, showMessage, showFirstScanCelebration, showFreeScanBanner } from "./ui.js";
 import { fetchWithTimeout, getApiBase, getClientId, reportClientEvent, REQUEST_TIMEOUT_MS, ENDPOINTS } from "./api.js";
 import { getActiveProfile, PROFILES } from "./profile.js";
 import { STATUS_META, INGREDIENT_GROUP_META, REASON_LABELS, MESSAGES, VERDICT_FAILSAFE_MS } from "./config.js";
-import { normalizeBarcode, isValidBarcode as isValidBarcodeUtil } from "../barcode.js";
+import { normalizeBarcode, pickLookupBarcode, isValidBarcode as isValidBarcodeUtil } from "../barcode.js";
+// Anonymous free-scan accounting — DOM-free policy module, unit-tested.
+import {
+  FREE_SCAN_KEY, FREE_SCAN_LIMIT,
+  isFreeScanExhausted, readServerScansRemaining, recordServerLookup,
+  setFreeScanCount,
+} from "./freescan.js";
+import {
+  getConfidenceMeta, verdictCaveat, hasIngredientEvidence, UNKNOWN_CAUSES,
+} from "./confidence.js";
 import { showCommunitySection, hideCommunitySection } from "./community.js";
 import { fetchAndRenderAlternatives, hideAlternatives } from "./alternatives.js";
 import { historyPush } from "./history.js";
 import { stopScanning } from "./scanner.js";
 import { sanitizeText } from "./sanitize.js";
+// Article 9 consent gate — no verdict may be requested without essential consent.
+import { canScan } from "./consent.js";
 import * as Auth from "../auth.js";
 import * as Favorites from "../favorites.js";
 import * as Monetization from "../monetization.js";
@@ -21,30 +32,18 @@ import { handleShare as _handleShare } from "../lib/share.js";
 // ── Verdict session cache ───────────────────────────────────────────────────
 const _verdictCache = new Map();
 
-// ── Free scan tracking ──────────────────────────────────────────────────────
-const FREE_SCAN_KEY = "JAINI_FREE_SCANS";
-const FREE_SCAN_LIMIT = 3;
-
-function getFreeScanCount() {
-  return parseInt(localStorage.getItem(FREE_SCAN_KEY) || "0", 10);
-}
-
-function incrementFreeScanCount() {
-  const count = getFreeScanCount() + 1;
-  localStorage.setItem(FREE_SCAN_KEY, String(count));
-  return count;
-}
-
 // ── State ───────────────────────────────────────────────────────────────────
 // App state is passed from the main entry point
 let _state = null;
 let _openAuthModalFn = null;
 let _renderHistoryFn = null;
+let _onNeedConsentFn = null;
 
-export function initVerdict({ state, openAuthModal, renderHistory }) {
+export function initVerdict({ state, openAuthModal, renderHistory, onNeedConsent }) {
   _state = state;
   _openAuthModalFn = openAuthModal;
   _renderHistoryFn = renderHistory;
+  _onNeedConsentFn = onNeedConsent || null;
 }
 
 export function clearVerdictCache() {
@@ -227,6 +226,122 @@ function restoreVerdictCard() {
   verdictCard.appendChild(metaRow);
 }
 
+// ── Evidence quality: confidence chip, caveat, UNKNOWN guidance ─────────────
+
+// The magnifier belongs to "we searched and this barcode is not in the set".
+// It is deliberately no longer the UNKNOWN status icon.
+const NOT_FOUND_ICON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+
+/** Small inline SVG built via DOM (never innerHTML with untrusted input). */
+function makeIcon(paths, size = 14) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("width", String(size));
+  svg.setAttribute("height", String(size));
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = paths; // hardcoded path data only
+  return svg;
+}
+
+/**
+ * Render the confidence chip as an evidence-strength meter plus a label.
+ *
+ * The meter carries the level; the chip stays visually neutral. Colouring this
+ * chip red/amber/green would put a second traffic light next to the verdict's
+ * own, and a green "Jain-friendly" card wearing a red chip reads as a
+ * contradiction instead of as "friendly, thinly evidenced".
+ */
+function renderConfidenceChip(el, rawConfidence) {
+  if (!el) return;
+  el.replaceChildren();
+  const meta = getConfidenceMeta(rawConfidence);
+  if (!meta) {
+    // Nothing stated by the server. Say nothing rather than invent a level.
+    el.className = "confidence-chip";
+    el.removeAttribute("title");
+    return;
+  }
+
+  el.className = `confidence-chip confidence-chip--${meta.key.toLowerCase()}`;
+  el.title = meta.detail;
+
+  const meter = document.createElement("span");
+  meter.className = "confidence-meter";
+  meter.setAttribute("aria-hidden", "true");
+  for (let i = 1; i <= 3; i++) {
+    const bar = document.createElement("span");
+    bar.className = i <= meta.level ? "confidence-bar confidence-bar--on" : "confidence-bar";
+    meter.appendChild(bar);
+  }
+
+  const label = document.createElement("span");
+  label.className = "confidence-chip-label";
+  label.textContent = meta.label;
+
+  // Screen readers get the explanation, not just the level name.
+  const sr = document.createElement("span");
+  sr.className = "sr-only";
+  sr.textContent = `: ${meta.detail}`;
+
+  el.append(meter, label, sr);
+}
+
+/**
+ * Show or clear the evidence caveat under the verdict badge.
+ * Returns the element it created, if any.
+ */
+function renderVerdictCaveat(verdictCard, status, data) {
+  verdictCard.querySelector(".verdict-caveat")?.remove();
+  const caveat = verdictCaveat(status, data);
+  if (!caveat) return null;
+
+  const box = document.createElement("div");
+  box.className = `verdict-caveat verdict-caveat--${caveat.tone}`;
+  // role="note" not "alert": this is a standing qualification on the verdict,
+  // not an error that just occurred. "alert" would interrupt screen readers
+  // mid-verdict and frame thin evidence as a failure.
+  box.setAttribute("role", "note");
+  box.appendChild(makeIcon(
+    caveat.tone === "warn"
+      ? '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>'
+      : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'
+  ));
+  const text = document.createElement("span");
+  text.textContent = caveat.text;
+  box.appendChild(text);
+  verdictCard.appendChild(box);
+  return box;
+}
+
+/**
+ * The UNKNOWN panel: a first-class, explained outcome.
+ *
+ * UNKNOWN is not an error and not a near-miss of a verdict — it is the honest
+ * answer when the evidence will not support one. It therefore gets the same
+ * structural weight as any other result: what it means, why it happened, and
+ * what the user can do next.
+ */
+function renderUnknownGuidance(show_) {
+  const panel = document.getElementById("unknownGuidance");
+  if (!panel) return;
+  if (!show_) { hide(panel); return; }
+
+  const list = document.getElementById("unknownCauses");
+  if (list && !list.childElementCount) {
+    UNKNOWN_CAUSES.forEach(cause => {
+      const li = document.createElement("li");
+      li.textContent = cause;
+      list.appendChild(li);
+    });
+  }
+  show(panel);
+}
+
 // ── Result rendering ────────────────────────────────────────────────────────
 
 function renderIngredientRows(categories) {
@@ -306,6 +421,9 @@ export function hideResult() {
   hide(productDetails);
   hide(shareBtn);
   hide(dataSourceBadge);
+  hide(document.getElementById("unknownGuidance"));
+  hide(document.getElementById("ingredientEmpty"));
+  document.getElementById("verdictCard")?.querySelector(".verdict-caveat")?.remove();
   if (dataSourceBadge) dataSourceBadge.textContent = "";
   hideCommunitySection();
   hideAlternatives();
@@ -332,13 +450,14 @@ function presentOutcome() {
   updateManualState();
 }
 
-// Count one scan against the anonymous free-scan allowance. Called ONLY from a
-// successful verdict render \u2014 not-found, network errors and rate-limits must
-// not burn a free scan. Runs exactly once per successful outcome.
-function countFreeScan() {
+// Count one scan against the anonymous free-scan allowance.
+//
+// Called ONLY after a real server lookup returned a verdict. Cached renders
+// (session cache, Recent-scans clicks, community submissions), not-found,
+// network errors and rate-limits must never burn a free scan.
+export function countFreeScan(serverRemaining = null) {
   if (Auth.isSignedIn()) return;
-  const count = incrementFreeScanCount();
-  const remaining = Math.max(0, FREE_SCAN_LIMIT - count);
+  const remaining = recordServerLookup(serverRemaining);
   if (remaining > 0 && remaining < FREE_SCAN_LIMIT) {
     showFreeScanBanner(remaining, _openAuthModalFn);
   }
@@ -346,8 +465,9 @@ function countFreeScan() {
 
 export function displayVerdictData(data, barcode, fromCache = false) {
   _state.currentBarcode = barcode;
-  // renderResult already runs presentOutcome() + countFreeScan() exactly once.
-  // Do NOT call presentOutcome() again here \u2014 that double-counted the scan.
+  // renderResult runs presentOutcome() exactly once. Do NOT call
+  // presentOutcome() again here \u2014 that double-counted the scan.
+  // No free scan is counted: this path renders an already-fetched verdict.
   renderResult(data);
   if (fromCache) {
     const savedNote = document.getElementById("savedNote");
@@ -403,33 +523,19 @@ export function renderResult(data) {
   statusLabel.textContent = meta.label;
   explainText.textContent = sanitizeText(data.explain) || "No explanation available.";
 
-  // Confidence chip
-  if (confidenceText) {
-    const conf = (data.confidence || "").toUpperCase();
-    if (conf === "HIGH" || conf === "MED" || conf === "LOW") {
-      const displayConf = conf === "MED" ? "Medium" : conf.charAt(0) + conf.slice(1).toLowerCase();
-      confidenceText.textContent = displayConf + " confidence";
-      const cssClass = conf === "MED" ? "medium" : conf.toLowerCase();
-      confidenceText.className = "confidence-chip conf-" + cssClass;
-    } else {
-      confidenceText.textContent = "";
-      confidenceText.className = "confidence-chip";
-    }
-  }
+  // Confidence \u2014 evidence quality, shown in its own visual language so it never
+  // competes with the verdict's colour. GREEN is no longer always HIGH.
+  renderConfidenceChip(confidenceText, data.confidence);
 
-  // Low-confidence warning
-  const existingWarning = verdictCard.querySelector(".confidence-warning-banner");
-  if (existingWarning) existingWarning.remove();
-  if (
-    (data.confidence || "").toUpperCase() === "LOW" &&
-    (!data.ingredients_text || data.ingredients_text.trim() === "")
-  ) {
-    const banner = document.createElement("div");
-    banner.className = "confidence-warning-banner";
-    banner.setAttribute("role", "alert");
-    banner.textContent = "\u26A0\uFE0F No ingredient data available \u2014 this verdict cannot be confirmed. Please check the product label.";
-    verdictCard.appendChild(banner);
-  }
+  // Evidence caveat (thin data / low or medium confidence). Replaces the old
+  // "confidence-warning-banner", which only ever fired for LOW *and* no
+  // ingredient text \u2014 so a LOW-confidence GREEN with a partial ingredient list
+  // was presented with no qualification at all.
+  verdictCard.querySelector(".confidence-warning-banner")?.remove();
+  renderVerdictCaveat(verdictCard, status, data);
+
+  // UNKNOWN gets a dedicated explanation panel, not an error message.
+  renderUnknownGuidance(status === "UNKNOWN");
 
   // Mode chip
   if (modeChip) {
@@ -478,7 +584,7 @@ export function renderResult(data) {
   }
 
   // Community verification
-  showCommunitySection(_state.currentBarcode, data.community || null);
+  showCommunitySection(_state.currentBarcode, data.community || null, status);
 
   // Alternatives
   fetchAndRenderAlternatives(
@@ -522,14 +628,36 @@ export function renderResult(data) {
     show(shareBtn);
   }
 
-  // Ingredients
+  // Ingredients.
+  //
+  // With no evidence at all, the four-row breakdown renders as
+  // "Animal-derived: None / Uncertain: None / Restricted: None / Friendly:
+  // None" — which looks exactly like a completed check that found nothing
+  // wrong. Nothing was checked. Say so instead.
+  const hasEvidence = hasIngredientEvidence(data);
+  const ingredientRaw = document.getElementById("ingredientRawDetails");
+  const ingredientRowsEl = document.getElementById("ingredientRows");
+  const ingredientEmpty = document.getElementById("ingredientEmpty");
+
   show(ingredientSection);
-  ingredientsText.textContent = sanitizeText(data.ingredients_text) || "Ingredient text not available.";
-  renderIngredientRows(data.ingredient_categories);
+  if (hasEvidence) {
+    ingredientsText.textContent = sanitizeText(data.ingredients_text) || "Ingredient text not available.";
+    toggle(ingredientRaw, String(data.ingredients_text ?? "").trim() !== "");
+    show(ingredientRowsEl);
+    hide(ingredientEmpty);
+    renderIngredientRows(data.ingredient_categories);
+  } else {
+    ingredientsText.textContent = "";
+    hide(ingredientRaw);
+    hide(ingredientRowsEl);
+    if (ingredientRowsEl) ingredientRowsEl.replaceChildren();
+    show(ingredientEmpty);
+  }
 
   presentOutcome();
-  // Successful verdict render — this is the only place a free scan is counted.
-  countFreeScan();
+  // NOTE: free scans are NOT counted here. Rendering is also how cached
+  // history entries and community submissions reach the screen; only a real
+  // server lookup in fetchVerdict() counts (see countFreeScan).
 
   // First-scan celebration
   if (!localStorage.getItem("JAINI_FIRST_SCAN_DONE")) {
@@ -561,15 +689,23 @@ export function renderNotFound(barcode) {
 
   show(resultSection);
   resultSection.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  // Not-found and UNKNOWN are different claims and must not look identical.
+  // Not-found: this barcode is not in the data set at all.
+  // UNKNOWN:   we hold the product but the evidence will not support a verdict.
   verdictCard.className = "verdict verdict-UNKNOWN";
-  verdictIcon.innerHTML = STATUS_META.UNKNOWN.icon;
-  statusLabel.textContent = STATUS_META.UNKNOWN.label;
+  verdictCard.setAttribute("aria-label", "Product not found in the current data set.");
+  verdictIcon.innerHTML = NOT_FOUND_ICON;
+  statusLabel.textContent = "Product not found";
   explainText.textContent = "";
 
   barcodeInfo.textContent = "";
-  show(productDetails);
+  // Nothing is known about the product, so the (empty) product-detail block is
+  // left hidden rather than shown as three blank lines.
+  hide(productDetails);
   productNameText.textContent = "";
   brandText.textContent = "";
+  renderConfidenceChip(document.getElementById("confidenceText"), null);
+  renderUnknownGuidance(false);
 
   show(notFoundState);
   if (missingBarcode) missingBarcode.value = barcode;
@@ -641,8 +777,20 @@ export function triggerManualBarcode(barcode) {
 
 // ── Main fetch verdict ──────────────────────────────────────────────────────
 
-export async function fetchVerdict(rawBarcode) {
-  if (!Auth.isSignedIn() && getFreeScanCount() >= FREE_SCAN_LIMIT) {
+export async function fetchVerdict(rawBarcode, symbologyHint = null) {
+  // Article 9 gate: judging a product against the user's dietary mode is
+  // special-category processing. Without essential consent, no verdict request
+  // may fire — surface the consent prompt instead. This is the single choke
+  // point for every scan path (manual, camera, demo chips, favourites, shared
+  // links, history re-fetch), so the gate holds even if a UI entry point misses.
+  if (!canScan()) {
+    _state.scanLocked = false;
+    _state.inFlight = false;
+    if (typeof _onNeedConsentFn === "function") _onNeedConsentFn();
+    return;
+  }
+
+  if (!Auth.isSignedIn() && isFreeScanExhausted()) {
     // Free limit hit: the caller (submit handler / scanner) already set the
     // scan lock. Release it here, otherwise the manual-submit guard swallows
     // every subsequent Check and the button stays dead until reload.
@@ -652,9 +800,8 @@ export async function fetchVerdict(rawBarcode) {
     return;
   }
 
-  const normalized = normalizeBarcode(rawBarcode);
-  const barcode = normalized.upc12 || normalized.ean13 || normalized.cleaned;
-  if (barcode.length !== 12 && barcode.length !== 13) {
+  const { barcode, symbology, valid } = pickLookupBarcode(rawBarcode, symbologyHint);
+  if (!valid) {
     _state.scanLocked = false;
     _state.inFlight = false;
     updateManualState();
@@ -693,6 +840,13 @@ export async function fetchVerdict(rawBarcode) {
     const url = new URL(`${getApiBase()}${ENDPOINTS.verdict}`);
     url.searchParams.set("barcode", barcode);
     url.searchParams.set("profile", getActiveProfile());
+    // Optional symbology hint — lets the backend tell a genuine EAN-8 from a
+    // compressed UPC-E. Backward compatible: a backend that does not know the
+    // parameter ignores it, and the raw 8-digit barcode still resolves via the
+    // dual-candidate lookup.
+    if (symbology && symbology !== "unknown") {
+      url.searchParams.set("symbology", symbology);
+    }
 
     let resp;
     try {
@@ -721,7 +875,7 @@ export async function fetchVerdict(rawBarcode) {
 
     if (resp.status === 401) {
       if (data.error === "AUTH_REQUIRED" && !Auth.isSignedIn()) {
-        localStorage.setItem(FREE_SCAN_KEY, String(FREE_SCAN_LIMIT));
+        setFreeScanCount(FREE_SCAN_LIMIT);
         _openAuthModalFn(data.message || "Sign in with Google to keep scanning");
         presentOutcome();
         return;
@@ -740,6 +894,8 @@ export async function fetchVerdict(rawBarcode) {
         _verdictCache.delete(oldest);
       }
       renderResult(data);
+      // A real server lookup — the only thing that costs a free scan.
+      countFreeScan(readServerScansRemaining(resp, data));
       if (scanStatus) scanStatus.textContent = `Scan complete: ${barcode}`;
       return;
     }

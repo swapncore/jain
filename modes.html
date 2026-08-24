@@ -2,10 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Static page: no GSI, no external scripts, no fetches. Hashes cover the two inline scripts (theme bootstrap + store-link picker). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-c7aQS14PeIvy/Yh32no6nfo2z4Tp2rqgfdd9XSiAU0A=' 'sha256-cTz+XKb5YLx60twvCaHXsrSP16NzBl4JkB6SkaIigPE='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" />
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Scan Modes — Jaini</title>
+  <title>Scan Modes: Jaini</title>
   <meta name="description" content="Understand the four Jaini scan modes: Everyday Jain, Temple, Paryushan, and Greens+. What each one restricts, who it's for, and concrete examples." />
   <link rel="stylesheet" href="./style.css" />
   <script>
@@ -41,7 +43,7 @@
   <h1>Scan modes</h1>
   <p class="last-updated">Jaini supports four strictness modes. Your selected mode changes the verdict for the same product. Tap the mode pills at the top of the home screen to switch.</p>
 
-  <p>All four modes share one non-negotiable baseline: <strong>explicit animal ingredients are always flagged</strong> — meat, fish, eggs, gelatin, carmine (E120), shellac (E904), and any insect-derived ingredient show up as <em>Meat Detected</em> regardless of which mode you pick. Dairy is allowed by default in every mode. Honey is restricted in every mode.</p>
+  <p>All four modes share one non-negotiable baseline: <strong>explicit animal ingredients are always flagged</strong>: meat, fish, eggs, gelatin, carmine (E120), shellac (E904), and any insect-derived ingredient show up as <em>Animal-derived ingredient</em> regardless of which mode you pick. Dairy is allowed by default in every mode. Honey is restricted in every mode.</p>
 
   <p>The modes differ in <strong>what else</strong> they restrict on top of that baseline. Here they are, from least strict to most strict.</p>
 
@@ -52,7 +54,7 @@
     <h2>🌿 Everyday Jain</h2>
     <p><strong>Who it's for:</strong> Day-to-day grocery shopping for most Jain households. This is the default mode for new users.</p>
 
-    <h3>Flagged as <span style="color:#be123c">Meat Detected (red)</span></h3>
+    <h3>Flagged as <span style="color:#be123c">Animal-derived ingredient (red)</span></h3>
     <ul>
       <li>Meat, poultry, fish, seafood, shellfish</li>
       <li>Eggs, egg whites, albumin</li>
@@ -60,7 +62,7 @@
       <li>Insect-derived: carmine / cochineal (E120), shellac (E904), beeswax</li>
     </ul>
 
-    <h3>Flagged as <span style="color:#92400e">Jain-Restricted (yellow)</span></h3>
+    <h3>Flagged as <span style="color:#92400e">Jain-restricted (yellow)</span></h3>
     <ul>
       <li>Onion, garlic, leek, shallot, chives (alliums)</li>
       <li>Potato, carrot, beetroot, radish, turnip, ginger, garlic, onion (underground / root vegetables)</li>
@@ -72,16 +74,16 @@
       <li>"Natural flavors" (source not declared)</li>
       <li>Enzymes (could be animal-, microbial-, or plant-derived)</li>
       <li>Mono- and diglycerides, emulsifiers without a declared source</li>
-      <li>L-cysteine (dough conditioner — animal or plant)</li>
+      <li>L-cysteine (dough conditioner: animal or plant)</li>
       <li>Cultures</li>
     </ul>
 
     <h3>Allowed (<span style="color:#15803d">green</span>)</h3>
     <ul>
-      <li>Dairy — milk, cheese, butter, ghee, yogurt</li>
+      <li>Dairy: milk, cheese, butter, ghee, yogurt</li>
       <li>Yeast, baker's yeast, nutritional yeast</li>
-      <li>Fermented foods — vinegar, miso, tempeh, kombucha, sauerkraut</li>
-      <li>Above-ground vegetables — spinach, kale, broccoli, lettuce, cabbage</li>
+      <li>Fermented foods: vinegar, miso, tempeh, kombucha, sauerkraut</li>
+      <li>Above-ground vegetables: spinach, kale, broccoli, lettuce, cabbage</li>
       <li>Mushrooms, sprouts, fruits, grains, nuts, seeds, oils</li>
     </ul>
   </section>
@@ -95,9 +97,9 @@
 
     <h3>Adds these restrictions (on top of Everyday)</h3>
     <ul>
-      <li><strong>Yeast & fungi</strong> — baker's yeast, nutritional yeast, yeast extract, mushrooms</li>
-      <li><strong>Fermented foods</strong> — miso, tempeh, kimchi, sauerkraut, kombucha, vinegar, yogurt cultures</li>
-      <li><strong>Alcohol</strong> — wine, beer, rum, cooking wine, any alcoholic ingredient</li>
+      <li><strong>Yeast & fungi</strong>: baker's yeast, nutritional yeast, yeast extract, mushrooms</li>
+      <li><strong>Fermented foods</strong>: miso, tempeh, kimchi, sauerkraut, kombucha, vinegar, yogurt cultures</li>
+      <li><strong>Alcohol</strong>: wine, beer, rum, cooking wine, any alcoholic ingredient</li>
     </ul>
 
     <h3>Still allowed</h3>
@@ -107,7 +109,7 @@
       <li>Sprouts</li>
     </ul>
 
-    <h3>Examples that flip from <em>Jain-Friendly</em> to <em>Jain-Restricted</em> in Temple Mode</h3>
+    <h3>Examples that flip from <em>Jain-friendly</em> to <em>Jain-restricted</em> in Temple Mode</h3>
     <ul>
       <li>A sourdough bread (contains yeast + fermentation)</li>
       <li>A salad dressing with vinegar</li>
@@ -125,14 +127,14 @@
 
     <h3>Adds these restrictions (on top of Temple Mode)</h3>
     <ul>
-      <li><strong>Green leafy vegetables</strong> — spinach, kale, lettuce, arugula, collard greens, mustard greens, fenugreek leaves (methi)</li>
-      <li><strong>Green vegetables (above-ground)</strong> — broccoli, cauliflower, cabbage, okra, zucchini, green beans, peas</li>
-      <li><strong>Sprouts & germinated seeds</strong> — bean sprouts, sprouted lentils, alfalfa sprouts</li>
+      <li><strong>Green leafy vegetables</strong>: spinach, kale, lettuce, arugula, collard greens, mustard greens, fenugreek leaves (methi)</li>
+      <li><strong>Green vegetables (above-ground)</strong>: broccoli, cauliflower, cabbage, okra, zucchini, green beans, peas</li>
+      <li><strong>Sprouts & germinated seeds</strong>: bean sprouts, sprouted lentils, alfalfa sprouts</li>
     </ul>
 
     <h3>Still allowed</h3>
     <ul>
-      <li>Dairy (per household practice — many Paryushan observers also reduce dairy, but the engine allows it by default)</li>
+      <li>Dairy (per household practice: many Paryushan observers also reduce dairy, but the engine allows it by default)</li>
       <li>Grains, legumes (non-sprouted), nuts, and fruits</li>
     </ul>
 
@@ -146,14 +148,14 @@
        ═══════════════════════════════════════════════════════════════ -->
   <section>
     <h2>🥬 Greens+ Mode</h2>
-    <p><strong>Who it's for:</strong> Jains who avoid green vegetables, fermented foods, and alcohol year-round — for example, on tithi (lunar fast days), chaudash, chaumasu, or as personal observance.</p>
+    <p><strong>Who it's for:</strong> Jains who avoid green vegetables, fermented foods, and alcohol year-round: for example, on tithi (lunar fast days), chaudash, chaumasu, or as personal observance.</p>
 
     <h3>Adds these restrictions (on top of Everyday)</h3>
     <ul>
-      <li><strong>Green leafy vegetables</strong> — spinach, kale, lettuce, methi, etc.</li>
-      <li><strong>Above-ground green vegetables</strong> — broccoli, cauliflower, cabbage, okra, zucchini</li>
+      <li><strong>Green leafy vegetables</strong>: spinach, kale, lettuce, methi, etc.</li>
+      <li><strong>Above-ground green vegetables</strong>: broccoli, cauliflower, cabbage, okra, zucchini</li>
       <li><strong>Sprouts</strong></li>
-      <li><strong>Yeast, fermented foods, alcohol</strong> — same as Temple Mode</li>
+      <li><strong>Yeast, fermented foods, alcohol</strong>: same as Temple Mode</li>
     </ul>
 
     <p>In practice, <strong>Greens+ = Temple Mode + green vegetables and sprouts</strong>. The main difference from Paryushan Mode is that Greens+ is intended for year-round observance rather than festival periods.</p>
@@ -193,11 +195,11 @@
   </div>
 
   <p style="margin-top:1rem;font-size:0.88rem;color:var(--muted)">
-    Legend: ✓ Green = allowed, ⚠ Yellow = Jain-Restricted (avoided in this mode), ✗ Red = Meat Detected (not Jain-friendly in any mode).
+    Legend: ✓ Green = allowed, ⚠ Yellow = Jain-restricted (avoided in this mode), ✗ Red = Animal-derived ingredient (not Jain-friendly in any mode).
   </p>
 
   <h2>What if my household follows different rules?</h2>
-  <p>Jaini applies the most commonly shared interpretations from the Jain ontology. Individual households, regional communities (Shvetambar vs. Digambar, Gujarat vs. Rajasthan vs. diaspora), and personal observances vary. Jaini is informational — always read the product label and use your own judgment. If you see a product classified in a way you disagree with, use the <em>Flag</em> button on the result screen to let us know.</p>
+  <p>Jaini applies the most commonly shared interpretations from the Jain ontology. Individual households, regional communities (Shvetambar vs. Digambar, Gujarat vs. Rajasthan vs. diaspora), and personal observances vary. Jaini is informational: always read the product label and use your own judgment. If you see a product classified in a way you disagree with, use the <em>Flag</em> button on the result screen to let us know.</p>
 
   <h2>Changing modes</h2>
   <p>Tap any of the four mode pills at the top of the home screen. Your selection is remembered on this device and applies to every scan until you change it.</p>

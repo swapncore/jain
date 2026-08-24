@@ -22,9 +22,21 @@ describe("isValidBarcode", () => {
     expect(isValidBarcode("1234567")).toBe(false);
   });
 
-  it("rejects barcodes with 9-11 digits", () => {
+  it("rejects barcodes with 9-10 digits (no GTIN has those lengths)", () => {
     expect(isValidBarcode("123456789")).toBe(false);
-    expect(isValidBarcode("12345678901")).toBe(false);
+    expect(isValidBarcode("1234567890")).toBe(false);
+  });
+
+  it("accepts 11-digit codes as ambiguous rather than rejecting them", () => {
+    // 9,650 catalog rows are 11 digits -- an old FoodData Central import that
+    // dropped either the leading zero or the trailing check digit. Which one
+    // cannot be known from the code alone, so the normalizer emits candidates
+    // for BOTH readings and flags the result ambiguous, instead of telling the
+    // user their perfectly real barcode is invalid.
+    expect(isValidBarcode("12345678901")).toBe(true);
+    const n = normalizeBarcode("12345678901");
+    expect(n.ambiguous).toBe(true);
+    expect(n.lookupCandidates.length).toBeGreaterThan(1);
   });
 
   it("rejects barcodes with more than 13 digits", () => {

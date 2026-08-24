@@ -235,8 +235,19 @@
                     <button class="review-btn review-btn-reviewed" data-status="reviewed" id="reviewReviewedBtn">Mark Reviewed</button>
                     <button class="review-btn review-btn-reject" data-status="rejected" id="reviewRejectBtn">Reject</button>
                   </div>
-                  <label class="review-label" style="margin-top:12px;">Reviewer Note</label>
-                  <textarea id="reviewNote" class="review-textarea" rows="3" placeholder="Optional note about this submission..."></textarea>
+                  <label class="review-label" style="margin-top:12px;">Email reason (sent to submitter on reject)</label>
+                  <select id="reviewRejectionCode" class="review-select">
+                    <option value="">— Default generic message —</option>
+                    <option value="unreadable">Photo unclear / unreadable</option>
+                    <option value="wrong_side">Wrong side of label (no ingredients visible)</option>
+                    <option value="partial">Only part of the ingredients list visible</option>
+                    <option value="barcode_mismatch">Product in photo doesn't match the barcode</option>
+                    <option value="invalid_content">Photo contains invalid content</option>
+                    <option value="duplicate">Duplicate of existing — no email</option>
+                  </select>
+                  <p style="font-size:11px;color:var(--muted);margin-top:4px;">Only the chosen reason is emailed to the submitter. Free-form notes below stay internal.</p>
+                  <label class="review-label" style="margin-top:12px;">Internal note (not emailed)</label>
+                  <textarea id="reviewNote" class="review-textarea" rows="3" placeholder="Optional internal note for the dashboard..."></textarea>
                   <div id="reviewResult" class="review-result" style="display:none;"></div>
                   <div id="verdictResult" class="verdict-result-card" style="display:none;"></div>
                 </div>

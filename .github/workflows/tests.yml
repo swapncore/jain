@@ -1,0 +1,53 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Run test suite
+        run: npm test -- --run
+
+  # The app ships as raw ES modules straight to GitHub Pages -- there is no
+  # bundler, so nothing catches a syntax error before it is live. A parse check
+  # over every shipped script is the cheapest possible guard against pushing a
+  # broken page.
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Parse-check every shipped module
+        run: |
+          set -e
+          fail=0
+          while IFS= read -r f; do
+            node --input-type=module --check < "$f" || { echo "SYNTAX ERROR: $f"; fail=1; }
+          done < <(find . -name '*.js' \
+                     -not -path './node_modules/*' \
+                     -not -path './.git/*' \
+                     -not -path './tests/*')
+          exit $fail
+
+      - name: Service worker must parse as a classic script
+        run: node --check sw.js

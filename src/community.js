@@ -69,7 +69,7 @@ export function renderCommunityBadge(community) {
 
 // ── Show / hide community section ───────────────────────────────────────────
 
-export function showCommunitySection(barcode, community) {
+export function showCommunitySection(barcode, community, status = null) {
   const communitySection = document.getElementById("communitySection");
   const feedbackPrompt = document.getElementById("feedbackPrompt");
   const feedbackThanks = document.getElementById("feedbackThanks");
@@ -77,8 +77,19 @@ export function showCommunitySection(barcode, community) {
 
   renderCommunityBadge(community);
 
+  // "Does this look right? / Looks right" asks the reader to confirm a
+  // classification. UNKNOWN is the absence of one, so there is nothing to
+  // confirm and a vote would be meaningless data. The "Report incorrect
+  // classification" link stays — that one still makes sense, and the UNKNOWN
+  // panel's own "Add ingredients from the label" is the useful action here.
   const voted = feedbackLoadVoted();
   const voteKey = `${barcode}:${getActiveProfile()}`;
+  if (status === "UNKNOWN") {
+    hide(feedbackPrompt);
+    hide(feedbackThanks);
+    show(communitySection);
+    return;
+  }
   if (barcode && !voted[voteKey]) {
     show(feedbackPrompt);
     hide(feedbackThanks);

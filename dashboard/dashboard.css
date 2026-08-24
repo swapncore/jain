@@ -1588,6 +1588,56 @@ body {
   margin-bottom: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
+.ai-card-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .ai-card-grid { grid-template-columns: 1fr; }
+}
+.ai-card-photo-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+.ai-card-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+  cursor: zoom-in;
+  transition: transform .15s ease;
+}
+.ai-card-photo:hover { transform: scale(1.02); }
+.ai-card-photo-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  color: #94a3b8;
+  text-align: center;
+  padding: 8px;
+}
+.ai-card-body {
+  min-width: 0;
+}
+.ai-no-draft {
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  border-radius: 4px;
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 0.85rem;
+  color: #78350f;
+}
 .ai-card-head {
   display: flex;
   justify-content: space-between;

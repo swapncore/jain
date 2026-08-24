@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <!-- Static page: no GSI, no external scripts, no fetches. Hashes cover the two inline scripts (theme bootstrap + store-link picker). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-c7aQS14PeIvy/Yh32no6nfo2z4Tp2rqgfdd9XSiAU0A=' 'sha256-cTz+XKb5YLx60twvCaHXsrSP16NzBl4JkB6SkaIigPE='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'" />
   <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>How Jaini Works - Jaini</title>
-  <meta name="description" content="Learn how Jaini works — barcode scanning, ingredient analysis, and Jain dietary classification explained." />
+  <meta name="description" content="Learn how Jaini works: barcode scanning, ingredient analysis, and Jain dietary classification explained." />
   <link rel="stylesheet" href="./style.css" />
   <script>
     (function(){
@@ -47,7 +49,7 @@
   <p>The barcode number is sent to Jaini's API. The API searches a database of over 1.5 million products sourced from Open Food Facts, USDA FoodData Central, and other public food databases. If a match is found, the product name, brand, and ingredient text are retrieved. If not found, Jaini queries multiple public food databases in real time to try to find the product.</p>
 
   <h2>Step 3: Choose your mode</h2>
-  <p>Jaini's verdict depends on which mode you have selected. Different Jain communities and occasions follow different standards — tap the mode name at the top of the screen to switch.</p>
+  <p>Jaini's verdict depends on which mode you have selected. Different Jain communities and occasions follow different standards: tap the mode name at the top of the screen to switch.</p>
 
   <table class="hiw-table">
     <thead>
@@ -57,33 +59,33 @@
       <tr>
         <td><strong>Everyday Jain</strong></td>
         <td>Daily use for most Jains</td>
-        <td>Avoids all meat, fish, and eggs (Meat Detected). Onion, garlic, and root vegetables (potato, carrot, etc.) flagged as Jain-Restricted. Honey flagged as Jain-Restricted. Yeast treated as acceptable (Jain-Friendly).</td>
+        <td>Avoids all meat, fish, and eggs (Animal-derived ingredient). Onion, garlic, and root vegetables (potato, carrot, etc.) flagged as Jain-restricted. Honey flagged as Jain-restricted. Yeast treated as acceptable (Jain-friendly).</td>
       </tr>
       <tr>
         <td><strong>Temple Mode</strong></td>
         <td>Temple visits, religious occasions</td>
-        <td>Stricter than Everyday. Honey flagged Jain-Restricted. Yeast and fermented ingredients flagged Jain-Restricted. Above-ground green vegetables allowed.</td>
+        <td>Stricter than Everyday. Honey flagged Jain-restricted. Yeast and fermented ingredients flagged Jain-restricted. Above-ground green vegetables allowed.</td>
       </tr>
       <tr>
         <td><strong>Paryushan Mode</strong></td>
         <td>Paryushan &amp; Das Lakshana periods</td>
-        <td>Most restrictive. All green leafy vegetables, sprouts, and multi-seed fruits flagged Jain-Restricted. Honey flagged Jain-Restricted. Follows the strictest Paryushan dietary norms.</td>
+        <td>Most restrictive. All green leafy vegetables, sprouts, and multi-seed fruits flagged Jain-restricted. Honey flagged Jain-restricted. Follows the strictest Paryushan dietary norms.</td>
       </tr>
       <tr>
         <td><strong>Greens+</strong></td>
         <td>Jains who also avoid green vegetables</td>
-        <td>Like Everyday Jain, plus above-ground green vegetables (spinach, cabbage, broccoli, etc.) are flagged Jain-Restricted year-round. Honey flagged Jain-Restricted.</td>
+        <td>Like Everyday Jain, plus above-ground green vegetables (spinach, cabbage, broccoli, etc.) are flagged Jain-restricted year-round. Honey flagged Jain-restricted.</td>
       </tr>
     </tbody>
   </table>
 
   <h2>Step 4: Ingredient analysis</h2>
-  <p>The ingredient text is analysed by Jaini's ontology-driven verdict engine — a knowledge base of over 230 ingredient entries and 600+ ingredient name aliases. Each ingredient in the product's label is matched against this knowledge base and classified:</p>
+  <p>The ingredient text is analysed by Jaini's ontology-driven verdict engine: a knowledge base of over 230 ingredient entries and 600+ ingredient name aliases. Each ingredient in the product's label is matched against this knowledge base and classified:</p>
   <ul>
-    <li><strong>Meat Detected (Red):</strong> Clearly non-Jain ingredients — meat, poultry, fish, seafood, lard, gelatin from animal sources, carmine (E120), shellac (E904), insect-derived ingredients, and eggs.</li>
-    <li><strong>Jain-Restricted (Yellow):</strong> Ingredients that your selected mode restricts — root and underground vegetables (onion, garlic, potato, carrot, radish…), honey (restricted in all modes), or in stricter modes, fermented ingredients, green vegetables, and sprouts.</li>
-    <li><strong>Uncertain / Ambiguous (Orange):</strong> Ingredients with ambiguous origins that require label or manufacturer verification — for example, "natural flavors," "enzymes," "mono and diglycerides," "L-cysteine," or "cultures."</li>
-    <li><strong>Jain-Friendly (Green):</strong> No flagged ingredients were found in the available data for your selected mode.</li>
+    <li><strong>Animal-derived ingredient (Red):</strong> Clearly non-Jain ingredients: meat, poultry, fish, seafood, lard, gelatin from animal sources, animal rennet, carmine (E120), shellac (E904), insect-derived ingredients, and eggs.</li>
+    <li><strong>Jain-restricted (Yellow):</strong> Ingredients that your selected mode restricts: root and underground vegetables (onion, garlic, potato, carrot, radish…), honey (restricted in all modes), or in stricter modes, fermented ingredients, green vegetables, and sprouts.</li>
+    <li><strong>Uncertain (Orange):</strong> Ingredients with ambiguous origins that require label or manufacturer verification: for example, "natural flavors," "enzymes," "mono and diglycerides," "L-cysteine," or "cultures."</li>
+    <li><strong>Jain-friendly (Green):</strong> No flagged ingredients were found in the available data for your selected mode.</li>
   </ul>
   <p>When multiple flagged ingredients are found, the result reflects the most serious concern (Red takes priority over Yellow, which takes priority over Orange).</p>
 
@@ -93,8 +95,8 @@
     <li>A status label matched to your selected mode</li>
     <li>Reason chips showing exactly which ingredients triggered the status</li>
     <li>A one-sentence explanation</li>
-    <li>A confidence level — <strong>High</strong> (ingredient list was clear and complete), <strong>Medium</strong> (some uncertainty), or <strong>Low</strong> (ingredient data was sparse or ambiguous)</li>
-    <li>An exactness indicator — <strong>Exact</strong> when no ambiguous ingredients were active, <strong>Ambiguous</strong> when one or more orange-level ingredients are present</li>
+    <li>A confidence level: <strong>High</strong> (ingredient list was clear and complete), <strong>Medium</strong> (some uncertainty), or <strong>Low</strong> (ingredient data was sparse or ambiguous)</li>
+    <li>An exactness indicator: <strong>Exact</strong> when no ambiguous ingredients were active, <strong>Ambiguous</strong> when one or more orange-level ingredients are present</li>
     <li>A per-ingredient breakdown showing how each ingredient was classified</li>
   </ul>
 
@@ -107,23 +109,23 @@
     <li>Detect cross-contamination or shared manufacturing equipment</li>
     <li>Account for regional product formulation differences (e.g. a product sold in India may have different ingredients than the same brand sold in the US)</li>
     <li>Guarantee that a product hasn't changed its recipe since the database was last updated</li>
-    <li>Provide religious rulings — Jaini gives informational guidance based on commonly observed Jain dietary restrictions, not a fatwa or authoritative religious opinion</li>
-    <li>Cover every product — coverage is strongest for products sold in the US, UK, and Europe; Indian and other regional products are less consistently covered</li>
+    <li>Provide religious rulings: Jaini gives informational guidance based on commonly observed Jain dietary restrictions, not a fatwa or authoritative religious opinion</li>
+    <li>Cover every product: coverage is strongest for products sold in the US, UK, and Europe; Indian and other regional products are less consistently covered</li>
   </ul>
 
   <h2>Data sources</h2>
   <ul>
-    <li><strong>Open Food Facts</strong>: A free, open, collaborative food database (openfoodfacts.org) — the largest source, covering products worldwide</li>
+    <li><strong>Open Food Facts</strong>: A free, open, collaborative food database (openfoodfacts.org): the largest source, covering products worldwide</li>
     <li><strong>USDA FoodData Central</strong>: The US Department of Agriculture's food composition database</li>
     <li>Additional public sources added over time</li>
   </ul>
-  <p>Ingredient data is provided by Open Food Facts contributors and food manufacturers — Jaini does not independently verify it. Always check the physical product label for the most accurate and current information.</p>
+  <p>Ingredient data is provided by Open Food Facts contributors and food manufacturers: Jaini does not independently verify it. Always check the physical product label for the most accurate and current information.</p>
 
   <h2>How to help improve Jaini</h2>
   <p>Coverage improves when the community contributes. You can help by:</p>
   <ul>
     <li>Using the "Looks right / Flag" buttons after each scan to verify verdicts</li>
-    <li>Adding missing Indian products directly on <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">openfoodfacts.org</a> — products added there are automatically picked up by Jaini</li>
+    <li>Adding missing Indian products directly on <a href="https://world.openfoodfacts.org" target="_blank" rel="noopener">openfoodfacts.org</a>: products added there are automatically picked up by Jaini</li>
     <li>Reporting incorrect classifications using the "Report incorrect classification" button</li>
     <li>Emailing <a href="mailto:hello@swapncore.com">hello@swapncore.com</a> with corrections or suggestions</li>
   </ul>

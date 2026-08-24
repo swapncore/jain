@@ -130,11 +130,20 @@ function resetTorch() {
  * Map a decoder's format value to a symbology hint string that
  * normalizeBarcode understands. BarcodeDetector reports a string
  * ("ean_8", "upc_e", …); ZXing reports a BarcodeFormat enum value.
+ *
+ * All four scanned formats are mapped — returning null for UPC_E/UPC_A/EAN_13
+ * threw away information the verdict lookup can use, and left EAN_8 as the
+ * only format the rest of the pipeline could tell apart.
  */
-function _symbologyHint(format) {
+export function _symbologyHint(format, BarcodeFormatEnum = _BarcodeFormat) {
   if (format == null) return null;
   if (typeof format === "string") return format;
-  if (_BarcodeFormat && format === _BarcodeFormat.EAN_8) return "ean_8";
+  const BF = BarcodeFormatEnum;
+  if (!BF) return null;
+  if (format === BF.EAN_8)  return "ean_8";
+  if (format === BF.EAN_13) return "ean_13";
+  if (format === BF.UPC_A)  return "upc_a";
+  if (format === BF.UPC_E)  return "upc_e";
   return null;
 }
 
@@ -142,8 +151,14 @@ function createOnDecodedText(appState, fetchVerdictFn, renderErrorFn) {
   return function onDecodedText(text, format) {
     if (appState.scanLocked || appState.inFlight) return;
     // Pass the decoder's symbology so a genuine EAN-8 is not mis-expanded as UPC-E.
-    const normalized = normalizeBarcode(text, _symbologyHint(format));
-    const digits = normalized.upc12 || normalized.ean13 || normalized.cleaned;
+    const hint = _symbologyHint(format);
+    const normalized = normalizeBarcode(text, hint);
+    // Keep the RAW decoded digits. Collapsing an EAN-8 to its zero-padded
+    // 13-digit form destroyed the symbology: the padded value starts with '0',
+    // so the next normalize pass read it back as a 12-digit UPC-A and the
+    // backend's dual 8-digit candidate lookup never ran — every EAN-8 product
+    // in the catalog was unreachable from the web scanner.
+    const digits = normalized.cleaned;
     if (digits.length !== 8 && digits.length !== 12 && digits.length !== 13) return;
 
     const now = Date.now();
@@ -167,7 +182,7 @@ function createOnDecodedText(appState, fetchVerdictFn, renderErrorFn) {
 
     const scanStatus = document.getElementById("scanStatus");
     if (scanStatus) scanStatus.textContent = `Barcode ${digits} confirmed. Looking up...`;
-    fetchVerdictFn(digits).catch(() => renderErrorFn(MESSAGES.network));
+    fetchVerdictFn(digits, hint).catch(() => renderErrorFn(MESSAGES.network));
   };
 }
 

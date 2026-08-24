@@ -22,17 +22,22 @@ let _favoritesEmpty = null;
 let _favoritesSignIn = null;
 let _favoritesSignInBtn = null;
 let _onSignInRequest = null;
+// Predicate: has this device recorded at least one scan? The sign-in upsell is
+// withheld until then — a brand-new visitor should not meet a "Sign in" card as
+// the biggest thing above the fold before they have scanned anything.
+let _hasAnyScans = () => true;
 
 // State
 let _currentBarcode = "";
 let _currentIsFav = false;
 
-export function init({ apiBase, getClientId, getProfile, onProductSelect, onSignInRequest }) {
+export function init({ apiBase, getClientId, getProfile, onProductSelect, onSignInRequest, hasAnyScans }) {
   _apiBase = apiBase;
   _getClientId = getClientId;
   _getProfile = getProfile;
   _onProductSelect = onProductSelect;
   _onSignInRequest = onSignInRequest;
+  if (typeof hasAnyScans === "function") _hasAnyScans = hasAnyScans;
 
   _favoriteBtn = document.getElementById("favoriteBtn");
   _favoriteBtnText = document.getElementById("favoriteBtnText");
@@ -58,6 +63,15 @@ export function onAuthChange() {
   } else {
     showSignInPrompt();
   }
+}
+
+/**
+ * Call when the "has the user scanned anything yet?" answer may have changed
+ * (history rendered, first scan recorded). Re-evaluates whether the saved-
+ * products / sign-in card should be on screen at all.
+ */
+export function onFirstRunStateChange() {
+  if (!isSignedIn()) showSignInPrompt();
 }
 
 /** Call when a new result is displayed — update favorite button state */
@@ -145,6 +159,12 @@ export async function loadFavorites() {
 
 function showSignInPrompt() {
   if (!_favoritesSection) return;
+  // Defer the whole card until the user has actually scanned something.
+  if (!_hasAnyScans()) {
+    _favoritesSection.classList.add("hidden");
+    if (_favoritesList) _favoritesList.innerHTML = "";
+    return;
+  }
   _favoritesSection.classList.remove("hidden");
   if (_favoritesSignIn) _favoritesSignIn.classList.remove("hidden");
   if (_favoritesList) _favoritesList.innerHTML = "";
