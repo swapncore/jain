@@ -1998,10 +1998,66 @@ details[open] > .collapsible-heading::after {
   color: var(--green);
 }
 .alt-cta-text { white-space: nowrap; }
-.alt-badge {
-  font-size: 0.72rem;
+.alt-thumb {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.alt-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #fff;   /* product cut-outs read best on white, both themes */
+}
+/* Placeholder tile when no image: a subtle shopping-bag glyph so every row is
+   the same shape whether or not we have a photo. */
+.alt-thumb--empty {
+  background:
+    linear-gradient(135deg, var(--green-bg), var(--surface));
+  position: relative;
+}
+.alt-thumb--empty::after {
+  content: "";
+  width: 18px;
+  height: 18px;
+  background: var(--green);
+  opacity: 0.5;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z'/%3E%3Cpath d='M3 6h18'/%3E%3Cpath d='M16 10a4 4 0 0 1-8 0'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.alt-body {
+  flex: 1;
+  min-width: 0;            /* allow children to ellipsize inside the flex row */
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+.alt-name {
+  font-size: 0.88rem;
+  color: var(--text);
   font-weight: 600;
-  padding: 0.18rem 0.55rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.alt-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.alt-badge {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
   border-radius: var(--r-pill);
   flex-shrink: 0;
   white-space: nowrap;
@@ -2016,22 +2072,6 @@ details[open] > .collapsible-heading::after {
   background: var(--yellow-bg);
   border: 1px solid var(--yellow-border);
 }
-.alt-body {
-  flex: 1;
-  min-width: 0;            /* allow children to ellipsize inside the flex row */
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-.alt-name {
-  font-size: 0.88rem;
-  color: var(--text);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
 .alt-brand {
   font-size: 0.76rem;
   color: var(--muted);
@@ -2039,7 +2079,7 @@ details[open] > .collapsible-heading::after {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
+  min-width: 0;
 }
 
 /* ============================================================

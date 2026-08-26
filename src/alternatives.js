@@ -82,13 +82,26 @@ export async function fetchAndRenderAlternatives(barcode, status, requestId, get
       link.rel = "noopener noreferrer sponsored";
       link.setAttribute("aria-label", `Shop ${sanitizeText(a.product_name)} on Amazon (opens in a new tab)`);
 
-      const badge = document.createElement("span");
-      badge.className = `alt-badge alt-badge--${safeStatus}`;
-      badge.textContent = label;
+      // Product thumbnail (or a neutral placeholder tile when we have no image
+      // for this item, so every row is the same shape). A broken image URL
+      // falls back to the placeholder rather than showing a torn-image glyph.
+      const thumb = document.createElement("span");
+      thumb.className = "alt-thumb";
+      if (a.image_url && /^https:\/\//.test(a.image_url)) {
+        const im = document.createElement("img");
+        im.className = "alt-thumb-img";
+        im.src = a.image_url;
+        im.alt = "";
+        im.loading = "lazy";
+        im.referrerPolicy = "no-referrer";
+        im.addEventListener("error", () => { thumb.classList.add("alt-thumb--empty"); im.remove(); });
+        thumb.appendChild(im);
+      } else {
+        thumb.classList.add("alt-thumb--empty");
+      }
 
-      // Name + brand stack vertically in their own column so a long brand
-      // ellipsizes on its own line instead of shoving the "Amazon" CTA off the
-      // right edge. Matches the mobile app's two-line row.
+      // Name on top; a meta line pairs the "Jain-friendly" label with the brand.
+      // Both name and brand ellipsize so a long brand never shoves the CTA off.
       const body = document.createElement("span");
       body.className = "alt-body";
 
@@ -97,14 +110,21 @@ export async function fetchAndRenderAlternatives(barcode, status, requestId, get
       name.textContent = sanitizeText(a.product_name) || "View on Amazon";
       body.appendChild(name);
 
+      const meta = document.createElement("span");
+      meta.className = "alt-meta";
+      const badge = document.createElement("span");
+      badge.className = `alt-badge alt-badge--${safeStatus}`;
+      badge.textContent = label;
+      meta.appendChild(badge);
       if (a.brand) {
         const brandSpan = document.createElement("span");
         brandSpan.className = "alt-brand";
         brandSpan.textContent = sanitizeText(a.brand);
-        body.appendChild(brandSpan);
+        meta.appendChild(brandSpan);
       }
+      body.appendChild(meta);
 
-      link.appendChild(badge);
+      link.appendChild(thumb);
       link.appendChild(body);
 
       const cta = document.createElement("span");
