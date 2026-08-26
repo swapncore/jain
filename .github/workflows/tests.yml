@@ -1,9 +1,9 @@
 name: tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  # Manual-only to conserve GitHub Actions minutes. Trigger from the Actions tab
+  # when needed. Locally: web `npm test`, backend `pytest`, mobile `tsc --noEmit`.
+  workflow_dispatch:
 
 jobs:
   vitest:
